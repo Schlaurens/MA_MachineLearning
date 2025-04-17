@@ -1,0 +1,200 @@
+from enum import Enum
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import matplotlib.widgets as widgets
+import numpy as np
+
+from util import augmentation as u_augmentation
+from util import dataset as u_dataset
+from util import image as u_image
+from util import labels as u_labels
+
+# TODO: the "verification" modes should display a grid of multiple images at the same time
+
+
+class LabelMode(Enum):
+    BALL = 1
+    OBSTACLES = 2
+    PENALTY_MARK = 3
+
+
+class BrowseApplication:
+    def __init__(self, directory):
+        self.directory = directory
+        self.labels = u_dataset.load_labels(args.directory)
+        self.label_mode = LabelMode.BALL
+        self.augmentation = False
+
+        self.fig = plt.figure(figsize=(12, 8))
+        self.gs = gridspec.GridSpec(10, 4, figure=self.fig)
+
+        self.ax_img = self.fig.add_subplot(self.gs[0:8, :])
+        self.ax_img.axis("off")
+        self.ax_slider_image = self.fig.add_subplot(self.gs[9, :])
+
+        self.slider_image = widgets.Slider(
+            self.ax_slider_image,
+            "Index",
+            0,
+            len(self.labels) - 1,
+            valinit=0,
+            valfmt="%i",
+        )
+
+        self.im_ax_img = self.ax_img.imshow(
+            np.zeros((480, 640))
+        )  # TODO: don't hardcode this here
+
+        self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
+        self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
+        self.fig.canvas.mpl_connect(
+            "key_release_event", lambda event: self.key_released(event)
+        )
+        self.fig.canvas.mpl_connect(
+            "button_press_event", lambda event: self.image_button_pressed(event)
+        )
+        self.fig.canvas.mpl_connect(
+            "button_release_event", lambda event: self.image_button_released(event)
+        )
+
+        self.drag_start_pos = None
+        self.patches = []
+
+        self.select_image(0)
+
+    def run(self):
+        plt.show()
+
+    def select_image(self, index):
+        label = self.labels[index]
+        image = u_dataset.load_image(
+            self.directory, label, image_format=u_image.ImageFormat.RGB
+        )
+        if self.augmentation:
+            image, label = u_augmentation.apply(np.asarray(image), label)
+        self.im_ax_img.set_data(image)
+        self.redraw_labels(label)
+
+    def redraw_labels(self, labels):
+        for patch in self.patches:
+            patch.remove()
+        self.patches = []
+        if u_labels.has_ball(labels):
+            x, y, radius = u_labels.get_ball(labels)
+            self.patches.append(
+                self.ax_img.add_patch(plt.Circle((x, y), radius, color="r", fill=False))
+            )
+        if u_labels.has_penalty_mark(labels):
+            x, y = u_labels.get_penalty_mark(labels)
+            self.patches.append(
+                self.ax_img.add_patch(plt.Circle((x, y), 32, color="b", fill=False))
+            )
+        if u_labels.has_obstacles(labels):
+            mask = u_labels.get_obstacles(labels)
+            for y, row in enumerate(mask):
+                for x, value in enumerate(row):
+                    if value > 0:
+                        self.patches.append(
+                            self.ax_img.add_patch(
+                                plt.Rectangle(
+                                    [x * 16, y * 16],
+                                    16,
+                                    16,
+                                    alpha=0.5 * value,
+                                    color="y",
+                                )
+                            )  # TODO: 16
+                        )
+        self.fig.canvas.draw()
+
+    def image_slider_changed(self, val):
+        self.select_image(int(val))
+
+    def key_released(self, event):
+        if event.key in ["left", "right"]:
+            current = int(self.slider_image.val)
+            sign = 1 if event.key == "right" else -1
+            current += sign
+            self.slider_image.set_val(max(0, min(current, len(self.labels) - 1)))
+        elif event.key in ["up", "down"]:
+            current = int(self.slider_image.val)
+            if self.label_mode == LabelMode.BALL:
+                if u_labels.has_ball(self.labels[current]):
+                    x, y, r = u_labels.get_ball(self.labels[current])
+                    r += 1 if event.key == "up" else -1
+                    u_labels.set_ball(self.labels[current], x, y, r)
+                    self.redraw_labels(self.labels[current])
+        elif event.key == "b":
+            self.label_mode = LabelMode.BALL
+        elif event.key == "o":
+            self.label_mode = LabelMode.OBSTACLES
+        elif event.key == "p":
+            self.label_mode = LabelMode.PENALTY_MARK
+        elif event.key == "s":
+            u_dataset.save_labels(self.directory, self.labels)
+        elif event.key == "a":
+            self.augmentation = not self.augmentation
+            self.select_image(int(self.slider_image.val))
+
+    def image_button_pressed(self, event):
+        if event.inaxes != self.ax_img:
+            return
+        self.drag_start_pos = (event.xdata, event.ydata)
+
+    def image_button_released(self, event):
+        if event.inaxes != self.ax_img or self.augmentation:
+            return
+        current = int(self.slider_image.val)
+        remove = event.button != 1
+        if self.label_mode == LabelMode.BALL:
+            if remove:
+                u_labels.unset_ball(self.labels[current])
+            else:
+                radius = 20  # TODO: 20
+                # project (x,y) -> ground
+                # in_camera = 1, (cx - event.xdata) / fx, (cy - event.ydata) / fy
+                # in_world = rotate(camera_in_world.rotation, in_camera)
+                if u_labels.has_ball(self.labels[current]):
+                    _, _, radius = u_labels.get_ball(self.labels[current])
+                # TODO: get radius in image by camera pose
+                u_labels.set_ball(
+                    self.labels[current], event.xdata, event.ydata, radius
+                )
+        elif self.label_mode == LabelMode.OBSTACLES:
+            x, y = int(event.xdata / 16), int(event.ydata / 16)  # TODO: 16
+            x_start, y_start = (
+                (int(self.drag_start_pos[0] / 16), int(self.drag_start_pos[1] / 16))
+                if self.drag_start_pos
+                else (x, y)
+            )  # TODO: 16
+            u_labels.set_obstacles(
+                self.labels[current],
+                min(x, x_start),
+                min(y, y_start),
+                max(x, x_start),
+                max(y, y_start),
+                op=u_labels.ObstaclesOp.SET
+                if event.key == "control"
+                else u_labels.ObstaclesOp.INVERT,
+            )
+        elif self.label_mode == LabelMode.PENALTY_MARK:
+            if remove:
+                u_labels.unset_penalty_mark(self.labels[current])
+            else:
+                u_labels.set_penalty_mark(
+                    self.labels[current], event.xdata, event.ydata
+                )
+        self.redraw_labels(self.labels[current])
+        self.drag_start_pos = None
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="This script manages labeled images.")
+    parser.add_argument("directory")
+    args = parser.parse_args()
+
+    app = BrowseApplication(args.directory)
+    app.run()
