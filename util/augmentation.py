@@ -15,7 +15,7 @@ TRANSFORM = A.Compose(
                 ),
                 A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20),
                 A.GaussianBlur(blur_limit=0, sigma_limit=(0.5, 3)),
-                A.GaussNoise(std_range=(0, 15), per_channel=False),
+                A.GaussNoise(std_range=(0, 1), per_channel=False),
             ],
             2,
             replace=False,
