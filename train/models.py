@@ -1,0 +1,223 @@
+import tensorflow as tf
+
+from .layers import PatchExtractor, PatchSampler
+
+def get_encoder(height, width, category_names, n_context):
+    image = tf.keras.layers.Input((height, width, 4))
+    # TODO: input [B, H, W/2, 4] (treat each YUYV tuple as a pixel)
+    x = image
+
+    # 480x320x4
+
+    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # 240x320x32
+
+    # ires-block(16, expansion=1)
+
+    # 240x320x16
+
+    # ires-block(24, stride=2, expansion=6)
+    # ires-block(24, stride=1, expansion=6)
+
+    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # 120x160x24
+
+    # ires-block(32, stride=2, expansion=6)
+    # ires-block(32, stride=1, expansion=6)
+    # ires-block(32, stride=1, expansion=6)
+
+    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # 60x80x32
+
+    # ires-block(64, stride=2, expansion=6)
+    # ires-block(64, stride=1, expansion=6)
+    # ires-block(64, stride=1, expansion=6)
+    # ires-block(64, stride=1, expansion=6)
+
+    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # 30x40x64
+
+    # ires-block(96, stride=1, expansion=6)
+    # ires-block(96, stride=1, expansion=6)
+    # ires-block(96, stride=1, expansion=6)
+
+    # 30x40x96
+
+    # ires-block(160, stride=2, expansion=6)
+    # ires-block(160, stride=1, expansion=6)
+    # ires-block(160, stride=1, expansion=6)
+
+    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # 15x20x160
+
+    # ires-block(320, stride=1, expansion=6)
+
+    output = []
+    for name in category_names:
+        # TODO: some activated stuff here?
+        offset = tf.keras.layers.Conv2D(2, 1)(x)
+
+        # TODO: some activated stuff here?
+        interest = tf.keras.layers.Conv2D(1, 1)(x)
+
+        output += [tf.keras.layers.Concatenate(name=name)([offset, interest])]
+
+    if n_context > 0:
+        context = tf.keras.layers.Conv2D(n_context, 1, name="context")(x)
+        output += [context]
+
+    return tf.keras.Model(image, output)
+
+
+
+def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, with_offset=True):
+    image = tf.keras.layers.Input((*patch_size, channels_in))
+    inputs = [image]
+
+    if n_meta > 0:
+        meta = tf.keras.layers.Input((n_meta,))
+        inputs += [meta]
+
+    if n_context > 0:
+        context = tf.keras.layers.Input((n_context,))
+        inputs += [n_context]
+
+    x = tf.keras.layers.Flatten()(image)
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([image, meta])
+    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([image, context])
+    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    if n_classes < 2:
+        out = tf.keras.layers.Dense(1)(x)
+    else:
+        out = tf.keras.layers.Dense(n_classes + 1)(x)  # + 1 for the background class
+
+    if with_offset:
+        offset = tf.keras.layers.Dense(2)(x)
+        out = [out, offset]
+
+    return tf.keras.Model(inputs, out)
+
+
+class FullModel(tf.keras.Model):
+    def __init__(self, height, width):
+        super().__init__()
+        self.n_context = 0
+        self.n_meta = 0
+        self.categories = {
+            "ball": {
+                "object_size": 0.175,
+                "object_height": 0.05,
+                "n_classes": 1,
+                "n_candidates": 5,
+            },
+            # "field": {
+            #     "object_size": 0.2,
+            #     "n_classes": 6,  # penalty mark, center mark, X intersection, L intersection, T intersection, goal post
+            #     "n_candidates": 7,
+            # },
+            # "player":
+            #     "object_size": 0.5,
+            #     "n_classes": 1,
+            # },
+        }
+        for key, value in self.categories.items():
+            value["sampler"] = PatchSampler(value["n_candidates"])
+            value["extractor"] = PatchExtractor(object_size=value["object_size"], object_height=value.get("object_height", 0))
+            value["classifier"] = get_patch_classifier((32, 32), 4, self.n_meta, self.n_context, value["n_classes"])
+        self.encoder = get_encoder(height, width, self.categories.keys(), self.n_context)
+
+    def train_step(self, batch_data):
+        with tf.GradientTape() as tape:
+            results, maps = self((batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True)
+
+            print("ball map:", maps["ball"])
+
+            loss = tf.reduce_mean(tf.square(maps["ball"]))
+
+            # encoder_loss = self.encoder_loss(batch_data[""], maps["ball"])
+
+        gradients = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+
+        return {"loss": loss}  # TODO: metrics
+
+    def call(self, batch_data, training=None):
+        """
+        :param image: The full resolution image from which the patches are extracted.
+            [B, H_in, W_in, C]
+        :param camera: The pose of the camera, represented as (roll angle, pitch angle, height above ground)
+            [B, 3]
+        :param intrinsics: The intrisics of the camera, represented as (cx, cy, fx, fy)
+            [B, 4]
+        :return: Per category x,y,p tuples
+            {key: [B, N_out, 2 + n_classes + 1?]}
+        """
+        image, camera, intrinsics = batch_data
+        maps = self.encoder(image, training=training)
+        # assert isinstance(maps, list) == len(self.categories) > 1
+        if isinstance(maps, list):
+            maps = dict(zip(self.encoder.output_names, maps))  # [B, H_out, W_out, 3], ([B, H_out, W_out, n_context])
+        else:
+            maps = {self.encoder.output_names[0]: maps}  # [B, H_out, W_out, 3]
+        # TODO: convert image to the color space that we want - input was originally YUYV, but we want to subsample from YUV
+        results = {key: self._handle_category(image, camera, intrinsics, maps[key][..., 2], maps[key][..., :2], value["sampler"], value["extractor"], value["classifier"], training=training) for key, value in self.categories.items()}
+
+        if training:
+            return results, maps
+
+        return results
+
+    def _handle_category(self, image, camera, intrinsics, logits, offsets, sampler, extractor, classifier, training=None):
+        """
+        :param image:
+        :param camera:
+        :param intrinsics:
+        :param logits:
+        :param offsets:
+        :param sampler:
+        :param extractor:
+        :param classifier:
+        :param training:
+        :return:
+            [B, N_out, n_classes]
+            [B, N_out, 2]
+            [B, N_out]
+        """
+        res_in = tf.shape(image)[-3:-1]
+        res_out = tf.shape(offsets)[-3:-1]
+        scale = tf.cast((res_in / res_out)[::-1], offsets.dtype)
+        # TODO: we need a correction factor here if image is YUYV->YUV converted
+        pixels = tf.cast(tf.stack(tf.meshgrid(tf.range(res_out[1]), tf.range(res_out[0])), axis=-1), offsets.dtype)
+        coords = tf.reshape((offsets + pixels + 0.5) * scale, (1, 20*15, 2))
+        logits = tf.reshape(logits, (1, 20*15))
+        print("coords:", coords)
+        print("logits:", logits)
+        patch_indices = sampler(logits)  # [B, N_out]
+        coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2]
+        patches, masks = extractor(image, coords, camera, intrinsics, training=training)  # [B, N_out, H_out, W_out, C], [B, N_out]
+
+        # classification, offsets = classifier(tf.reshape(patches, (1*5, 32, 32, 4)))  # + meta + context
+        # positions = coords + offsets  # TODO: stop gradient for coords?
+
+        return patches, masks  # classification, positions, masks
