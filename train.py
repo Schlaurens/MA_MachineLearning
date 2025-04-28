@@ -8,6 +8,14 @@ from util import dataset as u_dataset
 
 
 def camera_from_label(label):
+    """Calculate the camera roll pitch and height from the camera pose in the data.
+
+    Args:
+        label: the label with the camera pose
+
+    Returns:
+        A tuple of roll, pitch and height.
+    """
     alpha = np.arccos(label["cpose"]["z"][2])
     if np.abs(alpha) < 0.01:
         roll = pitch = 0
@@ -19,20 +27,36 @@ def camera_from_label(label):
     return (roll, pitch, height)
 
 def intrinsics_from_label(label):
+    """
+    Get the camera intrinsics from the label.
+    
+    Args:
+        label: A label from the dataset
+        
+    Returns:
+        The camera intrinsics as a tuple (cx, cy, fx, fy).
+    """
+    
     return (label["cintr"]["cx"], label["cintr"]["cy"], label["cintr"]["fx"], label["cintr"]["fy"])
 
 def get_dataset(directory):
-    labels = u_dataset.load_labels(directory)[:100]
+    # Load the dataset 
+    #TODO: this only loads the first 100 images!!!
+    labels = u_dataset.load_labels(directory)[:20]
 
     images = []
     cameras = []
     intrinsics = []
 
     for label in labels:
+        # Load the image for the label in YUYV format
         images.append(u_dataset.load_image(directory, label, image_format=u_image.ImageFormat.YUYV))
+        # Load the camera pose for the label (roll, pitch, height)
         cameras.append(camera_from_label(label))
+        # Load the camera intrinsics for the label
         intrinsics.append(intrinsics_from_label(label))
 
+    # Combine the images, cameras and intrinsics into a single tensorflow dataset
     return tf.data.Dataset.from_tensor_slices(
         {
             "image": tf.reshape(tf.constant(images), (-1, 480, 320, 4)),
@@ -48,7 +72,8 @@ def main():
     train_ds = train_ds.shuffle(32)
     train_ds = train_ds.batch(32)
 
-    model = FullModel(480, 320)
+    # Upper camera dimensions. Width is halved because of YUYV format
+    model = FullModel(480, 320) 
     model.compile(optimizer=tf.keras.optimizers.Adam())
     model.fit(x=train_ds, epochs=10)
 

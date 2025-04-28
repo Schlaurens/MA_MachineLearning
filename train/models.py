@@ -81,7 +81,7 @@ def get_encoder(height, width, category_names, n_context):
         context = tf.keras.layers.Conv2D(n_context, 1, name="context")(x)
         output += [context]
 
-    return tf.keras.Model(image, output)
+    return tf.keras.Model(image, output) # input: image, output: [offset, interest] for each category + context
 
 
 
@@ -121,7 +121,8 @@ def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, 
 
 class FullModel(tf.keras.Model):
     def __init__(self, height, width):
-        super().__init__()
+        super().__init__() # Subclass of the Model class
+        # Size of context vector
         self.n_context = 0
         self.n_meta = 0
         self.categories = {
@@ -142,14 +143,15 @@ class FullModel(tf.keras.Model):
             # },
         }
         for key, value in self.categories.items():
-            value["sampler"] = PatchSampler(value["n_candidates"])
-            value["extractor"] = PatchExtractor(object_size=value["object_size"], object_height=value.get("object_height", 0))
-            value["classifier"] = get_patch_classifier((32, 32), 4, self.n_meta, self.n_context, value["n_classes"])
-        self.encoder = get_encoder(height, width, self.categories.keys(), self.n_context)
+            value["sampler"] = PatchSampler(value["n_candidates"]) # The patch sampler for the category with a fixed number of candidates 
+            value["extractor"] = PatchExtractor(object_size=value["object_size"], object_height=value.get("object_height", 0)) # The patch extractor for the category with the fixed object parameters
+            value["classifier"] = get_patch_classifier((32, 32), 4, self.n_meta, self.n_context, value["n_classes"]) # The patch classifier for the category with the fixed number of classes
+        # self.encoder is a Model
+        self.encoder = get_encoder(height, width, self.categories.keys(), self.n_context) 
 
     def train_step(self, batch_data):
         with tf.GradientTape() as tape:
-            results, maps = self((batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True)
+            results, maps = self((batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True) # calls call()
 
             print("ball map:", maps["ball"])
 
@@ -157,7 +159,10 @@ class FullModel(tf.keras.Model):
 
             # encoder_loss = self.encoder_loss(batch_data[""], maps["ball"])
 
+        # Compute gradients
         gradients = tape.gradient(loss, self.trainable_variables)
+        
+        # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
         return {"loss": loss}  # TODO: metrics
@@ -174,47 +179,56 @@ class FullModel(tf.keras.Model):
             {key: [B, N_out, 2 + n_classes + 1?]}
         """
         image, camera, intrinsics = batch_data
-        maps = self.encoder(image, training=training)
+        maps = self.encoder(image, training=training) # Run the encoder on the image
         # assert isinstance(maps, list) == len(self.categories) > 1
-        if isinstance(maps, list):
+        if isinstance(maps, list): # If there is a context vector
             maps = dict(zip(self.encoder.output_names, maps))  # [B, H_out, W_out, 3], ([B, H_out, W_out, n_context])
         else:
-            maps = {self.encoder.output_names[0]: maps}  # [B, H_out, W_out, 3]
+            maps = {self.encoder.output_names[0]: maps}  # [B, H_out, W_out, 3] Encoder results for the first category
         # TODO: convert image to the color space that we want - input was originally YUYV, but we want to subsample from YUV
-        results = {key: self._handle_category(image, camera, intrinsics, maps[key][..., 2], maps[key][..., :2], value["sampler"], value["extractor"], value["classifier"], training=training) for key, value in self.categories.items()}
+        results = {key: self._handle_category(image, camera, intrinsics, maps[key][..., 2], maps[key][..., :2], value["sampler"], value["extractor"], value["classifier"], training=training) for key, value in self.categories.items()} # Call _handle_category for each category and store the results in a dictionary
+        # results = {}
 
         if training:
+            # Results from classifiers
             return results, maps
 
         return results
 
     def _handle_category(self, image, camera, intrinsics, logits, offsets, sampler, extractor, classifier, training=None):
         """
-        :param image:
-        :param camera:
-        :param intrinsics:
-        :param logits:
-        :param offsets:
-        :param sampler:
-        :param extractor:
-        :param classifier:
-        :param training:
+        :param image: The full resolution image from which the patches are extracted.
+            [B, H_in, W_in, C]
+        :param camera: The pose of the camera, represented as (roll angle, pitch angle, height above ground)
+            [B, 3]
+        :param intrinsics: The intrisics of the camera, represented as (cx, cy, fx, fy)
+            [B, 4]
+        :param logits: The logits for the category.
+            [B, H_out, W_out]
+        :param offsets: The offsets for the category.
+            [B, H_out, W_out, 2]
+        :param sampler: The patch sampler for the category with a fixed number of candidates
+        :param extractor: The patch extractor for the category with the fixed object parameters
+        :param classifier: The patch classifier for the category with the fixed number of classes
+        :param training: Whether the model is in training mode or not.
         :return:
             [B, N_out, n_classes]
             [B, N_out, 2]
             [B, N_out]
         """
-        res_in = tf.shape(image)[-3:-1]
-        res_out = tf.shape(offsets)[-3:-1]
+        res_in = tf.shape(image)[-3:-1] # [H_in, W_in] (ignore batch and channel dimensions)
+        res_out = tf.shape(offsets)[-3:-1] # [H_out, W_out]
         scale = tf.cast((res_in / res_out)[::-1], offsets.dtype)
         # TODO: we need a correction factor here if image is YUYV->YUV converted
         pixels = tf.cast(tf.stack(tf.meshgrid(tf.range(res_out[1]), tf.range(res_out[0])), axis=-1), offsets.dtype)
-        coords = tf.reshape((offsets + pixels + 0.5) * scale, (1, 20*15, 2))
+        coords = tf.reshape((offsets + pixels + 0.5) * scale, (1, 20*15, 2)) # Per cell one coordinate pair
         logits = tf.reshape(logits, (1, 20*15))
         print("coords:", coords)
         print("logits:", logits)
+        
+        # Gather n_candidates coordinates from the coordinate list
         patch_indices = sampler(logits)  # [B, N_out]
-        coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2]
+        coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2] 
         patches, masks = extractor(image, coords, camera, intrinsics, training=training)  # [B, N_out, H_out, W_out, C], [B, N_out]
 
         # classification, offsets = classifier(tf.reshape(patches, (1*5, 32, 32, 4)))  # + meta + context

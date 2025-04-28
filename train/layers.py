@@ -74,7 +74,7 @@ class PatchExtractor(tf.keras.layers.Layer):
         pixel_sizes = self.object_size * tf.expand_dims(intrinsics[..., 2], -1) / distances_in_camera  # [B, N]
 
         # Calculate bounding boxes (TODO: margin in pixels).
-        boxes = tf.concat([coords - 0.5 * pixel_sizes[..., tf.newaxis], coords + 0.5 * pixel_sizes[..., tf.newaxis]], -1)  # [B, N, 4]
+        boxes = tf.concat([coords - 0.5 * pixel_sizes[..., tf.newaxis], coords + 0.5 * pixel_sizes[..., tf.newaxis]], -1)  # [B, N, 4] (x1, y1, x2, y2)
         maxcoord = tf.cast(tf.shape(image)[-3:-1] - 1, boxes.dtype)
         boxes = tf.stack([boxes[..., 1] / maxcoord[0], boxes[..., 0] / maxcoord[1], boxes[..., 3] / maxcoord[0], boxes[..., 2] / maxcoord[1]], axis=-1)  # [B, N, 4]
         boxes = tf.reshape(boxes, (-1, 4))
