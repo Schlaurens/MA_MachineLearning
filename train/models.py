@@ -185,7 +185,6 @@ class FullModel(tf.keras.Model):
             maps = dict(zip(self.encoder.output_names, maps))  # [B, H_out, W_out, 3], ([B, H_out, W_out, n_context])
         else:
             maps = {self.encoder.output_names[0]: maps}  # [B, H_out, W_out, 3] Encoder results for the first category
-        # TODO: convert image to the color space that we want - input was originally YUYV, but we want to subsample from YUV
         
         image_yuv_stack = tf.stack([image[..., 0], image[..., 1], image[..., 3], image[..., 2], image[..., 1], image[..., 3]], axis=-1)
         
