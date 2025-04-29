@@ -194,7 +194,8 @@ class FullModel(tf.keras.Model):
         results = {key: self._handle_category(image_yuv, camera, intrinsics, maps[key][..., 2], maps[key][..., :2], value["sampler"], value["extractor"], value["classifier"], training=training) for key, value in self.categories.items()} # Call _handle_category for each category and store the results in a dictionary
 
         if training:
-            # Results from classifiers
+            # results: patches, masks
+            # maps: [B, H_out, W_out, 3] (offsets, logits) or [B, H_out, W_out, n_context]
             return results, maps
 
         return results
