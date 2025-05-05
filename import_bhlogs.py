@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--thread-filter", default=["Upper"], nargs="+")
-    parser.add_argument("--import-labels", default=False, action="store_true")
+    parser.add_argument("--import-labels", default=True, action="store_true")
     parser.add_argument(
         "--destination",
         default=os.path.join(os.path.dirname(__file__), "data"),
