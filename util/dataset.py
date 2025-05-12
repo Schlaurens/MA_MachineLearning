@@ -78,6 +78,17 @@ def get_masks(label, object_name, input_dims= (480, 640), output_dims = (15, 20)
         portrayed in x and y coordinates.
     """
 
+    if(object_name not in label):
+
+        # If there are no objects of interest in the image all the offset get an arbitrary value. 
+        # In the loss function all offsets of cell without an object are ignored anyway.
+        offsets = tf.fill((*output_dims, 2), -1)
+
+        # All cell are marked as false, as there are no object in the whole image.
+        objectness_mask = tf.fill(output_dims, False)
+
+        return offsets, objectness_mask
+
     coordinates = list(label[object_name].values())[:-1] #Only take x and y coordinates (ignore radius)
 
     # Make sure that input_dims are divisible by output_dims
