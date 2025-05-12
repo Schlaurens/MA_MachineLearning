@@ -45,7 +45,7 @@ def intrinsics_from_label(label):
 def get_dataset(directory):
     # Load the dataset 
     #TODO: this only loads the first 100 images!!!
-    labels = u_dataset.load_labels(directory)[:20]
+    labels = u_dataset.load_labels(directory)[:165]
 
     images = []
     cameras = []
