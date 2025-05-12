@@ -1,6 +1,9 @@
 import json
 import os
 
+import tensorflow as tf
+import numpy as np
+
 from . import image as u_image
 
 
@@ -59,3 +62,34 @@ def load_image_direct(path, **kwargs):
     with open(path, "rb") as f:
         image = u_image.load_bhuman_jpeg_image(f.read(), **kwargs)
     return image
+
+def get_offset_mask(label, object_name, input_dims= (480, 640), output_dims = (15, 20)):
+    """Generate an offset mask that converts the image coordinates of the object
+    into offsets relative to given cell dimensions. 
+    
+    Args:
+        label: label of the image
+        input_dims: the full dimensions of the camera image.
+        output_dims: the number of cells. Should be the same dimensions of encoder output
+        
+    Returns:
+        an array of shape [output_dims_x, output_dims_y, 2]. Where the offset for each cell is
+        portrayed in x and y coordinates.
+    """
+
+    coordinates = list(label[object_name].values())[:-1] #Only take x and y coordinates (ignore radius)
+
+    # Make sure that input_dims are divisible by output_dims
+    cell_dims = np.array(input_dims) // np.array(output_dims)
+    scale = np.array(output_dims) / np.array(input_dims)
+
+    # Generate the cell grid in the full image scale (values point to upper left corner of each cell)
+    cells = tf.cast(tf.stack(tf.meshgrid(range(input_dims[1])[::cell_dims[1]], range(input_dims[0])[::cell_dims[0]]), axis=-1), dtype=tf.float32)
+
+    offsets = coordinates - cells
+
+    # Scale offsets to the output size
+    offsets_scaled = offsets * scale
+
+    return offsets_scaled
+    
