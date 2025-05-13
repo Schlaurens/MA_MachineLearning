@@ -153,8 +153,13 @@ class FullModel(tf.keras.Model):
         with tf.GradientTape() as tape:
             results, maps = self((batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True) # calls call()
 
-            print("ball map:", maps["ball"])
-
+            #tf.print("ball map:", maps["ball"])
+            tf.print()
+            tf.print("Shape of ball map offsets:", tf.shape(maps["ball"][..., :2]))
+            tf.print("Shape of batch data offsets:", tf.shape(batch_data["offsets"]))
+            tf.print("Shape of ball map logits:", tf.shape(maps["ball"][..., 2]))
+            tf.print("Shape of batch data objectness mask:", tf.shape(batch_data["objectness_mask"]))
+            
             #loss = tf.reduce_mean(tf.square(maps["ball"]))
 
             # encoder_loss = self.encoder_loss(batch_data[""], maps["ball"])
