@@ -196,7 +196,7 @@ class FullModel(tf.keras.Model):
         # Convert YUYV to YUV
         # Stack the the image along the channel dimensions in order to go from YUYV to Y1UVY2UV. Then reshape it to [B, H_in, W_in/2, 3] 
         image_yuv_stack = tf.stack([image[..., 0], image[..., 1], image[..., 3], image[..., 2], image[..., 1], image[..., 3]], axis=-1)
-        image_yuv = tf.reshape(image_yuv_stack, (tf.shape(image)[0], tf.shape(image)[1], tf.shape(image)[2] * 2, 3)) # [B, H_in, W_in/2, 3]
+        image_yuv = tf.reshape(image_yuv_stack, (tf.shape(image)[0], tf.shape(image)[1], tf.shape(image)[2] * 2, 3)) # [B, H_in, W_in*2, 3]
         
         results = {key: self._handle_category(image_yuv, camera, intrinsics, maps[key][..., 2], maps[key][..., :2], value["sampler"], value["extractor"], value["classifier"], training=training) for key, value in self.categories.items()} # Call _handle_category for each category and store the results in a dictionary
 
