@@ -26,3 +26,35 @@ url = "https://gitlab.informatik.uni-bremen.de/api/v4/projects/7408/packages/pyp
 default = true
 authenticate = "always"
 
+[tool.ruff]
+extend-include = ["*.ipynb"]  # Also include notebooks.
+select = []
+ignore = [
+    # Ignore some rules for now.
+    "COM812",  # Interferes with formatting.
+    "ERA",  # eradicate # Remove commented out code.
+    "PLR0913",  # Too many arguments to function call.
+    "TD002",  # No TODO author required.
+    "TD003",  # No issue link required.
+    "T201",  # using print statements in notebooks is ok.
+    "FIX002",  # Here TODOs are used to describe future code features, so it's ok.
+    "FBT001",  # I am okay with that :)
+    "FBT002",  # I am okay with that :)
+    "S311",  # Cryptographic security is not required here.
+    "ANN003", # Checks that function **kwargs arguments have type annotations.
+    "D100", # Checks for undocumented public module definitions
+    "ANN001", #Checks that function arguments have type annotations.
+    "ANN201", # Checks that public functions and methods have return type annotations
+    "ANN202", # Checks that private functions and methods have return type annotations
+    "PLR2004", # Checks for the use of unnamed numerical constants ("magic") values in comparisons.
+    "S101", # Checks for uses of the assert keyword.
+    "D103", # Checks for undocumented public function definitions.
+    "D101", # Checks for undocumented public class definitions.
+]
+line-length = 100
+show-fixes = true  # Enumerate all fixed violations.
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.10",
+]
