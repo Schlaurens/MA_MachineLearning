@@ -3,3 +3,4 @@ uv.lock
 .venv
 .python-version
 data/*
+.continue/*
