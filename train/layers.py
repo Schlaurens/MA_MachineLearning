@@ -8,7 +8,15 @@ class PatchExtractor(tf.keras.layers.Layer):
     Thus, the patch will roughly cover the the same "area" regardless of where in the image it is.
     """
 
-    def __init__(self, patch_size=(32, 32), object_size=0.2, object_height=0, interpolation="nearest", name="patch_extractor", **kwargs):
+    def __init__(
+        self,
+        patch_size=(32, 32),
+        object_size=0.2,
+        object_height=0,
+        interpolation="nearest",
+        name="patch_extractor",
+        **kwargs,
+    ):
         """Constructor.
 
         :param patch_size: The size (height, width) in pixels of each extracted patch.
@@ -39,15 +47,15 @@ class PatchExtractor(tf.keras.layers.Layer):
         c, s = tf.cos(angle), tf.sin(angle)
         return tf.stack(
             [
-                tf.stack([x*x * (1 - c) + c, x*y * (1 - c), y * s], axis=-1),
-                tf.stack([y*x * (1 - c), y*y * (1 - c) + c, -x * s], axis=-1),
-                tf.stack([-y * s, x * s, c], axis=-1)
+                tf.stack([x * x * (1 - c) + c, x * y * (1 - c), y * s], axis=-1),
+                tf.stack([y * x * (1 - c), y * y * (1 - c) + c, -x * s], axis=-1),
+                tf.stack([-y * s, x * s, c], axis=-1),
             ],
             axis=-2,
         )
-        
+
     @tf.function(jit_compile=False)
-    def call(self, image, coords, camera, intrinsics, training=None): 
+    def call(self, image, coords, camera, intrinsics, training=None):
         """Extracts patches of fixed size at given coordinates from an image.
 
         :param image: The full resolution image from which the patches are extracted.
@@ -65,27 +73,62 @@ class PatchExtractor(tf.keras.layers.Layer):
             [B, N]
         """
         # Calculate how big the object would be at each given point.
-        camera_rays = tf.concat([tf.ones_like(coords[..., :1]), (intrinsics[..., tf.newaxis, :2] - coords) / intrinsics[..., tf.newaxis, 2:]], -1)  # [B, N, 3]
+        camera_rays = tf.concat(
+            [
+                tf.ones_like(coords[..., :1]),
+                (intrinsics[..., tf.newaxis, :2] - coords) / intrinsics[..., tf.newaxis, 2:],
+            ],
+            -1,
+        )  # [B, N, 3]
         camera_rotation = self.to_rotation_matrix(camera)  # [B, 3, 3]
-        rotated_camera_rays = tf.einsum("...ij,...j->...i", camera_rotation, camera_rays)  # [B, N, 3]
+        rotated_camera_rays = tf.einsum(
+            "...ij,...j->...i", camera_rotation, camera_rays
+        )  # [B, N, 3]
         camera_height = tf.expand_dims(camera[..., 2], -1)  # [B, 1]
-        factors = tf.math.divide_no_nan((self.object_height - camera_height), rotated_camera_rays[..., 2])  # [B, N]
+        factors = tf.math.divide_no_nan(
+            (self.object_height - camera_height), rotated_camera_rays[..., 2]
+        )  # [B, N]
         masks = factors > 0  # [B, N]
-        positions_in_camera = factors[..., tf.newaxis] * rotated_camera_rays # [B, N, 3]
+        positions_in_camera = factors[..., tf.newaxis] * rotated_camera_rays  # [B, N, 3]
         distances_in_camera = tf.math.reduce_euclidean_norm(positions_in_camera, axis=-1)  # [B, N]
-        pixel_sizes = self.object_size * tf.expand_dims(intrinsics[..., 2], -1) / distances_in_camera  # [B, N]
+        pixel_sizes = (
+            self.object_size * tf.expand_dims(intrinsics[..., 2], -1) / distances_in_camera
+        )  # [B, N]
 
-        print("Pixel Sizes" , pixel_sizes)
+        print("Pixel Sizes", pixel_sizes)
         # Calculate bounding boxes (TODO: margin in pixels).
-        boxes = tf.concat([coords - 0.5 * pixel_sizes[..., tf.newaxis], coords + 0.5 * pixel_sizes[..., tf.newaxis]], -1)  # [B, N, 4] (x1, y1, x2, y2)
+        boxes = tf.concat(
+            [
+                coords - 0.5 * pixel_sizes[..., tf.newaxis],
+                coords + 0.5 * pixel_sizes[..., tf.newaxis],
+            ],
+            -1,
+        )  # [B, N, 4] (x1, y1, x2, y2)
         maxcoord = tf.cast(tf.shape(image)[-3:-1] - 1, boxes.dtype)
-        boxes = tf.stack([boxes[..., 1] / maxcoord[0], boxes[..., 0] / maxcoord[1], boxes[..., 3] / maxcoord[0], boxes[..., 2] / maxcoord[1]], axis=-1)  # [B, N, 4]
+        boxes = tf.stack(
+            [
+                boxes[..., 1] / maxcoord[0],
+                boxes[..., 0] / maxcoord[1],
+                boxes[..., 3] / maxcoord[0],
+                boxes[..., 2] / maxcoord[1],
+            ],
+            axis=-1,
+        )  # [B, N, 4]
         boxes = tf.reshape(boxes, (-1, 4))
         box_indices = tf.repeat(tf.range(tf.shape(coords)[0]), tf.shape(coords)[1])
 
         # Extract patches from image
-        patches = tf.image.crop_and_resize(image, boxes, box_indices, self.patch_size, method=self.interpolation, extrapolation_value=127.5)  # [B*N, H_out, W_out, C]
-        patches = tf.reshape(patches, tf.concat([tf.shape(masks), tf.shape(patches)[-3:]], -1))  # [B, N, H_out, W_out, C]
+        patches = tf.image.crop_and_resize(
+            image,
+            boxes,
+            box_indices,
+            self.patch_size,
+            method=self.interpolation,
+            extrapolation_value=127.5,
+        )  # [B*N, H_out, W_out, C]
+        patches = tf.reshape(
+            patches, tf.concat([tf.shape(masks), tf.shape(patches)[-3:]], -1)
+        )  # [B, N, H_out, W_out, C]
 
         return patches, masks
 
@@ -96,7 +139,14 @@ class PatchSampler(tf.keras.layers.Layer):
     while in test mode, the top weighted patches are chosen deterministically.
     """
 
-    def __init__(self, n_sample, temperature=1, generator=tf.random.get_global_generator(), name="patch_sampler", **kwargs):
+    def __init__(
+        self,
+        n_sample,
+        temperature=1,
+        generator=tf.random.get_global_generator(),  # noqa: B008
+        name="patch_sampler",
+        **kwargs,
+    ):
         """Constructor.
 
         :param n_sample: The number of samples to draw.
@@ -126,7 +176,11 @@ class PatchSampler(tf.keras.layers.Layer):
             # https://lips.cs.princeton.edu/the-gumbel-max-trick-for-discrete-distributions/
             # https://timvieira.github.io/blog/post/2014/07/31/gumbel-max-trick/
             # https://timvieira.github.io/blog/post/2019/09/16/algorithms-for-sampling-without-replacement/
-            z = -tf.math.log(-tf.math.log(self.generator.uniform(tf.shape(logits), minval=0, maxval=1, dtype=logits.dtype)))
+            z = -tf.math.log(
+                -tf.math.log(
+                    self.generator.uniform(tf.shape(logits), minval=0, maxval=1, dtype=logits.dtype)
+                )
+            )
             logits = logits / self.temperature + z
         _, indices = tf.math.top_k(logits, self.n_sample)
         return indices
