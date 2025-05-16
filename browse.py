@@ -112,12 +112,11 @@ class BrowseApplication:
             self.slider_image.set_val(max(0, min(current, len(self.labels) - 1)))
         elif event.key in ["up", "down"]:
             current = int(self.slider_image.val)
-            if self.label_mode == LabelMode.BALL:
-                if u_labels.has_ball(self.labels[current]):
-                    x, y, r = u_labels.get_ball(self.labels[current])
-                    r += 1 if event.key == "up" else -1
-                    u_labels.set_ball(self.labels[current], x, y, r)
-                    self.redraw_labels(self.labels[current])
+            if self.label_mode == LabelMode.BALL and u_labels.has_ball(self.labels[current]):
+                x, y, r = u_labels.get_ball(self.labels[current])
+                r += 1 if event.key == "up" else -1
+                u_labels.set_ball(self.labels[current], x, y, r)
+                self.redraw_labels(self.labels[current])
         elif event.key == "b":
             self.label_mode = LabelMode.BALL
         elif event.key == "o":
