@@ -114,10 +114,13 @@ def get_masks(label, object_name, input_dims=(480, 640), output_dims=(15, 20)) -
         # In the loss function all offsets of cell without an object are ignored anyway.
         offsets = tf.cast(tf.fill((*output_dims, 2), -1), dtype=tf.float32)
 
-        # All cell are marked as false, as there are no object in the whole image.
+        # All cell are marked as false, as there are no objects in the whole image.
         objectness_mask = tf.fill(output_dims, value=False)
+        
+        # All cells are marked as true, as there are no objects in the image and therefore no loss should be ignored.
+        loss_mask = tf.fill(output_dims, value=True)
 
-        return offsets, objectness_mask
+        return offsets, objectness_mask, loss_mask
 
     coordinates = list(label[object_name].values())[
         :-1
@@ -171,7 +174,6 @@ def _generate_loss_mask(objectness_mask):
 
     # invert objectness_mask
     inverted_obj_mask = np.logical_not(np.array(objectness_mask))
-    # print("inverted_obj_msk: ", inverted_obj_mask)
     
     # get index
     index = np.unravel_index(inverted_obj_mask.argmin(), inverted_obj_mask.shape)
