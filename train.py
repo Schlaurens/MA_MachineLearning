@@ -50,6 +50,7 @@ def get_dataset(directory):
     intrinsics = []
     objectness_mask = []
     offsets = []
+    loss_mask = []
 
     for label in labels:
         # Load the image for the label in YUYV format
@@ -58,10 +59,15 @@ def get_dataset(directory):
         cameras.append(camera_from_label(label))
         # Load the camera intrinsics for the label
         intrinsics.append(intrinsics_from_label(label))
-        # Load the objectsness mask for the label
-        objectness_mask.append(u_dataset.get_masks(label, "ball")[1])
+        
+        masks = u_dataset.get_masks(label, "ball")
         # Load the offsets for the label
-        offsets.append(u_dataset.get_masks(label, "ball")[0])
+        offsets.append(masks[0])
+        # Load the objectsness mask for the label
+        objectness_mask.append(masks[1])
+        # Load the loss mask for the label
+        loss_mask.append(masks[2])
+        
 
     # Combine the images, cameras and intrinsics into a single tensorflow dataset
     return tf.data.Dataset.from_tensor_slices(
@@ -71,6 +77,7 @@ def get_dataset(directory):
             "intrinsics": tf.constant(intrinsics, dtype=tf.float32),
             "objectness_mask": tf.reshape(tf.cast(objectness_mask, dtype=tf.float32), (-1, 15, 20)),
             "offsets": tf.reshape(offsets, (-1, 15, 20, 2)),
+            "loss_mask": tf.reshape(tf.cast(loss_mask, dtype=tf.float32), (-1, 15, 20))
         }
     )
 
