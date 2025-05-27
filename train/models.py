@@ -172,31 +172,88 @@ class FullModel(tf.keras.Model):
             # encoder_loss = self.encoder_loss(batch_data[""], maps["ball"])
 
             # Compute BCE for the objectness
-            bce = tf.reduce_sum(
-                tf.multiply(
-                    tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none", axis=0)(
-                        y_true=batch_data["objectness_mask"], y_pred=maps["ball"][..., 2]
-                    ),
-                    batch_data["loss_mask"],
-                ),
-                axis=0,
+            # bce = tf.reduce_sum(
+            #     tf.multiply(
+            #         tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none", axis=0)(
+            #             y_true=batch_data["objectness_mask"], y_pred=maps["ball"][..., 2]
+            #         ),
+            #         batch_data["loss_mask"],
+            #     ),
+            #     axis=0,
+            # )
+
+            tf.print(
+                "objectness: y_true: ",
+                tf.shape(batch_data["objectness_mask"]),
+                "y_pred: ",
+                tf.shape(maps["ball"][..., 2]),
+                "mask: ",
+                tf.shape(batch_data["loss_mask"]),
             )
 
-            # Compute MSE for the offsets
-            mse = tf.reduce_mean(
-                tf.multiply(
-                    tf.keras.losses.MeanSquaredError(reduction="none")(
-                        y_true=batch_data["offsets"], y_pred=maps["ball"][..., :2]
-                    ),
-                    batch_data["objectness_mask"],
-                ),
-                axis=0,
+            # bce1 = tf.negative(
+            #     tf.add(
+            #         tf.multiply(batch_data["objectness_mask"], tf.math.log(maps["ball"][..., 2])),
+            #         tf.multiply(
+            #             tf.subtract(1.0, batch_data["objectness_mask"]),
+            #             tf.math.log(tf.subtract(1.0, maps["ball"][..., 2])),
+            #         ),
+            #     )
+            # )
+
+            bce1 = -(
+                batch_data["objectness_mask"] * tf.math.log(maps["ball"][..., 2])
+                + (1.0 - batch_data["objectness_mask"]) * tf.math.log(1.0 - maps["ball"][..., 2])
             )
-            
+
+            # bce1 = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction="none", axis=None)(
+            #     y_true=batch_data["objectness_mask"], y_pred=maps["ball"][..., 2]
+            # )
+            bce2 = tf.multiply(bce1, batch_data["loss_mask"])
+            bce = tf.reduce_sum(bce2, axis=0)
+
+            tf.debugging.assert_all_finite(bce1, "bce1")
+            tf.debugging.assert_all_finite(bce2, "bce2")
+            tf.debugging.assert_all_finite(bce, "bce")
+
+            tf.print("bce1: ", tf.shape(bce1))
+            tf.print("bce2: ", tf.shape(bce2))
+            tf.print("bce: ", tf.shape(bce))
+
+            # Compute MSE for the offsets
+            # mse = tf.reduce_mean(
+            #     tf.multiply(
+            #         tf.keras.losses.MeanSquaredError(reduction="none")(
+            #             y_true=batch_data["offsets"], y_pred=maps["ball"][..., :2]
+            #         ),
+            #         batch_data["objectness_mask"],
+            #     ),
+            #     axis=0,
+            # )
+
+            tf.print(
+                "offsets: y_true: ",
+                tf.shape(batch_data["offsets"]),
+                "y_pred: ",
+                tf.shape(maps["ball"][..., :2]),
+                "mask: ",
+                tf.shape(batch_data["loss_mask"]),
+            )
+
+            mse1 = tf.keras.losses.MeanSquaredError(reduction="none")(
+                y_true=batch_data["offsets"], y_pred=maps["ball"][..., :2]
+            )
+            mse2 = tf.multiply(mse1, batch_data["objectness_mask"])
+            mse = tf.reduce_mean(mse2, axis=0)
+
+            tf.print("mse1: ", tf.shape(mse1))
+            tf.print("mse2: ", tf.shape(mse2))
+            tf.print("mse: ", tf.shape(mse))
+
             # Total loss
             loss = tf.add(bce, mse)
-            
-            # tf.print("Shape loss: ", tf.shape(loss))
+
+            tf.print("Shape loss: ", tf.shape(loss))
             # tf.print("Shape BCE: ", tf.shape(bce))
             # tf.print("Shape MSE: ", tf.shape(mse))
 
@@ -206,7 +263,7 @@ class FullModel(tf.keras.Model):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables, strict=True))
 
-        return {"loss": loss, "bce": bce, "mse": mse}  # TODO: metrics
+        return {"loss": loss, "bce": bce, "mse": mse}
 
     def call(self, batch_data, training=None):
         """
