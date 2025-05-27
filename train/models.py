@@ -74,7 +74,8 @@ def get_encoder(height, width, category_names, n_context):
         offset = tf.keras.layers.Conv2D(2, 1)(x)
 
         # TODO: some activated stuff here?
-        interest = tf.keras.layers.Conv2D(1, 1)(x)
+        x = tf.keras.layers.Conv2D(1, 1)(x)
+        interest = tf.keras.layers.Activation("sigmoid")(x)
 
         output += [tf.keras.layers.Concatenate(name=name)([offset, interest])]
 
