@@ -302,7 +302,7 @@ class FullModel(tf.keras.Model):
         )
         # TODO: maybe do something about the shape here?
         coords = tf.reshape(
-            (offsets + pixels + 0.5) * scale, (1, 20 * 15, 2)
+            (offsets + pixels) * scale, (1, 20 * 15, 2)
         )  # Per cell one coordinate pair
         logits = tf.reshape(logits, (1, 20 * 15))
         print("coords:", coords)
