@@ -73,10 +73,19 @@ class PatchExtractor(tf.keras.layers.Layer):
             [B, N]
         """
         # Calculate how big the object would be at each given point.
+# camera_rays = tf.concat(
+#     [
+#         tf.ones_like(coords[..., :1]),
+#         (intrinsics[..., tf.newaxis, :2] - coords) / intrinsics[..., tf.newaxis, 2:],
+#     ],
+#     -1,
+# )  # [B, N, 3]
+        
         camera_rays = tf.concat(
             [
                 tf.ones_like(coords[..., :1]),
-                (intrinsics[..., tf.newaxis, :2] - coords) / intrinsics[..., tf.newaxis, 2:],
+                (coords - intrinsics[..., tf.newaxis, :2]) / intrinsics[..., tf.newaxis, 2:],
+                
             ],
             -1,
         )  # [B, N, 3]
@@ -130,7 +139,7 @@ class PatchExtractor(tf.keras.layers.Layer):
             patches, tf.concat([tf.shape(masks), tf.shape(patches)[-3:]], -1)
         )  # [B, N, H_out, W_out, C]
 
-        return patches, masks, boxes
+        return patches, masks, boxes, camera_rays, camera_rotation, rotated_camera_rays, camera_height, factors,  distances_in_camera, positions_in_camera, pixel_sizes, coords
 
 
 class PatchSampler(tf.keras.layers.Layer):
