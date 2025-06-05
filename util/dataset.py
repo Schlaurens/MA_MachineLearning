@@ -116,7 +116,7 @@ def get_masks(label, object_name, input_dims=(480, 640), output_dims=(15, 20)) -
 
         # All cell are marked as false, as there are no objects in the whole image.
         objectness_mask = tf.fill(output_dims, value=False)
-        
+
         # All cells are marked as true, as there are no objects in the image and therefore no loss should be ignored.
         loss_mask = tf.fill(output_dims, value=True)
 
@@ -149,7 +149,7 @@ def get_masks(label, object_name, input_dims=(480, 640), output_dims=(15, 20)) -
 
     # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
     objectness_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offsets_scaled]
-    
+
     loss_mask = _generate_loss_mask(objectness_mask)
 
     return offsets_scaled, objectness_mask, loss_mask
@@ -174,22 +174,23 @@ def _generate_loss_mask(objectness_mask):
 
     # invert objectness_mask
     inverted_obj_mask = np.logical_not(np.array(objectness_mask))
-    
+
     # get index
     index = np.unravel_index(inverted_obj_mask.argmin(), inverted_obj_mask.shape)
-    
+
     # turn the cells surrounding the index cell to 0
     inverted_obj_mask[index] = 1.0
-    
+
     # TODO: use a more elegant way to set the surrounding cells to 0, like convolution or einsum
     for i in range(-1, 2):
         for j in range(-1, 2):
             if i == 0 and j == 0:
                 continue
             # Check boundries
-            if (0 <= index[0] + i < inverted_obj_mask.shape[0]) and (0 <= index[1] + j < inverted_obj_mask.shape[1]):
+            if (0 <= index[0] + i < inverted_obj_mask.shape[0]) and (
+                0 <= index[1] + j < inverted_obj_mask.shape[1]
+            ):
                 # Set the surrounding cells to 0
                 inverted_obj_mask[index[0] + i, index[1] + j] = 0.0
-    
 
     return inverted_obj_mask
