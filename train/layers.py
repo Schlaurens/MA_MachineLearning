@@ -34,7 +34,7 @@ class PatchExtractor(tf.keras.layers.Layer):
     @staticmethod
     @tf.function(jit_compile=False)
     def to_rotation_matrix(camera):
-        """Converts the (roll, pitch, height) representation to a rotation matrix.
+        """Converts the (roll, pitch, height) representation to a rotation matrix according to the rodrigues formula.
 
         :param camera: The extrinsic camera parameters (roll, pitch, height).
             [B, 3]
@@ -89,14 +89,22 @@ class PatchExtractor(tf.keras.layers.Layer):
             ],
             -1,
         )  # [B, N, 3]
+
+        # get the rotation matrix for the camera rotation.
         camera_rotation = self.to_rotation_matrix(camera)  # [B, 3, 3]
+
+        # Rotate the camera rays with the rotation matrix
         rotated_camera_rays = tf.einsum(
             "...ij,...j->...i", camera_rotation, camera_rays
         )  # [B, N, 3]
+
+        # Calculate intersection point with ground
         camera_height = tf.expand_dims(camera[..., 2], -1)  # [B, 1]
         factors = tf.math.divide_no_nan(
             (self.object_height - camera_height), rotated_camera_rays[..., 2]
         )  # [B, N]
+
+        # True if coords could be projected on the plane. Else false.
         masks = factors > 0  # [B, N]
         positions_in_camera = factors[..., tf.newaxis] * rotated_camera_rays  # [B, N, 3]
         distances_in_camera = tf.math.reduce_euclidean_norm(positions_in_camera, axis=-1)  # [B, N]
