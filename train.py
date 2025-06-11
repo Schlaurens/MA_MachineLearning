@@ -6,93 +6,57 @@ from util import dataset as u_dataset
 from util import image as u_image
 
 
-def camera_from_label(label):
-    """Calculate the camera roll pitch and height from the camera pose in the data.
-
-    Args:
-        label: the label with the camera pose
-
-    Returns:
-        A tuple of roll, pitch and height.
-    """
-    alpha = np.arccos(label["cpose"]["z"][2])
-    if np.abs(alpha) < 0.01:
-        roll = pitch = 0
-    else:
-        sin_alpha = np.sqrt(1 - label["cpose"]["z"][2] * label["cpose"]["z"][2])
-        roll = label["cpose"]["z"][1] / sin_alpha * alpha
-        pitch = -label["cpose"]["z"][0] / sin_alpha * alpha
-    height = label["cpose"]["h"] * 0.001
-    return (roll, pitch, height)
-
-
-def intrinsics_from_label(label):
-    """
-    Get the camera intrinsics from the label.
-
-    Args:
-        label: A label from the dataset
-
-    Returns:
-        The camera intrinsics as a tuple (cx, cy, fx, fy).
-    """
-
-    return (label["cintr"]["cx"], label["cintr"]["cy"], label["cintr"]["fx"], label["cintr"]["fy"])
-
-
 def get_dataset(directory):
-    # Load the dataset
-    # TODO: must be divisible by 32
-    labels = u_dataset.load_labels(directory)[:736]
+    raw_dataset = tf.data.TFRecordDataset(directory)
 
-    images = []
-    cameras = []
-    intrinsics = []
-    objectness_mask = []
-    offsets = []
-    loss_mask = []
+    feature_description = {
+        "image": tf.io.FixedLenFeature([], tf.string),
+        "camera": tf.io.FixedLenFeature([], tf.string),
+        "intrinsics": tf.io.FixedLenFeature([], tf.string),
+        "objectness": tf.io.FixedLenFeature([], tf.string),
+        "offsets": tf.io.FixedLenFeature([], tf.string),
+        "loss_mask": tf.io.FixedLenFeature([], tf.string),
+    }
 
-    for label in labels:
-        # Load the image for the label in YUYV format
-        images.append(u_dataset.load_image(directory, label, image_format=u_image.ImageFormat.YUYV))
-        # Load the camera pose for the label (roll, pitch, height)
-        cameras.append(camera_from_label(label))
-        # Load the camera intrinsics for the label
-        intrinsics.append(intrinsics_from_label(label))
-        
-        masks = u_dataset.get_masks(label, "ball")
-        # Load the offsets for the label
-        offsets.append(masks[0])
-        # Load the objectsness mask for the label
-        objectness_mask.append(masks[1])
-        # Load the loss mask for the label
-        loss_mask.append(masks[2])
-        
-
-    # Combine the images, cameras and intrinsics into a single tensorflow dataset
-    return tf.data.Dataset.from_tensor_slices(
-        {
-            "image": tf.reshape(tf.constant(images), (-1, 480, 320, 4)),
-            "camera": tf.constant(cameras, dtype=tf.float32),
-            "intrinsics": tf.constant(intrinsics, dtype=tf.float32),
-            "objectness_mask": tf.reshape(tf.cast(objectness_mask, dtype=tf.float32), (-1, 15, 20)),
-            "offsets": tf.reshape(offsets, (-1, 15, 20, 2)),
-            "loss_mask": tf.reshape(tf.cast(loss_mask, dtype=tf.float32), (-1, 15, 20))
+    def _parse_tensor(serialized_tensor):
+        data = {
+            "image": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["image"], out_type=tf.uint8), [480, 320, 4]
+            ),
+            "camera": tf.io.parse_tensor(serialized_tensor["camera"], out_type=tf.float32),
+            "intrinsics": tf.io.parse_tensor(serialized_tensor["intrinsics"], out_type=tf.float32),
+            "objectness_mask": tf.io.parse_tensor(
+                serialized_tensor["objectness"], out_type=tf.float32
+            ),
+            "offsets": tf.io.parse_tensor(serialized_tensor["offsets"], out_type=tf.float32),
+            "loss_mask": tf.io.parse_tensor(serialized_tensor["loss_mask"], out_type=tf.float32),
         }
-    )
+        tf.ensure_shape(data["image"], [480, 320, 4])
+        tf.ensure_shape(data["camera"], [3])
+        tf.ensure_shape(data["intrinsics"], [4])
+        tf.ensure_shape(data["objectness_mask"], [15, 20])
+        tf.ensure_shape(data["offsets"], [15, 20, 2])
+        tf.ensure_shape(data["loss_mask"], [15, 20])
+
+        return data
+
+    def _parse_function(example_proto):
+        # Parse the input tf.train.Example proto using the dictionary above.
+        return _parse_tensor(tf.io.parse_single_example(example_proto, feature_description))
+
+    # return raw_dataset.map(lambda x: tf.py_function(func=_parse_function, inp=[x], Tout=[tf.uint8, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32]))
+    return raw_dataset.map(_parse_function)
 
 
 def main():
-    train_ds = get_dataset(
-        "/home/laurens/var/git/MA_LabelingTool/data/Joerg_Joerg_CompetitionWalk_GO2025__HULKs_2ndHalf_5"
-    )
-    train_ds = train_ds.shuffle(32)
-    train_ds = train_ds.batch(32, drop_remainder=False)
+    train_ds = get_dataset("data/Joerg_Joerg_CompetitionWalk_GO2025__HULKs_2ndHalf_5.tfrecords")
+    train_ds = train_ds.shuffle(32, seed=42)
+    train_ds = train_ds.batch(32)
 
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam())
-    model.fit(x=train_ds, epochs=10)
+    model.fit(x=train_ds, epochs=200)
 
     """
     results = model(image, camera, intrinsics)
