@@ -1,8 +1,6 @@
 import tensorflow as tf
 
 from train.models import FullModel
-from util import dataset as u_dataset
-from util import image as u_image
 
 
 def get_dataset(directory):
