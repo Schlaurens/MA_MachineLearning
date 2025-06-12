@@ -6,6 +6,14 @@ from util import image as u_image
 
 
 def get_dataset(directory):
+    """Read and parse dataset from a given directory
+
+    Args:
+        directory: the directory that contains the .tfrecords files
+
+    Returns:
+        A parsed dataset where each sample consists of 6 tensors.
+    """
     raw_dataset = tf.data.TFRecordDataset(directory)
 
     feature_description = {
@@ -18,6 +26,16 @@ def get_dataset(directory):
     }
 
     def _parse_tensor(serialized_tensor):
+        """Parse the feature tensors using tf.io.parse_tensors
+        
+        tf.ensure_shape ensures that the shape of the tensors is not unknown at runtime.
+
+        Args:
+            serialized_tensor: a dict of 6 serialized tensors
+
+        Returns:
+            a dict of 6 parsed tensors with known shapes.
+        """
         data = {
             "image": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["image"], out_type=tf.uint8), [480, 320, 4]
@@ -41,6 +59,17 @@ def get_dataset(directory):
         return data
 
     def _parse_function(example_proto):
+        """Parse the given example using tf.io.parse_single_example
+        
+        Uses the feature_description from above that maps the feature keys to it's datatype.
+        Also parses the tensors that are inside the given example.
+
+        Args:
+            example_proto: a single serialized example
+
+        Returns:
+            the parsed example
+        """
         # Parse the input tf.train.Example proto using the dictionary above.
         return _parse_tensor(tf.io.parse_single_example(example_proto, feature_description))
 
@@ -48,13 +77,17 @@ def get_dataset(directory):
 
 
 def main():
+    # TODO: find number of all samples over all files (counter images in folders)
     batch_size = 32
     num_samples = 64
 
+    # TODO: input list of all filenames in data folder
     train_ds = get_dataset("data/Joerg_Joerg_CompetitionWalk_GO2025__HULKs_1stHalf_5.tfrecords")
 
     train_ds = train_ds.shuffle(32, seed=42)
     train_ds = train_ds.batch(batch_size)
+
+    # To counteract "Local rendezvous warning"
     train_ds = train_ds.repeat(-1)
 
     # Upper camera dimensions. Width is halved because of YUYV format
