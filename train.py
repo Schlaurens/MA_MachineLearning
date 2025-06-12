@@ -23,21 +23,22 @@ def get_dataset(directory):
             "image": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["image"], out_type=tf.uint8), [480, 320, 4]
             ),
-            "camera": tf.io.parse_tensor(serialized_tensor["camera"], out_type=tf.float32),
-            "intrinsics": tf.io.parse_tensor(serialized_tensor["intrinsics"], out_type=tf.float32),
-            "objectness_mask": tf.io.parse_tensor(
-                serialized_tensor["objectness"], out_type=tf.float32
+            "camera": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["camera"], out_type=tf.float32), [3]
             ),
-            "offsets": tf.io.parse_tensor(serialized_tensor["offsets"], out_type=tf.float32),
-            "loss_mask": tf.io.parse_tensor(serialized_tensor["loss_mask"], out_type=tf.float32),
+            "intrinsics": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["intrinsics"], out_type=tf.float32), [4]
+            ),
+            "objectness_mask": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["objectness"], out_type=tf.float32), [15, 20]
+            ),
+            "offsets": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["offsets"], out_type=tf.float32), [15, 20, 2]
+            ),
+            "loss_mask": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["loss_mask"], out_type=tf.float32), [15, 20]
+            ),
         }
-        tf.ensure_shape(data["image"], [480, 320, 4])
-        tf.ensure_shape(data["camera"], [3])
-        tf.ensure_shape(data["intrinsics"], [4])
-        tf.ensure_shape(data["objectness_mask"], [15, 20])
-        tf.ensure_shape(data["offsets"], [15, 20, 2])
-        tf.ensure_shape(data["loss_mask"], [15, 20])
-
         return data
 
     def _parse_function(example_proto):
