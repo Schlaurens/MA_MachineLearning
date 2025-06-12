@@ -1,4 +1,3 @@
-import numpy as np
 import tensorflow as tf
 
 from train.models import FullModel
@@ -45,7 +44,6 @@ def get_dataset(directory):
         # Parse the input tf.train.Example proto using the dictionary above.
         return _parse_tensor(tf.io.parse_single_example(example_proto, feature_description))
 
-    # return raw_dataset.map(lambda x: tf.py_function(func=_parse_function, inp=[x], Tout=[tf.uint8, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32]))
     return raw_dataset.map(_parse_function)
 
 
@@ -57,21 +55,7 @@ def main():
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam())
-    model.fit(x=train_ds, epochs=200)
-
-    """
-    results = model(image, camera, intrinsics)
-
-    fig, axes = plt.subplots(5)
-    axes[0].imshow(results["ball"][0][0, 0, ...].numpy() / 255)
-    axes[1].imshow(results["ball"][0][0, 1, ...].numpy() / 255)
-    axes[2].imshow(results["ball"][0][0, 2, ...].numpy() / 255)
-    axes[3].imshow(results["ball"][0][0, 3, ...].numpy() / 255)
-    axes[4].imshow(results["ball"][0][0, 4, ...].numpy() / 255)
-    
-    plt.show()
-    print(results)
-    """
+    model.fit(x=train_ds, epochs=200, steps_per_epoch=num_samples // batch_size)
 
 
 if __name__ == "__main__":
