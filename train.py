@@ -1,3 +1,5 @@
+import glob
+
 import tensorflow as tf
 
 from train.models import FullModel
@@ -73,15 +75,30 @@ def get_dataset(directory):
     return raw_dataset.map(_parse_function)
 
 
+def get_data_info():
+    file_names = []
+    num_samples = 0
+
+    for file in glob.glob("./data/*.tfrecords"):
+        file_names.append(file)
+
+        # Count samples
+        num_samples += len(glob.glob(f"{file.removesuffix('.tfrecords')}/*.jpg"))
+
+    return {"file_names": file_names, "num_samples": num_samples}
+
+
 def main():
-    # TODO: find number of all samples over all files (counter images in folders)
+    data = get_data_info()
+    train_ds = get_dataset(data["file_names"])
+
+    epochs = 200
     batch_size = 32
-    num_samples = 64
+    num_samples = num_samples = data["num_samples"]
 
-    # TODO: input list of all filenames in data folder
-    train_ds = get_dataset("data/Joerg_Joerg_CompetitionWalk_GO2025__HULKs_1stHalf_5.tfrecords")
+    print("Number of samples: ", num_samples)
 
-    train_ds = train_ds.shuffle(32, seed=42)
+    train_ds = train_ds.shuffle(batch_size, seed=42)
     train_ds = train_ds.batch(batch_size)
 
     # To counteract "Local rendezvous warning"
@@ -90,7 +107,7 @@ def main():
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam())
-    model.fit(x=train_ds, epochs=200, steps_per_epoch=num_samples // batch_size)
+    model.fit(x=train_ds, epochs=epochs, steps_per_epoch=num_samples // batch_size)
 
 
 if __name__ == "__main__":
