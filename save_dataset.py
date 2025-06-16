@@ -1,8 +1,6 @@
 import argparse
 import os
 
-import numpy as np
-
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
@@ -10,45 +8,6 @@ import tensorflow as tf
 
 from util import dataset as u_dataset
 from util import image as u_image
-
-
-def camera_from_label(label):
-    """Calculate the camera roll pitch and height from the camera pose in the data.
-
-    Args:
-        label: the label with the camera pose
-
-    Returns:
-        A tuple of roll, pitch and height.
-    """
-    alpha = np.arccos(label["cpose"]["z"][2])
-    if np.abs(alpha) < 0.01:
-        roll = pitch = 0
-    else:
-        sin_alpha = np.sqrt(1 - label["cpose"]["z"][2] * label["cpose"]["z"][2])
-        roll = label["cpose"]["z"][1] / sin_alpha * alpha
-        pitch = -label["cpose"]["z"][0] / sin_alpha * alpha
-    height = label["cpose"]["h"] * 0.001
-    return (roll, pitch, height)
-
-
-def intrinsics_from_label(label):
-    """
-    Get the camera intrinsics from the label.
-
-    Args:
-        label: A label from the dataset
-
-    Returns:
-        The camera intrinsics as a tuple (cx, cy, fx, fy).
-    """
-
-    return (
-        label["cintr"]["cx"],
-        label["cintr"]["cy"],
-        label["cintr"]["fx"],
-        label["cintr"]["fy"],
-    )
 
 
 def make_example(directory, label):
@@ -73,7 +32,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.constant(camera_from_label(label), dtype=tf.float32)
+                    tf.constant(u_dataset.camera_from_label(label), dtype=tf.float32)
                 ).numpy(),
             ]
         )
@@ -82,7 +41,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.constant(intrinsics_from_label(label), dtype=tf.float32)
+                    tf.constant(u_dataset.intrinsics_from_label(label), dtype=tf.float32)
                 ).numpy(),
             ]
         )
