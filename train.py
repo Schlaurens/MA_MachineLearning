@@ -75,8 +75,11 @@ def get_dataset(directory):
     return raw_dataset.map(_parse_function)
 
 
-def get_data_info():
+def get_data_info(directory="data"):
     """Get all .tfrecords files and the number of all samples across all selected data files.
+
+    Args:
+        directory: The directory of the .tfrecords files used for training.
 
     Returns:
         A dict where "file_names" is a list of paths to .tfrecords files and "num_samples is the number of samples across all data files
@@ -84,7 +87,7 @@ def get_data_info():
     file_names = []
     num_samples = 0
 
-    for file in glob.glob("./data/*.tfrecords"):
+    for file in glob.glob(f"./{directory}/*.tfrecords"):
         file_names.append(file)
 
         # Count samples
