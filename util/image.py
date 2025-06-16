@@ -213,14 +213,14 @@ def show_patches_on_image(image, label, results):
             width,
             height,
             linewidth=1,
-            edgecolor="red",
+            edgecolor="lime",
             facecolor=(255 / 255, 123 / 255, 0 / 255, 0 / 255),
         )
         # Each patch has a number to identify the ordering
-        axes.text(x=(coords[0] + 4.0), y=coords[1] + 17.0, s=i + 1, color = 'red')
+        axes.text(x=(coords[0] + 4.0), y=coords[1] + 17.0, s=i + 1, color="lime")
         axes.add_patch(rect)
 
-    plt.title("Image")
+    plt.title("Predicted Patches in Image.")
 
     # Draw the patch candidates in separate plots
     _, axes = plt.subplots(num_candidates)
