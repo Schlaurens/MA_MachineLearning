@@ -97,13 +97,14 @@ if __name__ == "__main__":
                         obstacle.bottom // 16,
                         op=u_labels.ObstaclesOp.SET,
                     )
+            """
             if penalty_mark_percept and penalty_mark_percept.wasSeen:
                 u_labels.set_penalty_mark(
                     label,
                     penalty_mark_percept.positionInImage.x,
                     penalty_mark_percept.positionInImage.y,
                 )
-            """
+
         labels.append(label)
 
     u_dataset.save_labels(destination, labels)
