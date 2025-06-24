@@ -57,7 +57,7 @@ if __name__ == "__main__":
         interesting = ball_percept.status != 0
 
         # Skip image or reset counter.
-        if cooldown > (0 if not interesting else cooldown // 2):
+        if cooldown > (0 if not interesting else args.step // 2):
             continue
         cooldown = args.step
 
