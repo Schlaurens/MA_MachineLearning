@@ -75,13 +75,13 @@ def show_masks_on_image(directory, label, object_name=None, mask_name=None, grid
         grid_dims: The dimensions of the cell_grid. Defaults to (15,20).
 
     """
-    image = u_dataset.load_image(directory, label, image_format=ImageFormat.GRAYSCALE)
+    image = u_dataset.load_image(directory, label, image_format=ImageFormat.RGB)
 
     # The dimension of a single cell
     cell_dims = np.array(image.shape[1::-1])[::-1] // np.array(grid_dims)
 
     _, ax = plt.subplots()
-    ax.imshow(image, cmap="gray")
+    ax.imshow(image)
     ax.set_title(f"grid_dims={grid_dims}, cell_size={cell_dims}, mask={mask_name}")
 
     # Draw cell grid with the given grid dimensions
