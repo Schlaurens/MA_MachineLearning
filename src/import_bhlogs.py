@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--import-labels", default=True, action="store_true")
     parser.add_argument(
         "--destination",
-        default=os.path.join(os.path.dirname(__file__), "data"),
+        default=os.path.join(os.path.dirname(__file__), "../data"),
     )
     parser.add_argument("--step", default=30, type=int)
     parser.add_argument("path")
