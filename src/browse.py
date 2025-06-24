@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib import gridspec, widgets
 
 from util import augmentation as u_augmentation
+from util import camera as u_camera
 from util import dataset as u_dataset
 from util import image as u_image
 from util import labels as u_labels
@@ -143,13 +144,24 @@ class BrowseApplication:
             if remove:
                 u_labels.unset_ball(self.labels[current])
             else:
-                radius = 20  # TODO: 20
-                # project (x,y) -> ground
-                # in_camera = 1, (cx - event.xdata) / fx, (cy - event.ydata) / fy
-                # in_world = rotate(camera_in_world.rotation, in_camera)
-                if u_labels.has_ball(self.labels[current]):
-                    _, _, radius = u_labels.get_ball(self.labels[current])
-                # TODO: get radius in image by camera pose
+                camera_intr = u_dataset.intrinsics_from_label(self.labels[current])
+                camera = u_dataset.camera_from_label(self.labels[current])
+                ball_size = 0.1  # m
+
+                # Transform camera coords to world coords
+                data_in_world = u_camera.image_to_world(
+                    camera, camera_intr, (event.xdata, event.ydata), object_size=ball_size
+                )
+
+                distance_to_camera = (
+                    np.linalg.norm(data_in_world) if data_in_world is not None else 1.0
+                )
+
+                # Get the size of a single pixel at the position of the ball
+                pixel_size = (ball_size * camera_intr[2]) / distance_to_camera
+
+                radius = pixel_size / 2
+
                 u_labels.set_ball(self.labels[current], event.xdata, event.ydata, radius)
         elif self.label_mode == LabelMode.OBSTACLES:
             x, y = int(event.xdata / 16), int(event.ydata / 16)  # TODO: 16
