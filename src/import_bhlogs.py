@@ -46,12 +46,12 @@ if __name__ == "__main__":
         # if jpeg_image.width != 160 or jpeg_image.height != 120:  # TODO: 160, 120
         #     continue
 
-        ball_percept = frame.get("BallPercept", None)
+        ball_percept = frame["BallPercept"] if "BallPercept" in frame else None  # noqa: SIM401
         obstacles_image_percept = (
-            frame.get("ObstaclesImagePercept", None)
+            frame["ObstaclesImagePercept"] if "ObstaclesImagePercept" in frame else None  # noqa: SIM401
         )
         penalty_mark_percept = (
-            frame.get("PenaltyMarkPercept", None)
+            frame["PenaltyMarkPercept"] if "PenaltyMarkPercept" in frame else None  # noqa: SIM401
         )
 
         interesting = ball_percept.status != 0
