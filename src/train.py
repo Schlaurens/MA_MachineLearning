@@ -20,9 +20,12 @@ def get_dataset(directory):
         "image": tf.io.FixedLenFeature([], tf.string),
         "camera": tf.io.FixedLenFeature([], tf.string),
         "intrinsics": tf.io.FixedLenFeature([], tf.string),
-        "objectness": tf.io.FixedLenFeature([], tf.string),
-        "offsets": tf.io.FixedLenFeature([], tf.string),
-        "loss_mask": tf.io.FixedLenFeature([], tf.string),
+        "object_ball": tf.io.FixedLenFeature([], tf.string),
+        "offsets_ball": tf.io.FixedLenFeature([], tf.string),
+        "loss_mask_ball": tf.io.FixedLenFeature([], tf.string),
+        "object_penaltyMark": tf.io.FixedLenFeature([], tf.string),
+        "offsets_penaltyMark": tf.io.FixedLenFeature([], tf.string),
+        "loss_mask_penaltyMark": tf.io.FixedLenFeature([], tf.string),
     }
 
     def _parse_tensor(serialized_tensor):
@@ -46,14 +49,28 @@ def get_dataset(directory):
             "intrinsics": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["intrinsics"], out_type=tf.float32), [4]
             ),
-            "objectness_mask": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["objectness"], out_type=tf.float32), [15, 20]
+            "object_ball": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["object_ball"], out_type=tf.float32), [15, 20]
             ),
-            "offsets": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["offsets"], out_type=tf.float32), [15, 20, 2]
+            "offsets_ball": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["offsets_ball"], out_type=tf.float32),
+                [15, 20, 2],
             ),
-            "loss_mask": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["loss_mask"], out_type=tf.float32), [15, 20]
+            "loss_mask_ball": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["loss_mask_ball"], out_type=tf.float32),
+                [15, 20],
+            ),
+            "object_penaltyMark": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["object_penaltyMark"], out_type=tf.float32),
+                [15, 20],
+            ),
+            "offsets_penaltyMark": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["offsets_penaltyMark"], out_type=tf.float32),
+                [15, 20, 2],
+            ),
+            "loss_mask_penaltyMark": tf.ensure_shape(
+                tf.io.parse_tensor(serialized_tensor["loss_mask_penaltyMark"], out_type=tf.float32),
+                [15, 20],
             ),
         }
 
@@ -106,7 +123,7 @@ def main():
     num_samples = num_samples = data["num_samples"]
     train_samples = round(num_samples * (1 - validation_split))
     val_samples = round(num_samples * validation_split)
-    
+
     print("Number of samples: ", num_samples)
     print("Train Size: ", train_samples)
     print("Val Samples: ", val_samples)

@@ -11,7 +11,8 @@ from util import image as u_image
 
 
 def make_example(directory, label):
-    masks = u_dataset.get_masks(label, "ball")
+    masks_ball = u_dataset.get_masks(label, "ball")
+    masks_penaltyMark = u_dataset.get_masks(label, "penaltyMark")
     image_feature = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
@@ -46,27 +47,52 @@ def make_example(directory, label):
             ]
         )
     )
-    objectness_feature = tf.train.Feature(
+    object_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks[1], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_ball[1], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )
     )
-    offset_feature = tf.train.Feature(
+    offset_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
-                tf.io.serialize_tensor(tf.reshape(masks[0], (15, 20, 2))).numpy(),
+                tf.io.serialize_tensor(tf.reshape(masks_ball[0], (15, 20, 2))).numpy(),
             ]
         )
     )
-    loss_mask_feature = tf.train.Feature(
+    loss_mask_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks[2], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_ball[2], dtype=tf.float32), (15, 20))
+                ).numpy(),
+            ]
+        )
+    )
+    object_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(
+                    tf.reshape(tf.cast(masks_penaltyMark[1], dtype=tf.float32), (15, 20))
+                ).numpy(),
+            ]
+        )
+    )
+    offset_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(tf.reshape(masks_penaltyMark[0], (15, 20, 2))).numpy(),
+            ]
+        )
+    )
+    loss_mask_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(
+                    tf.reshape(tf.cast(masks_penaltyMark[2], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )
@@ -78,9 +104,12 @@ def make_example(directory, label):
             "image": image_feature,
             "camera": camera_feature,
             "intrinsics": intrinsics_feature,
-            "objectness": objectness_feature,
-            "offsets": offset_feature,
-            "loss_mask": loss_mask_feature,
+            "object_ball": object_feature_ball,
+            "offsets_ball": offset_feature_ball,
+            "loss_mask_ball": loss_mask_feature_ball,
+            "object_penaltyMark": object_feature_penaltyMark,
+            "offsets_penaltyMark": offset_feature_penaltyMark,
+            "loss_mask_penaltyMark": loss_mask_feature_penaltyMark,
         }
     )
 
