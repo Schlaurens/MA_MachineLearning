@@ -96,7 +96,8 @@ def show_masks_on_image(directory, label, object_name=None, mask_name=None, grid
 
         if mask_name == "objectness":
             coords = u_dataset.get_coords_from_offsets(offset_mask)
-            ax.plot(coords[0], coords[1], "rx")
+            if coords != None:
+                ax.plot(coords[0], coords[1], "rx")
 
             objectness_mask = np.array(objectness_mask)
 

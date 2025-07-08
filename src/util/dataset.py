@@ -235,24 +235,33 @@ def _generate_loss_mask(objectness_mask):
 
     return inverted_obj_mask
 
+
 def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
     """Extract the image coordinates from the offset mask
 
     Args:
         mask: the offset mask
         image_dims: the dimensions of the image
-        
+
     Returns:
-        The coordinates of the object (x, y)
+        The coordinates of the object (x, y). None if the object is not in the image
     """
+    # Take the offset from the first cell of offset_mask
+    offset_cell = offset_mask[0][0]
+
+    # If the first cell is (-1, -1) then the object is not in the image
+    if offset_cell[0] == -1:
+        return None
+
     # Get the output dims from the offset_mask
-    output_dims=offset_mask.shape[:-1]
+    output_dims = offset_mask.shape[:-1]
     scale = np.array(output_dims) / np.array(image_dims)
-    
-    # Take the offset from the first cell of offset_mask and scale it up
-    coords = offset_mask[0][0] / scale
-    
+
+    # Scale the first offset_cell up
+    coords = offset_cell / scale
+
     return coords
+
 
 def get_dataset(directory):
     """Read and parse dataset from a given directory
