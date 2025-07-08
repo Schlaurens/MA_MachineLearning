@@ -91,11 +91,14 @@ def show_masks_on_image(directory, label, object_name=None, mask_name=None, grid
         ax.axhline(y=i, color="black")
 
     if mask_name != None and object_name in label:
-        _, objectness_mask, loss_mask = u_dataset.get_masks(
+        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
             label, object_name, output_dims=grid_dims
         )
 
         if mask_name == "objectness":
+            coords = u_dataset.get_coords_from_offsets(offset_mask)
+            ax.plot(coords[0], coords[1], "rx")
+
             objectness_mask = np.array(objectness_mask)
 
             # Get the indices with the highest/lowest values.
