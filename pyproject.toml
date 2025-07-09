@@ -15,6 +15,7 @@ dependencies = [
     "tensorflow<2.17; sys_platform == 'Windows'",
     "tensorflow[and-cuda]<2.17; sys_platform == 'linux'",
     "pyqt6>=6.9.0",
+    "scipy>=1.15.2",
 ]
 
 [tool.uv.sources]
