@@ -70,7 +70,9 @@ def image_to_world(camera, camera_intr, point_in_image, object_size=0):
     object_height = 0.5 * object_size
 
     # Camera ray to object in camera coordinates
-    dir_in_camera = keras.ops.array([1, (cx - point_in_image[0]) / fx, (cy - point_in_image[1]) / fy])
+    dir_in_camera = keras.ops.array(
+        [1, (cx - point_in_image[0]) / fx, (cy - point_in_image[1]) / fy]
+    )
 
     # Rotate the camera ray
     dir_in_world = keras.ops.einsum("...ij,...j->...i", rot_camera_in_world(camera), dir_in_camera)
