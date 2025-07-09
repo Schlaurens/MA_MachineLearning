@@ -246,6 +246,8 @@ def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
     Returns:
         The coordinates of the object (x, y). None if the object is not in the image
     """
+    # TODO: implement solution for offset_masks with multiple objects
+
     # Take the offset from the first cell of offset_mask
     offset_cell = offset_mask[0][0]
 

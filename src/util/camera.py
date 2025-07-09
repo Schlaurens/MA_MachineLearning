@@ -61,6 +61,10 @@ def image_to_world(camera, camera_intr, point_in_image, object_size=0):
     Returns:
         A vector in world coordinates of the given point
     """
+
+    if point_in_image is None:
+        return keras.ops.zeros((3,))
+
     cx, cy, fx, fy = camera_intr
     camera_height = camera[2]
     object_height = 0.5 * object_size
