@@ -26,11 +26,6 @@ class MAE(tf.keras.metrics.Metric):
             u_camera.image_to_world(y_pred["camera"], y_pred["intrinsics"], img_coords_pred), axis=0
         ).numpy()
 
-        # print("Img coords pred: ", img_coords_pred)
-        # print("Img coords true: ", img_coords_true)
-        # print("wrld coords pred: ", wrld_coords_pred)
-        # print("wrld coords true: ", wrld_coords_true)
-
         match = self.match_keypoints(wrld_coords_pred, wrld_coords_true, e_max=threshold)
 
         # If there were false predictions add the threshold distance as a penalty for every false prediction
@@ -59,8 +54,6 @@ class MAE(tf.keras.metrics.Metric):
         return self.err_threshold
 
     def result(self):
-        print(self.abs_error)
-        print(self.num_samples)
         return self.abs_error / self.num_samples
 
     def reset_state(self):
