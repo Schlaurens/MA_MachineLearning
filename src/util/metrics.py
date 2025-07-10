@@ -56,7 +56,7 @@ class MAE(tf.keras.metrics.Metric):
         #     values = tf.multiply(values, sample_weight)
 
     def get_threshold(self):
-        return 0.2
+        return self.err_threshold
 
     def result(self):
         print(self.abs_error)
