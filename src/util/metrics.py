@@ -7,17 +7,18 @@ from . import dataset as u_dataset
 
 
 class MAE(tf.keras.metrics.Metric):
-    def __init__(self, name="custom_mae", **kwargs):
+    def __init__(self, object_name="ball", err_threshold=0.2, name="custom_mae", **kwargs):
         super().__init__(name=name, **kwargs)
+        self.err_threshold = err_threshold
+        self.object_name = object_name
         self.abs_error = self.add_weight(name="abs_error", initializer="zeros")
         self.num_samples = self.add_weight(name="num_samples", initializer="zeros")
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         threshold = self.get_threshold()
 
-        img_coords_true = u_dataset.get_coords_from_offsets(y_true["offsets_ball"])
-        img_coords_pred = u_dataset.get_coords_from_offsets(y_pred["offsets_ball"])
-
+        img_coords_true = u_dataset.get_coords_from_offsets(y_true[f"offsets_{self.object_name}"])
+        img_coords_pred = u_dataset.get_coords_from_offsets(y_pred[f"offsets_{self.object_name}"])
         wrld_coords_true = tf.expand_dims(
             u_camera.image_to_world(y_true["camera"], y_true["intrinsics"], img_coords_true), axis=0
         ).numpy()
