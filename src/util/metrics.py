@@ -151,3 +151,41 @@ class Error_Metric(tf.keras.metrics.Metric):
             "matches": np.stack([kps[row_ind[assigned]], pts[col_ind[assigned]]], axis=1),
             "num_false_predictions": num_false_predictions,
         }
+
+
+class MAE(Error_Metric):
+    """
+    A custom metric class for calculating Mean Absolute Error.
+
+    This class extends the ErrorMetric base class for calculating the MAE
+    """
+
+    def __init__(self, object_name="ball", err_threshold=0.2, name="mae", **kwargs):
+        super().__init__(object_name=object_name, err_threshold=err_threshold, name=name, **kwargs)
+
+    def add_error(self, error, multiplier=1):
+        self.abs_error.assign_add(error * multiplier)
+
+
+class MSE(Error_Metric):
+    """
+    A custom metric class for calculating Mean Squared Error.
+
+    This class extends the ErrorMetric base class for calculating the MSE,
+    which squares the error to emphasize outliers.
+
+    Attributes:
+        scaling_factor (int): Used to internally scale the error unit between meters and cm.
+    """
+
+    def __init__(self, object_name="ball", err_threshold=0.2, name="mae", **kwargs):
+        super().__init__(object_name=object_name, err_threshold=err_threshold, name=name, **kwargs)
+        self.scaling_factor = 100
+
+    def add_error(self, error, multiplier=1):
+        # Scale the error from m to cm, so that the error of outlier is bigger.
+        self.abs_error.assign_add(((error * self.scaling_factor) ** 2) * multiplier)
+
+    def result(self):
+        # Scale the squared error back to m.
+        return (self.abs_error / self.scaling_factor) / self.num_samples
