@@ -120,10 +120,10 @@ class Error_Metric(tf.keras.metrics.Metric):
         """
 
         img_coords_true = u_dataset.get_coords_from_offsets(
-            y_true[f"offsets_{self.object_name}"]
+            y_true[self.object_name]["offset_mask"]
         )  # (x, y)
         img_coords_pred = u_dataset.get_coords_from_offsets(
-            y_pred[f"offsets_{self.object_name}"]
+            y_pred[self.object_name]["offset_mask"]
         )  # (x, y)
         pts = tf.expand_dims(
             u_camera.image_to_world(y_true["camera"], y_true["intrinsics"], img_coords_true), axis=0

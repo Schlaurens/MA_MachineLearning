@@ -307,29 +307,40 @@ def get_dataset(directory):
             "intrinsics": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["intrinsics"], out_type=tf.float32), [4]
             ),
-            "object_ball": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["object_ball"], out_type=tf.float32), [15, 20]
-            ),
-            "offsets_ball": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["offsets_ball"], out_type=tf.float32),
-                [15, 20, 2],
-            ),
-            "loss_mask_ball": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["loss_mask_ball"], out_type=tf.float32),
-                [15, 20],
-            ),
-            "object_penaltyMark": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["object_penaltyMark"], out_type=tf.float32),
-                [15, 20],
-            ),
-            "offsets_penaltyMark": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["offsets_penaltyMark"], out_type=tf.float32),
-                [15, 20, 2],
-            ),
-            "loss_mask_penaltyMark": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["loss_mask_penaltyMark"], out_type=tf.float32),
-                [15, 20],
-            ),
+            "ball": {
+                "object_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(serialized_tensor["object_ball"], out_type=tf.float32),
+                    [15, 20],
+                ),
+                "offset_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(serialized_tensor["offsets_ball"], out_type=tf.float32),
+                    [15, 20, 2],
+                ),
+                "loss_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(serialized_tensor["loss_mask_ball"], out_type=tf.float32),
+                    [15, 20],
+                ),
+            },
+            "penaltyMark": {
+                "object_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["object_penaltyMark"], out_type=tf.float32
+                    ),
+                    [15, 20],
+                ),
+                "offset_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["offsets_penaltyMark"], out_type=tf.float32
+                    ),
+                    [15, 20, 2],
+                ),
+                "loss_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["loss_mask_penaltyMark"], out_type=tf.float32
+                    ),
+                    [15, 20],
+                ),
+            },
         }
 
     def _parse_function(example_proto):
