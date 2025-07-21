@@ -188,4 +188,4 @@ class RMSE(Error_Metric):
 
     def result(self):
         # Scale the RMSE back to m.
-        return (tf.sqrt(self.abs_error / self.num_samples) / self.scaling_factor)
+        return tf.sqrt(self.abs_error / self.num_samples) / self.scaling_factor
