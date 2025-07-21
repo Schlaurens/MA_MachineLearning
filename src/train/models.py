@@ -246,16 +246,27 @@ class FullModel(tf.keras.Model):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables, strict=True))
 
-        return {"loss": loss, "bce": bce, "mse": mse}
+        return {"loss": loss, "encoder_bce": encoder_bce, "encoder_mse": encoder_mse}
 
     def test_step(self, batch_data):
+        # TODO: remove duplicate code
         results, maps = self(
             (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True
         )  # calls call()
 
-        loss, mse, bce = self.encoder_loss(batch_data, maps)
+        encoder_losses = {
+            key: self.encoder_loss(batch_data[key], maps[key]) for key in self.categories
+        }
 
-        return {"loss": loss, "bce": bce, "mse": mse}
+        encoder_loss = tf.reduce_sum([value["loss"] for value in encoder_losses.values()])
+        encoder_bce = tf.reduce_sum([value["bce"] for value in encoder_losses.values()])
+        encoder_mse = tf.reduce_sum([value["mse"] for value in encoder_losses.values()])
+
+        loss = encoder_loss
+
+        # loss, mse, bce = self.encoder_loss(batch_data, maps)
+
+        return {"loss": loss, "encoder_bce": encoder_bce, "encoder_mse": encoder_mse}
 
     def call(self, batch_data, training=None):
         """
