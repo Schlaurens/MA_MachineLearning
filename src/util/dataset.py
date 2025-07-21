@@ -235,6 +235,7 @@ def _generate_loss_mask(objectness_mask):
     return inverted_obj_mask
 
 
+@tf.function(jit_compile=False)
 def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
     """Extract the image coordinates from the offset mask
 
