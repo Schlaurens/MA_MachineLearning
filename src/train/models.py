@@ -182,7 +182,36 @@ class FullModel(tf.keras.Model):
         # Total loss
         loss = tf.add(bce, mse)
 
-        return loss, mse, bce
+        return {"loss": loss, "mse": mse, "bce": bce}
+
+    def classifier_loss(self, batch_data, results):
+        # TODO: implement solution for multi-class problems with categorical crossentropy (like line crossings)
+        # Compute BinaryCrossEntropy / CategoricalCrossEntropy
+        y_pred = results["classification"]  # [B, n_candidates, 1]
+        coords_pred = results["coords"]  # [B, n_candidates, 2]
+        coords_true = tf.expand_dims(
+            u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
+        )  # [B, 1, 2]
+
+        # Match coords_pred with coords_true with a threshold and get one pair.
+        y_true = tf.constant([1.0, 0.0, 0.0, 0.0, 0.0], shape=(5,))
+        print(coords_true.shape)
+        bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, name="classifier_bce")(
+            y_true, y_pred
+        )
+
+        # Compute MeanSquaredError
+        positions_pred = results[
+            "positions"
+        ]  # coords that were predicted by the encoder corrected with offset from classifier
+
+        print(coords_true)
+
+        mse = tf.keras.losses.MeanSquaredError(name="classifier_mse")(coords_true, positions_pred)
+
+        loss = bce + mse
+
+        return {"loss": loss, "mse": mse, "bce": bce}
 
     def train_step(self, batch_data):
         with tf.GradientTape() as tape:
