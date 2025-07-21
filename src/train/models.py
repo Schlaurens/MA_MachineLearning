@@ -320,14 +320,6 @@ class FullModel(tf.keras.Model):
             patches,
             masks,
             boxes,
-            camera_rays,
-            camera_rotation,
-            rotated_camera_rays,
-            camera_height,
-            factors,
-            distances_in_camera,
-            positions_in_camera,
-            pixel_sizes,
             coords,
             intrinsics,
         ) = extractor(
@@ -339,18 +331,11 @@ class FullModel(tf.keras.Model):
         )  # + meta + context
         positions = coords + offsets  # TODO: stop gradient for coords?
 
-        return (
-            patches,
-            masks,
-            boxes,
-            camera_rays,
-            camera_rotation,
-            rotated_camera_rays,
-            camera_height,
-            factors,
-            distances_in_camera,
-            positions_in_camera,
-            pixel_sizes,
-            coords,
-            intrinsics,
-        )  # classification, positions, masks
+        return {
+            "patches": patches,
+            "masks": masks,
+            "boxes": boxes,
+            "coords": coords,
+            "classification": classification,
+            "positions": positions,
+        }
