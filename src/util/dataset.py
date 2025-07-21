@@ -255,7 +255,9 @@ def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
         return keras.ops.array((-1.0, -1.0))
 
     # Get the output dims from the offset_mask
-    output_dims = offset_mask.shape[:-1]
+    # output_dims = offset_mask.shape[:-1]
+    # TODO: dont hardcode it here
+    output_dims = (15, 20)
     scale = np.array(output_dims) / np.array(image_dims)
 
     # Scale the first offset_cell up
