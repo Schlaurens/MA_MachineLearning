@@ -33,7 +33,7 @@ def main():
 
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
-    model.compile(optimizer=tf.keras.optimizers.Adam())
+    model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
     model.fit(
         x=train_ds,
         validation_data=val_ds,
