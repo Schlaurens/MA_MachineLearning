@@ -297,6 +297,7 @@ def get_dataset(directory):
         "loss_mask_penaltyMark": tf.io.FixedLenFeature([], tf.string),
     }
 
+    @tf.function
     def _parse_tensor(serialized_tensor):
         """Parse the feature tensors using tf.io.parse_tensors
 
@@ -354,6 +355,7 @@ def get_dataset(directory):
             },
         }
 
+    @tf.function
     def _parse_function(example_proto):
         """Parse the given example using tf.io.parse_single_example
 
