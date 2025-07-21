@@ -334,8 +334,10 @@ class FullModel(tf.keras.Model):
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
 
-        # classification, offsets = classifier(tf.reshape(patches, (1*5, 32, 32, 4)))  # + meta + context
-        # positions = coords + offsets  # TODO: stop gradient for coords?
+        classification, offsets = classifier(
+            tf.reshape(patches, (1 * 5, 32, 32, 3))
+        )  # + meta + context
+        positions = coords + offsets  # TODO: stop gradient for coords?
 
         return (
             patches,
