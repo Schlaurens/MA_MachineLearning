@@ -85,7 +85,7 @@ class PatchExtractor(tf.keras.layers.Layer):
 
         # Rotate the camera rays with the rotation matrix
         rotated_camera_rays = tf.einsum(
-            "...ij,...j->...i", camera_rotation, camera_rays
+            "...ij,...nj->...ni", camera_rotation, camera_rays
         )  # [B, N, 3]
 
         # Calculate intersection point with ground

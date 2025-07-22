@@ -369,14 +369,12 @@ class FullModel(tf.keras.Model):
             tf.stack(tf.meshgrid(tf.range(res_out[1]), tf.range(res_out[0])), axis=-1),
             offsets.dtype,
         )
+
         # TODO: maybe do something about the shape here?
         coords = tf.reshape(
-            (offsets + pixels) * scale, (1, 20 * 15, 2)
+            (offsets + pixels) * scale, (-1, res_out[0] * res_out[1], 2)
         )  # Per cell one coordinate pair
-        logits = tf.reshape(logits, (1, 20 * 15))
-
-        # print("coords:", coords)
-        # print("logits:", logits)
+        logits = tf.reshape(logits, (-1, tf.reduce_prod(res_out)))
 
         # Gather n_candidates coordinates from the coordinate list
         patch_indices = sampler(logits)  # [B, N_out]
@@ -390,12 +388,15 @@ class FullModel(tf.keras.Model):
         ) = extractor(
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
-
         classification, offsets = classifier(
-            tf.reshape(patches, (1 * 5, 32, 32, 3))
+            tf.reshape(patches, (tf.shape(intrinsics)[0] * sampler.n_sample, *self.patch_size, 3))
         )  # + meta + context
-        positions = coords + offsets  # TODO: stop gradient for coords?
 
+        classification = tf.reshape(classification, (tf.shape(intrinsics)[0], sampler.n_sample))
+
+        positions = coords + tf.reshape(
+            offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)
+        )  # TODO: stop gradient for coords?
         return {
             "patches": patches,
             "masks": masks,
