@@ -127,6 +127,7 @@ class FullModel(tf.keras.Model):
     def __init__(self, height, width):
         super().__init__()  # Subclass of the Model class
         # Size of context vector
+        self.patch_size = (32, 32)
         self.n_context = 0
         self.n_meta = 0
         self.categories = {
