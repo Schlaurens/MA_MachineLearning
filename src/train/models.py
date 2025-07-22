@@ -183,6 +183,9 @@ class FullModel(tf.keras.Model):
 
         mse = tf.reduce_mean(squared_error_multiplied) * 10000
 
+        # tf.print("Squared Error: ", tf.shape(squared_error))
+        # tf.print("Squared Error multiplied: ", tf.shape(squared_error_multiplied))
+        # tf.print("MSE: ", tf.shape(mse))
         # Total loss
         loss = tf.add(bce, mse)
 
@@ -193,24 +196,28 @@ class FullModel(tf.keras.Model):
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
         y_pred = results["classification"]  # [B, n_candidates, 1]
         coords_pred = results["coords"]  # [B, n_candidates, 2]
+        # tf.print("Coords Pred: ", tf.shape(coords_pred))
         coords_true = tf.expand_dims(
             u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
         )  # [B, 1, 2]
 
         # Match coords_pred with coords_true with a threshold and get one pair.
-        y_true = tf.constant([1.0, 0.0, 0.0, 0.0, 0.0], shape=(5,))
-        print(coords_true.shape)
+        y_true = tf.zeros_like(y_pred, dtype=tf.float32)
+
+        # tf.print("Coords True: ", tf.shape(coords_true))
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, name="classifier_bce")(
             y_true, y_pred
         )
+        # tf.print("y_pred: ", tf.shape(y_pred))
+        # tf.print("y_true: ", tf.shape(y_true))
+        # tf.print("Classifier BCE: ", tf.shape(bce))
 
         # Compute MeanSquaredError
         positions_pred = results[
             "positions"
         ]  # coords that were predicted by the encoder corrected with offset from classifier
 
-        print(coords_true)
-
+        # tf.print("positions pred", tf.shape(positions_pred))
         mse = tf.keras.losses.MeanSquaredError(name="classifier_mse")(coords_true, positions_pred)
 
         loss = bce + mse
