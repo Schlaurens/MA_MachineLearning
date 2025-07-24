@@ -209,8 +209,10 @@ class FullModel(tf.keras.Model):
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, name="classifier_bce")(
             y_true, y_pred
         )
-        # tf.print("y_pred: ", tf.shape(y_pred))
-        # tf.print("y_true: ", tf.shape(y_true))
+
+        # tf.print("distances: ", distances)
+        # tf.print("y_pred: ", y_pred)
+        # tf.print("y_true: ", y_true)
         # tf.print("Classifier BCE: ", tf.shape(bce))
 
         # Compute MeanSquaredError
@@ -399,6 +401,8 @@ class FullModel(tf.keras.Model):
         ) = extractor(
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
+        tf.print(patches)
+        # tf.print(coords)
         classification, offsets = classifier(
             tf.reshape(patches, (tf.shape(intrinsics)[0] * sampler.n_sample, *self.patch_size, 3))
         )  # + meta + context
@@ -408,6 +412,13 @@ class FullModel(tf.keras.Model):
         positions = coords + tf.reshape(
             offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)
         )  # TODO: stop gradient for coords?
+
+        # tf.print(tf.shape(tf.reshape(offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2))))
+        # tf.print(tf.reshape(offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)))
+
+        # tf.print(tf.shape(classification))
+        # tf.print("After reshape: ", classification)
+
         return {
             "patches": patches,
             "masks": masks,
