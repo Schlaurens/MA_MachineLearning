@@ -272,7 +272,13 @@ class FullModel(tf.keras.Model):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables, strict=True))
 
-        return {"loss": loss, "encoder_bce": encoder_bce, "encoder_mse": encoder_mse}
+        return {
+            "loss": loss,
+            # "encoder_bce": encoder_bce,
+            "encoder_mse": encoder_mse,
+            "classifier_bce": classifier_bce,
+            "classifier_mse": classifier_mse,
+        }
 
     def test_step(self, batch_data):
         # TODO: remove duplicate code
