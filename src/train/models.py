@@ -195,18 +195,33 @@ class FullModel(tf.keras.Model):
     def classifier_loss(self, batch_data, results):
         # TODO: implement solution for multi-class problems with categorical crossentropy (like line crossings)
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
-        y_pred = results["classification"]  # [B, n_candidates, 1]
-        coords_pred = results["coords"]  # [B, n_candidates, 2]
+        y_pred = results["classification"]  # [B, N]
+        coords_pred = results["coords"]  # [B, N, 2]
+
         # tf.print("Coords Pred: ", tf.shape(coords_pred))
         coords_true = tf.expand_dims(
             u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
         )  # [B, 1, 2]
 
-        # Match coords_pred with coords_true with a threshold and get one pair.
-        y_true = tf.zeros_like(y_pred, dtype=tf.float32)
+        distances = tf.math.reduce_euclidean_norm(coords_pred - coords_true, axis=-1)
+        threshold = 50
 
-        # tf.print("Coords True: ", tf.shape(coords_true))
-        bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, name="classifier_bce")(
+        # Everywhere where coords_true is -1.0 also write -1.0 into distances. Thus for every image without an object, the distance from y_pred to y_true is -1.0.
+        distances = tf.where(
+            tf.math.equal(-1.0, coords_true[..., 0]),
+            tf.constant([-1], dtype=tf.float32),
+            distances,
+        )
+
+        # When the distance is inside the threshold and the distance is not -1.0, the groundtruth value for that candidate is 1.0. It is 0.0 in every other case.
+        y_true = tf.where(
+            tf.logical_and(distances <= threshold, distances != -1.0),
+            tf.constant([1.0], dtype=tf.float32),
+            tf.constant([0.0], dtype=tf.float32),
+        )  # [B, N]
+
+        # tf.print("Coords True: ", coords_true)
+        bce = tf.keras.losses.BinaryCrossentropy(from_logits=False, name="classifier_bce")(
             y_true, y_pred
         )
 
