@@ -272,7 +272,7 @@ class FullModel(tf.keras.Model):
             encoder_mse = tf.reduce_sum([value["mse"] for value in encoder_losses.values()])
             classifier_loss = tf.reduce_sum([value["loss"] for value in classifier_losses.values()])
             classifier_bce = tf.reduce_sum([value["bce"] for value in classifier_losses.values()])
-            classifier_mse = tf.reduce_sum([value["bce"] for value in classifier_losses.values()])
+            classifier_mse = tf.reduce_sum([value["mse"] for value in classifier_losses.values()])
 
             print("Encoder Loss: ", encoder_loss)
             print("Classifier Loss: ", classifier_loss)
