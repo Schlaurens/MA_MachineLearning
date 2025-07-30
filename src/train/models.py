@@ -134,9 +134,14 @@ class FullModel(tf.keras.Model):
         super().__init__()  # Subclass of the Model class
         # Size of context vector
         self.patch_size = (32, 32)
+        self.image_height = height
+        self.image_width = width
         self.patch_channels = 3
         self.n_context = 0
         self.n_meta = 0
+        self.full_image_size = tf.constant(
+            [self.image_height, self.image_width * 2], dtype=tf.float32
+        )  # constructor input image_width is halved due to YUYV
         self.categories = {
             "ball": {
                 "object_size": 0.175,
