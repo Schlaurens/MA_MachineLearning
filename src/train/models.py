@@ -435,8 +435,7 @@ class FullModel(tf.keras.Model):
         ) = extractor(
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
-        tf.print(patches)
-        # tf.print(coords)
+
         classification, offsets = classifier(
             tf.reshape(
                 patches,
@@ -449,12 +448,6 @@ class FullModel(tf.keras.Model):
         positions = coords + tf.reshape(
             offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)
         )  # TODO: stop gradient for coords?
-
-        # tf.print(tf.shape(tf.reshape(offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2))))
-        # tf.print(tf.reshape(offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)))
-
-        # tf.print(tf.shape(classification))
-        # tf.print("After reshape: ", classification)
 
         return {
             "patches": patches,
