@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from util import dataset as u_dataset
+from util import keypoint as u_keypoint
 
 from .layers import PatchExtractor, PatchSampler
 
@@ -210,15 +211,30 @@ class FullModel(tf.keras.Model):
         # TODO: implement solution for multi-class problems with categorical crossentropy (like line crossings)
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
         y_pred = results["classification"]  # [B, N]
-        coords_pred = results["coords"]  # [B, N, 2]
-
-        # tf.print("Coords Pred: ", tf.shape(coords_pred))
+        coords_pred = results["positions"]  # [B, N, 2]
         coords_true = tf.expand_dims(
             u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
         )  # [B, 1, 2]
 
-        distances = tf.math.reduce_euclidean_norm(coords_pred - coords_true, axis=-1)
-        threshold = 50
+        boxes = results["boxes"]  # [B, N, 4]
+
+        coords_true_normalized = coords_true / self.full_image_size[tf.newaxis, :]  # [B, N, 2]
+        coords_pred_normalized = coords_pred / self.full_image_size[tf.newaxis, :]  # [B, N, 2]
+        # TODO: test this with values
+        are_coords_true_inside_patch = u_keypoint.are_coords_in_patch(
+            coords_true_normalized, boxes
+        )  # [B, N]
+        are_coords_pred_inside_patch = u_keypoint.are_coords_in_patch(
+            coords_pred_normalized, boxes
+        )  # [B, N]
+
+        # tf.print("result: ", tf.shape(are_coords_true_inside_patch))
+        # tf.print(are_coords_true_inside_patch)
+
+        y_true = are_coords_true_inside_patch
+
+        # distances = tf.math.reduce_euclidean_norm(coords_pred - coords_true, axis=-1)  # [B, N]
+        threshold = 50.0
 
         # Everywhere where coords_true is -1.0 also write -1.0 into distances. Thus for every image without an object, the distance from y_pred to y_true is -1.0.
         distances = tf.where(
