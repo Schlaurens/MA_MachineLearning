@@ -250,7 +250,6 @@ class FullModel(tf.keras.Model):
         #     tf.constant([0.0], dtype=tf.float32),
         # )  # [B, N]
 
-        # tf.print("Coords True: ", coords_true)
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=False, name="classifier_bce")(
             y_true, y_pred
         )
