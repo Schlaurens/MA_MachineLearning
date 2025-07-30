@@ -101,15 +101,19 @@ def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, 
         context = tf.keras.layers.Input((n_context,))
         inputs += [n_context]
 
-    x = tf.keras.layers.Flatten()(image)
+    # x = tf.keras.layers.Flatten()(image)
+    x = image
     if n_meta > 0:
         x = tf.keras.layers.Concatenate()([image, meta])
-    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.Conv2D(32, 3, padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     if n_context > 0:
         x = tf.keras.layers.Concatenate()([image, context])
-    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.Conv2D(32, 3, padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
+    x = tf.keras.layers.Flatten()(x)
 
     if n_classes < 2:
         x = tf.keras.layers.Dense(1)(x)
