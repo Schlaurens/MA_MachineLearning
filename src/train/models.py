@@ -228,9 +228,6 @@ class FullModel(tf.keras.Model):
             coords_pred_normalized, boxes
         )  # [B, N]
 
-        # tf.print("result: ", tf.shape(are_coords_true_inside_patch))
-        # tf.print(are_coords_true_inside_patch)
-
         y_true = are_coords_true_inside_patch
 
         # Theoretical maximum error, distance between (0,0) and (max, max) of patch
@@ -258,12 +255,6 @@ class FullModel(tf.keras.Model):
         )  # [B, N]
 
         tf.print(squared_error)
-
-        # Compute MeanSquaredError
-        # coords that were predicted by the encoder corrected with offset from classifier
-        # squared_error = tf.keras.losses.MeanSquaredError(name="classifier_mse", reduction="none")(
-        #     coords_true, coords_pred
-        # )  # [B, N]
 
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
         squared_error_multiplied = squared_error * y_pred  # [B, N]
