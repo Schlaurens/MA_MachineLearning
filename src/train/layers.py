@@ -28,7 +28,7 @@ class PatchExtractor(tf.keras.layers.Layer):
         super().__init__(name=name, **kwargs)
         self.patch_size = tf.constant(patch_size, dtype=tf.int32)
         self.object_size = object_size
-        self.object_height = 0.5 * object_size
+        self.object_height = object_height
         self.interpolation = interpolation
 
     @staticmethod
