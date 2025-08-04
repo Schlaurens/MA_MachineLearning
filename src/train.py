@@ -1,3 +1,5 @@
+import datetime
+
 import tensorflow as tf
 
 from train.models import FullModel
@@ -5,6 +7,8 @@ from util import dataset as u_dataset
 
 
 def main():
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
     data = u_dataset.get_data_info(directory="/data/groundtruth")
     dataset = u_dataset.get_dataset(data["file_names"])
 
@@ -34,12 +38,17 @@ def main():
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+
+    log_dir = "logs/fit/" + timestamp
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
     model.fit(
         x=train_ds,
         validation_data=val_ds,
         epochs=epochs,
         steps_per_epoch=train_samples // batch_size,
         validation_steps=val_samples // batch_size,
+        callbacks=[tensorboard_callback],
     )
 
     return model
