@@ -41,8 +41,8 @@ class PatchExtractor(tf.keras.layers.Layer):
             [B, 3, 3]
         """
         angle = tf.math.reduce_euclidean_norm(camera[..., :2], axis=-1)
-        x = camera[..., 0] / angle
-        y = camera[..., 1] / angle
+        x = tf.math.divide_no_nan(camera[..., 0], angle)
+        y = tf.math.divide_no_nan(camera[..., 1], angle)
         c, s = tf.cos(angle), tf.sin(angle)
         return tf.stack(
             [
