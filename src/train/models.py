@@ -254,8 +254,6 @@ class FullModel(tf.keras.Model):
             ),  # If mask_for_mse AND mask_for_max_error are false, the object has to be outside of the patch and no valid offsets can be predicted, add 0 error.
         )  # [B, N]
 
-        tf.print(squared_error)
-
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
         squared_error_multiplied = squared_error * y_pred  # [B, N]
 
@@ -310,7 +308,6 @@ class FullModel(tf.keras.Model):
         }
 
     def test_step(self, batch_data):
-        # TODO: remove duplicate code
         results, maps = self(
             (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True
         )  # calls call()
