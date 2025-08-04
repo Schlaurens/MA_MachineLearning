@@ -6,6 +6,14 @@ from train.models import FullModel
 from util import dataset as u_dataset
 
 
+def save_models(model, timestamp: str) -> None:
+    # Save Encoder
+    model.get_layer("encoder").save(f"models/encoder/encoder_{timestamp}.keras")
+
+    # Save Classifier
+    model.get_layer("classifier").save(f"models/classifier/classifier_{timestamp}.keras")
+
+
 def main():
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -51,7 +59,9 @@ def main():
         callbacks=[tensorboard_callback],
     )
 
-    return model
+    save_models(model, timestamp)
+
+    return
 
 
 if __name__ == "__main__":
