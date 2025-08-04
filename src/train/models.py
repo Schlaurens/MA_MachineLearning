@@ -233,22 +233,8 @@ class FullModel(tf.keras.Model):
 
         y_true = are_coords_true_inside_patch
 
-        # distances = tf.math.reduce_euclidean_norm(coords_pred - coords_true, axis=-1)  # [B, N]
-        threshold = 50.0
-
-        # Everywhere where coords_true is -1.0 also write -1.0 into distances. Thus for every image without an object, the distance from y_pred to y_true is -1.0.
-        # distances = tf.where(
-        #     tf.math.equal(-1.0, coords_true[..., 0]),
-        #     tf.constant([-1], dtype=tf.float32),
-        #     distances,
-        # )
-
-        # When the distance is inside the threshold and the distance is not -1.0, the groundtruth value for that candidate is 1.0. It is 0.0 in every other case.
-        # y_true = tf.where(
-        #     tf.logical_and(distances <= threshold, distances != -1.0),
-        #     tf.constant([1.0], dtype=tf.float32),
-        #     tf.constant([0.0], dtype=tf.float32),
-        # )  # [B, N]
+        # Theoretical maximum error, distance between (0,0) and (max, max) of patch
+        max_error = tf.norm(tf.cast(self.patch_size, dtype=tf.float32))
 
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=False, name="classifier_bce")(
             y_true, y_pred
