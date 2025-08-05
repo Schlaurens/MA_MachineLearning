@@ -14,15 +14,10 @@ def save_models(model, timestamp: str) -> None:
     model.get_layer("classifier").save(f"models/classifier/classifier_{timestamp}.keras")
 
 
-def main():
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-
+def load_datasets(validation_split=0.3, batch_size=32):
     data = u_dataset.get_data_info(directory="/data/groundtruth")
     dataset = u_dataset.get_dataset(data["file_names"])
 
-    epochs = 200
-    validation_split = 0.3
-    batch_size = 32
     num_samples = num_samples = data["num_samples"]
     train_samples = round(num_samples * (1 - validation_split))
     val_samples = round(num_samples * validation_split)
@@ -43,6 +38,22 @@ def main():
     train_ds = train_ds.repeat(-1)
     val_ds = val_ds.repeat(-1)
 
+    return {
+        "train_ds": train_ds,
+        "val_ds": val_ds,
+        "train_samples": train_samples,
+        "val_samples": val_samples,
+    }
+
+
+def main():
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    epochs = 200
+    validation_split = 0.3
+    batch_size = 32
+
+    dataset = load_datasets(validation_split, batch_size)
+
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
@@ -51,11 +62,11 @@ def main():
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     # TODO: Checkpoint callback
     model.fit(
-        x=train_ds,
-        validation_data=val_ds,
+        x=dataset["train_ds"],
+        validation_data=dataset["val_ds"],
         epochs=epochs,
-        steps_per_epoch=train_samples // batch_size,
-        validation_steps=val_samples // batch_size,
+        steps_per_epoch=dataset["train_samples"] // batch_size,
+        validation_steps=dataset["val_samples"] // batch_size,
         callbacks=[tensorboard_callback],
     )
 
