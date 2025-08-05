@@ -8,3 +8,4 @@ data/*
 *.tfrecords
 *.keras
 logs/*
+checkpoints/*
