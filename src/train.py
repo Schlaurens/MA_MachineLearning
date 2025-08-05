@@ -88,6 +88,7 @@ def main():
         steps_per_epoch=dataset["train_samples"] // batch_size,
         validation_steps=dataset["val_samples"] // batch_size,
         callbacks=callbacks,
+        verbose=0,
     )
 
     save_models(model, timestamp)
