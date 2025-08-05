@@ -27,7 +27,11 @@ def get_callbacks(timestamp: str):
         verbose=1,
     )
 
-    return [tensorboard_callback, checkpoint_callback]
+    csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
+
+    # TODO: Implement Reduce Learning Rate on Plateau callback
+
+    return [tensorboard_callback, checkpoint_callback, csv_logger]
 
 
 def load_datasets(validation_split=0.3, batch_size=32):
