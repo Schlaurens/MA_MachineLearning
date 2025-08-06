@@ -76,7 +76,9 @@ class PatchExtractor(tf.keras.layers.Layer):
         camera_rays = tf.concat(
             [
                 tf.ones_like(coords[..., :1]),
-                tf.math.divide_no_nan((intrinsics[..., tf.newaxis, :2] - coords), intrinsics[..., tf.newaxis, 2:]),
+                tf.math.divide_no_nan(
+                    (intrinsics[..., tf.newaxis, :2] - coords), intrinsics[..., tf.newaxis, 2:]
+                ),
             ],
             -1,
         )  # [B, N, 3]
@@ -99,8 +101,8 @@ class PatchExtractor(tf.keras.layers.Layer):
         masks = factors > 0  # [B, N]
         positions_in_camera = factors[..., tf.newaxis] * rotated_camera_rays  # [B, N, 3]
         distances_in_camera = tf.math.reduce_euclidean_norm(positions_in_camera, axis=-1)  # [B, N]
-        pixel_sizes = (
-            tf.math.divide_no_nan(self.object_size * tf.expand_dims(intrinsics[..., 2], -1), distances_in_camera)
+        pixel_sizes = tf.math.divide_no_nan(
+            self.object_size * tf.expand_dims(intrinsics[..., 2], -1), distances_in_camera
         )  # [B, N]
 
         # Calculate bounding boxes (TODO: margin in pixels).
@@ -124,14 +126,12 @@ class PatchExtractor(tf.keras.layers.Layer):
         boxes = tf.reshape(boxes, (-1, 4))
         box_indices = tf.repeat(tf.range(tf.shape(coords)[0]), tf.shape(coords)[1])
 
-        
-        
         boxes_no_nan = tf.where(tf.math.is_nan(boxes), 0.0, boxes)
-        
+
         # if tf.reduce_any(tf.math.is_nan(boxes)):
         #     tf.print("Boxes with nan: ", boxes)
         #     tf.print("Boxes_no_nan: ", boxes_no_nan)
-        
+
         # Extract patches from image
         patches = tf.image.crop_and_resize(
             image,
