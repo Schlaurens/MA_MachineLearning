@@ -303,8 +303,10 @@ class FullModel(tf.keras.Model):
             "total_loss": total_loss,
             "encoder_bce": losses["encoder_bce"],
             "encoder_mse": losses["encoder_mse"],
+            "encoder_loss": losses["encoder_loss"],
             "classifier_bce": losses["classifier_bce"],
             "classifier_mse": losses["classifier_mse"],
+            "classifier_loss": losses["classifier_loss"],
         }
 
     def test_step(self, batch_data):
@@ -314,14 +316,14 @@ class FullModel(tf.keras.Model):
 
         losses = self._calculate_losses(batch_data, results, maps)
 
-        total_loss = losses["encoder_loss"] + losses["classifier_loss"]
-
         return {
-            "total_loss": total_loss,
+            "total_loss": losses["encoder_loss"] + losses["classifier_loss"],
             "encoder_bce": losses["encoder_bce"],
             "encoder_mse": losses["encoder_mse"],
+            "encoder_loss": losses["encoder_loss"],
             "classifier_bce": losses["classifier_bce"],
             "classifier_mse": losses["classifier_mse"],
+            "classifier_loss": losses["classifier_loss"],
         }
 
     def call(self, batch_data, training=None):
