@@ -241,20 +241,18 @@ class FullModel(tf.keras.Model):
         )
 
         # if coords_pred point outside of the patch but invalid offsets were predicted, add max error.
-        mask_for_max_error = tf.logical_and(
-            are_coords_true_inside_patch,
-            tf.logical_not(are_coords_pred_inside_patch),  # [B, N]
-        )
-        mask_for_mse = tf.logical_and(
-            are_coords_true_inside_patch, are_coords_true_inside_patch
-        )  # [B, N]
+        # mask_for_max_error = tf.logical_and(
+        #     are_coords_true_inside_patch,
+        #     tf.logical_not(are_coords_pred_inside_patch),  # [B, N]
+        # )
+        # mask_for_mse = tf.logical_and(are_coords_true_inside_patch)  # [B, N]
 
         squared_error = tf.where(
-            mask_for_mse,
+            are_coords_true_inside_patch,
             tf.reduce_sum(tf.square(coords_pred - coords_true), axis=-1),
-            tf.where(
-                mask_for_max_error, max_error**2, 0.0
-            ),  # If mask_for_mse AND mask_for_max_error are false, the object has to be outside of the patch and no valid offsets can be predicted, add 0 error.
+            tf.square(
+                max_error
+            ), # If coords_true are inside the patch always calculate the MSE. Else the classifier's offset predictions are useless and should be ignored. Assign a constant max error that has gradient of zero.
         )  # [B, N]
 
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
