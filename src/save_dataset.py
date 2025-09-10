@@ -11,7 +11,6 @@ from util import dataset as u_dataset
 
 def write_file(directory):
     # Load the dataset
-    # TODO: must be divisible by 32
     labels = u_dataset.load_labels(directory)
     print("Dataset loaded.")
 
