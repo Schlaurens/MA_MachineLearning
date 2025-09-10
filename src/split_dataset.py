@@ -53,7 +53,10 @@ def write_file(directory, val_split=0.2, test_split=0.15):
 
     # Write .tfrecords files
     print("Writing Train Dataset...")
-    train_ds_file = directory + f"train_ds_{data['train_samples']}.tfrecords"
+    train_ds_file = (
+        directory
+        + f"train_ds_{data['train_samples']}({round(1 - test_split - val_split, 2)}).tfrecords"
+    )
     with tf.io.TFRecordWriter(train_ds_file) as writer:
         for sample in data["train_ds"]:
             example = u_dataset.make_example_from_sample(sample)
