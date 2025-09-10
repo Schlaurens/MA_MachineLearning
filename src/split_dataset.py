@@ -23,7 +23,7 @@ def load_data(val_split, test_split):
     num_samples = data["num_samples"]
     train_samples = round(num_samples * (1 - val_split - test_split))
     val_samples = round(num_samples * val_split)
-    test_samples = round(num_samples * test_split)
+    test_samples = round(num_samples - train_samples - val_samples)
 
     print("Number of samples: ", num_samples)
     print("Train Size: ", train_samples)
