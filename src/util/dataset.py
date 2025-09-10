@@ -511,3 +511,98 @@ def make_example(directory, label):
     # print(example)
 
     return example
+
+
+def make_example_from_sample(sample):
+    """Generate a Tensorflow example for a given data sample. Tensorflow examples are used to serialize data into .tfrecords files.
+
+    Args:
+        sample: the sample that is to be serialized. The samples already contains all the data that is needed for training
+
+    Returns:
+        instance of tf.Example
+    """
+
+    image_feature = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["image"]).numpy(),
+            ]
+        )
+    )
+    camera_feature = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["camera"]).numpy(),
+            ]
+        )
+    )
+    intrinsics_feature = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["intrinsics"]).numpy(),
+            ]
+        )
+    )
+    object_feature_ball = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["ball"]["object_mask"]).numpy(),
+            ]
+        )
+    )
+    offset_feature_ball = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["ball"]["offset_mask"]).numpy(),
+            ]
+        )
+    )
+    loss_mask_feature_ball = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["ball"]["loss_mask"]).numpy(),
+            ]
+        )
+    )
+    object_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["object_mask"]).numpy(),
+            ]
+        )
+    )
+    offset_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["offset_mask"]).numpy(),
+            ]
+        )
+    )
+    loss_mask_feature_penaltyMark = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["loss_mask"]).numpy(),
+            ]
+        )
+    )
+
+    # Create a Features dictionary
+    features = tf.train.Features(
+        feature={
+            "image": image_feature,
+            "camera": camera_feature,
+            "intrinsics": intrinsics_feature,
+            "object_ball": object_feature_ball,
+            "offsets_ball": offset_feature_ball,
+            "loss_mask_ball": loss_mask_feature_ball,
+            "object_penaltyMark": object_feature_penaltyMark,
+            "offsets_penaltyMark": offset_feature_penaltyMark,
+            "loss_mask_penaltyMark": loss_mask_feature_penaltyMark,
+        }
+    )
+
+    example = tf.train.Example(features=features)
+    # print(example)
+
+    return example
