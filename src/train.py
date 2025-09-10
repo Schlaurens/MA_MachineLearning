@@ -94,6 +94,17 @@ def main():
     model = FullModel(480, 320)
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
+    # ==== When continuing training ====
+
+    # timestamp = ""
+    # model.build(input_shape=(480, 320, 4))
+
+    # ==== To load a checkpoint ====
+    # model.load_weights("checkpoints/")
+
+    # ===== To use a pretrained encoder ====
+    # model.encoder.load_weights("models/encoder/")
+
     callbacks = get_callbacks(timestamp)
 
     model.fit(
@@ -104,6 +115,7 @@ def main():
         validation_steps=dataset["val_samples"] // batch_size,
         callbacks=callbacks,
         verbose=0,
+        initial_epoch=0,  # <---- Change when continuing from checkpoint
     )
 
     save_models(model, timestamp)
