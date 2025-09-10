@@ -394,6 +394,7 @@ def get_data_info(directory="data"):
 
     return {"file_names": file_names, "num_samples": num_samples}
 
+
 def make_example(directory, label):
     """Generate a Tensorflow example for a given data label. Tensorflow examples are used to serialize data into .tfrecords files.
 
@@ -413,9 +414,7 @@ def make_example(directory, label):
                 tf.io.serialize_tensor(
                     tf.reshape(
                         tf.constant(
-                            load_image(
-                                directory, label, image_format=u_image.ImageFormat.YUYV
-                            )
+                            load_image(directory, label, image_format=u_image.ImageFormat.YUYV)
                         ),
                         (480, 320, 4),
                     )
