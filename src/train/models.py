@@ -194,7 +194,26 @@ class FullModel(tf.keras.Model):
             batch_data["object_mask"] * tf.math.log(maps[..., 2] + epsilon)
             + (1.0 - batch_data["object_mask"]) * tf.math.log(1.0 - maps[..., 2] + epsilon)
         )
+        tf.debugging.assert_non_negative(maps[..., 2], "maps[..., 2] is negative")
+        tf.debugging.assert_all_finite(tf.math.log(epsilon), "tf.math.log(epsilon)")
+        tf.debugging.assert_all_finite(
+            tf.math.log(maps[..., 2] + epsilon), "tf.math.log(maps[..., 2] + epsilon)"
+        )
+        tf.debugging.assert_none_equal(1.0 - maps[..., 2] + epsilon, 0.0, message="equals 0.0")
+        tf.debugging.assert_all_finite(
+            tf.math.log(1.0 - maps[..., 2] + epsilon), "tf.math.log(1.0 - maps[..., 2] + epsilon"
+        )
+        tf.debugging.assert_all_finite(batch_data["object_mask"], "batch_data[object_mask]")
+        tf.debugging.assert_all_finite(
+            (1.0 - batch_data["object_mask"]), "(1.0 - batch_data[object_mask])"
+        )
+
+        tf.debugging.assert_all_finite(element_wise_bce, "element_wise_bce")
         element_wise_bce_multiplied = tf.multiply(element_wise_bce, batch_data["loss_mask"])
+
+        tf.debugging.assert_all_finite(batch_data["loss_mask"], "batch_data[loss_mask]")
+        tf.debugging.assert_all_finite(element_wise_bce_multiplied, "element_wise_bce_multiplied")
+
         bce = tf.reduce_sum(element_wise_bce_multiplied)
 
         # Compute MSE
@@ -204,6 +223,8 @@ class FullModel(tf.keras.Model):
         squared_error_multiplied = tf.multiply(squared_error, batch_data["object_mask"])
 
         mse = tf.reduce_mean(squared_error_multiplied) * 10000
+        tf.debugging.assert_all_finite(bce, "encoder BCE")
+        tf.debugging.assert_all_finite(mse, "encoder mse")
 
         # Total loss
         loss = bce + mse
@@ -240,6 +261,8 @@ class FullModel(tf.keras.Model):
             y_true, y_pred
         )
 
+        tf.debugging.assert_all_finite(bce, "Classifier BCE")
+
         # if coords_pred point outside of the patch but invalid offsets were predicted, add max error.
         # mask_for_max_error = tf.logical_and(
         #     are_coords_true_inside_patch,
@@ -259,6 +282,7 @@ class FullModel(tf.keras.Model):
         squared_error_multiplied = squared_error * y_pred  # [B, N]
 
         mse = tf.reduce_mean(squared_error_multiplied)
+        tf.debugging.assert_all_finite(mse, "Classifier MSE")
 
         loss = bce + mse
 
