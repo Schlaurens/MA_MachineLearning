@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 
 from util import dataset as u_dataset
