@@ -327,6 +327,55 @@ class FullModel(tf.keras.Model):
             "classifier_loss": losses["classifier_loss"],
         }
 
+    def save(self, filepath, timestamp, overwrite=True, **kwargs):
+        # Create a directory for the model
+        # TODO: makedirs for subfolders
+        os.makedirs(filepath, exist_ok=True)
+
+        # Save the encoder
+        encoder_path = os.path.join(filepath, "encoder", f"encoder_{timestamp}.keras")
+
+        self.get_layer("encoder").save(encoder_path, overwrite)
+
+        print("Encoder saved!")
+        # Save the classifier of each category
+        for name, value in self.categories.items():
+            classifier_path = os.path.join(
+                filepath, "classifier", f"{name}", f"classifier_{timestamp}.keras"
+            )
+            value["classifier"].save(classifier_path, overwrite)
+            print(f"{name.capitalize()}-Classifier saved!")
+
+        print("Saving complete!")
+
+    @classmethod
+    def load(cls, input_dims, filepath, timestamp, encoder_only=False, **kwargs):
+        # Rebuild model
+        model = cls(*input_dims)
+
+        # Load the encoder
+        encoder = tf.keras.models.load_model(
+            os.path.join(filepath, "encoder", f"encoder_{timestamp}.keras")
+        )
+        model.encoder = encoder
+        print("Encoder loaded!")
+
+        # Load each classifier
+        if not encoder_only:
+            for name, value in model.categories.items():
+                try:
+                    classifier_path = os.path.join(
+                        filepath, "classifier", name, f"classifier_{timestamp}.keras"
+                    )
+                    classifier = tf.keras.models.load_model(classifier_path)
+                    value["classifier"] = classifier
+                    print(f"{name.capitalize()}-Classifier loaded!")
+                except Exception as e:
+                    print(f"Failed to load {name.capitalize()}-Classifier: {e}")
+
+        print("Loading complete!")
+        return model
+
     @tf.function
     def call(self, batch_data, training=None):
         """
