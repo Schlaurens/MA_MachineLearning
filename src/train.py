@@ -75,23 +75,34 @@ def main():
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     epochs = 200
     batch_size = 32
+    epoch = 0  # < change when continuing training
+    model_input_dims = (480, 320)
 
     dataset = load_datasets(batch_size)
 
     # Upper camera dimensions. Width is halved because of YUYV format
-    model = FullModel(480, 320)
+    model = FullModel(*model_input_dims)
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
-    # ==== When continuing training ====
-
+    # ==== When loading a checkpoint ====
     # timestamp = ""
-    # model.build(input_shape=(480, 320, 4))
-
-    # ==== To load a checkpoint ====
-    # model.load_weights("checkpoints/")
-
-    # ===== To use a pretrained encoder ====
-    # model.encoder.load_weights("models/encoder/")
+    # model = FullModel.load(
+    #     input_dims=model_input_dims,
+    #     filepath=f"checkpoints/{timestamp}",
+    #     filename=f"epoch_{epoch}.keras",
+    #     encoder_only=False,  # < when only loading the encoder
+    #     verbose=True,
+    # )
+    
+    # ==== When loading from models ====
+    model_timestamp = "20250915-105208"
+    model = FullModel.load(
+        input_dims=model_input_dims,
+        filepath="models",
+        filename=f"{model_timestamp}.keras",
+        encoder_only=True,  # < when only loading the encoder
+        verbose=True,
+    )
 
     callbacks = get_callbacks(timestamp)
 
@@ -103,7 +114,7 @@ def main():
         validation_steps=dataset["val_samples"] // batch_size,
         callbacks=callbacks,
         verbose=0,
-        initial_epoch=0,  # <---- Change when continuing from checkpoint
+        initial_epoch=epoch,
     )
 
     model.save("models", f"{timestamp}")
