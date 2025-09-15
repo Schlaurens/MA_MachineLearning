@@ -4,6 +4,7 @@ import glob
 import tensorflow as tf
 
 from train.models import FullModel
+from util import callbacks as u_callbacks
 from util import dataset as u_dataset
 
 
