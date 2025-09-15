@@ -105,7 +105,7 @@ def main():
         initial_epoch=0,  # <---- Change when continuing from checkpoint
     )
 
-    save_models(model, timestamp)
+    model.save("models", f"{timestamp}")
 
     return
 
