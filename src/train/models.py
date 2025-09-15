@@ -380,31 +380,37 @@ class FullModel(tf.keras.Model):
             print("Saving complete!")
 
     @classmethod
-    def load(cls, input_dims, filepath, timestamp, encoder_only=False, **kwargs):
+    def load(cls, input_dims, filepath, filename, encoder_only=False, verbose=False, **kwargs):
         # Rebuild model
         model = cls(*input_dims)
 
         # Load the encoder
-        encoder = tf.keras.models.load_model(
-            os.path.join(filepath, "encoder", f"encoder_{timestamp}.keras")
-        )
+        encoder = tf.keras.models.load_model(os.path.join(filepath, "encoder", f"{filename}"))
         model.encoder = encoder
-        print("Encoder loaded!")
+
+        if verbose:
+            print("Encoder loaded!")
 
         # Load each classifier
         if not encoder_only:
             for name, value in model.categories.items():
                 try:
-                    classifier_path = os.path.join(
-                        filepath, "classifier", name, f"classifier_{timestamp}.keras"
-                    )
+                    classifier_path = os.path.join(filepath, "classifier", name, f"{filename}")
                     classifier = tf.keras.models.load_model(classifier_path)
                     value["classifier"] = classifier
-                    print(f"{name.capitalize()}-Classifier loaded!")
-                except Exception as e:
-                    print(f"Failed to load {name.capitalize()}-Classifier: {e}")
 
-        print("Loading complete!")
+                    if verbose:
+                        print(f"{name.capitalize()}-Classifier loaded!")
+                except Exception as e:
+                    if verbose:
+                        print(f"Failed to load {name.capitalize()}-Classifier: {e}")
+
+        # If only the encoder is loaded, the model needs to be compiled again for training.
+        if encoder_only:
+            model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+
+        if verbose:
+            print("Loading complete!")
         return model
 
     @tf.function
