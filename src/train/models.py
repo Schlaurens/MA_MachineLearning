@@ -353,26 +353,31 @@ class FullModel(tf.keras.Model):
             "classifier_loss": losses["classifier_loss"],
         }
 
-    def save(self, filepath, timestamp, overwrite=True, **kwargs):
-        # Create a directory for the model
-        # TODO: makedirs for subfolders
-        os.makedirs(filepath, exist_ok=True)
+    def save(self, filepath, filename, overwrite=True, verbose=False, **kwargs):
+        # Create a directory for the encoder
+        os.makedirs(os.path.join(filepath, "encoder"), exist_ok=True)
 
         # Save the encoder
-        encoder_path = os.path.join(filepath, "encoder", f"encoder_{timestamp}.keras")
+        encoder_path = os.path.join(filepath, "encoder", f"{filename}.keras")
 
         self.get_layer("encoder").save(encoder_path, overwrite)
 
-        print("Encoder saved!")
+        if verbose:
+            print("Encoder saved!")
+
         # Save the classifier of each category
         for name, value in self.categories.items():
-            classifier_path = os.path.join(
-                filepath, "classifier", f"{name}", f"classifier_{timestamp}.keras"
-            )
-            value["classifier"].save(classifier_path, overwrite)
-            print(f"{name.capitalize()}-Classifier saved!")
+            # Create directory if it does not exist.
+            os.makedirs(os.path.join(filepath, "classifier", name), exist_ok=True)
 
-        print("Saving complete!")
+            classifier_path = os.path.join(filepath, "classifier", name, f"{filename}.keras")
+            value["classifier"].save(classifier_path, overwrite)
+
+            if verbose:
+                print(f"{name.capitalize()}-Classifier saved!")
+
+        if verbose:
+            print("Saving complete!")
 
     @classmethod
     def load(cls, input_dims, filepath, timestamp, encoder_only=False, **kwargs):
