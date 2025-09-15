@@ -12,13 +12,8 @@ def get_callbacks(timestamp: str):
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        filepath=f"checkpoints/{timestamp}/checkpoint-" + "{epoch:03d}.weights.h5",
-        save_weights_only=True,
-        monitor="val_total_loss",
-        mode="min",
-        save_best_only=False,
-        verbose=0,
+    checkpoint_callback = u_callbacks.CustomCheckpointCallback(
+        filepath=f"checkpoints/{timestamp}", overwrite=True, verbose=False
     )
 
     csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
