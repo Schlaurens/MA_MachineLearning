@@ -20,7 +20,7 @@ def get_callbacks(timestamp: str):
     csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor="val_total_loss", mode="min", factor=0.2, patience=10, min_lr=0.0
+        monitor="val_total_loss", mode="min", factor=0.2, patience=15, min_lr=0.0
     )
 
     # Stop training when no improvement has happened
