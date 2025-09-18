@@ -198,8 +198,7 @@ def show_patches_on_image(image, label, results):
 
     # Draw image with patches on top of it
     _, axes = plt.subplots()
-    print(image.shape)
-    axes.imshow(image / 255)
+    axes.imshow(image[..., 0] / 255, cmap="gray")
 
     for i, box in enumerate(results[label]["boxes"][0]):  # take index 0 to remove batch dimension
         # Coordinates for each box are y1, x1, y2, x2
