@@ -395,6 +395,42 @@ def get_data_info(directory="data"):
     return {"file_names": file_names, "num_samples": num_samples}
 
 
+def get_sample_at_index(batched_data, index, keep_batch=True):
+    """Extracts the element at the given index from batched data, handling any number of object types. Leave the batch dimension intact
+
+    Args:
+        batched_data: one batched of the dataset
+        index: the index of the sample in the batch that is to be returned
+        keep_batch: Whether the batch dimension should be preserved. Defaults to True
+    """
+
+    def maybe_batch_dim(tensor):
+        """If keep_batch=True take element at index and preserve batch dimension. If keep_batch=False do not add batch dimension"""
+        element = tensor[index]
+        return tf.expand_dims(element, axis=0) if keep_batch else element
+
+    result = {
+        "image": maybe_batch_dim(batched_data["image"]),
+        "camera": maybe_batch_dim(batched_data["camera"]),
+        "intrinsics": maybe_batch_dim(batched_data["intrinsics"]),
+    }
+
+    # Dynamically handle the object categories
+    result.update(
+        {
+            category: {
+                "object_mask": maybe_batch_dim(batched_data[category]["object_mask"]),
+                "offset_mask": maybe_batch_dim(batched_data[category]["offset_mask"]),
+                "loss_mask": maybe_batch_dim(batched_data[category]["loss_mask"]),
+            }
+            for category in batched_data
+            if category not in ["image", "camera", "intrinsics"]  # Skip non-object fields
+        }
+    )
+
+    return result
+
+
 def make_example(directory, label):
     """Generate a Tensorflow example for a given data label. Tensorflow examples are used to serialize data into .tfrecords files.
 
