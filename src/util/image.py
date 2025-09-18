@@ -194,16 +194,17 @@ def show_patches_on_image(image, label, results):
 
     """
     image_res = image.shape[0:-1]
-    num_candidates = results[label][0].shape[1]
+    num_candidates = results[label]["patches"].shape[1]
 
     # Draw image with patches on top of it
     _, axes = plt.subplots()
     print(image.shape)
     axes.imshow(image / 255)
 
-    for i, box in enumerate(results[label][2]):
+    for i, box in enumerate(results[label]["boxes"][0]):  # take index 0 to remove batch dimension
         # Coordinates for each box are y1, x1, y2, x2
         # Upscale the normalized coordinates
+
         coords = (box[1] * (image_res[1] - 1), box[0] * (image_res[0] - 1))
         width = (box[3] - box[1]) * (image_res[1] - 1)
         height = (box[2] - box[0]) * (image_res[0] - 1)
@@ -224,10 +225,10 @@ def show_patches_on_image(image, label, results):
 
     # Draw the patch candidates in separate plots
     _, axes = plt.subplots(num_candidates)
-    axes[0].imshow(results[label][0][0, 0, ..., 0].numpy() / 255, cmap="gray")
-    axes[1].imshow(results[label][0][0, 1, ..., 0].numpy() / 255, cmap="gray")
-    axes[2].imshow(results[label][0][0, 2, ..., 0].numpy() / 255, cmap="gray")
-    axes[3].imshow(results[label][0][0, 3, ..., 0].numpy() / 255, cmap="gray")
-    axes[4].imshow(results[label][0][0, 4, ..., 0].numpy() / 255, cmap="gray")
+    axes[0].imshow(results[label]["patches"][0, 0, ..., 0].numpy() / 255, cmap="gray")
+    axes[1].imshow(results[label]["patches"][0, 1, ..., 0].numpy() / 255, cmap="gray")
+    axes[2].imshow(results[label]["patches"][0, 2, ..., 0].numpy() / 255, cmap="gray")
+    axes[3].imshow(results[label]["patches"][0, 3, ..., 0].numpy() / 255, cmap="gray")
+    axes[4].imshow(results[label]["patches"][0, 4, ..., 0].numpy() / 255, cmap="gray")
 
     plt.show()
