@@ -2,6 +2,7 @@ from enum import Enum
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 import turbojpeg
 from matplotlib import patches
 from PIL import Image
@@ -38,6 +39,52 @@ def convert_yuv_to_rgb(image):
     assert len(image.shape) == 3
     assert image.shape[2] == 3
     return np.asarray(Image.fromarray(image, "YCbCr").convert("RGB"))
+
+
+def convert_yuyv_to_yuv(image):
+    """Convert an image from YUYV to YUV. The image in the YUYV format has the has the dimensions [H, W/2, 4] due to horizontal chroma subsampling (YUV 422). The converted image with the dimensions [H, W, 3] has more elements but can be illustrated better.
+
+    Args:
+        image: image in YUYV format. [..., H, W/2, 4]
+
+    Returns:
+        image in YUV format. [..., H, W, 3]
+    """
+    # Stack the the image along the channel dimensions in order to go from YUYV to Y1UVY2UV. Then reshape it to [..., H_in, W_in*2, 3]
+    image_yuv_stack = tf.stack(
+        [
+            image[..., 0],
+            image[..., 1],
+            image[..., 3],
+            image[..., 2],
+            image[..., 1],
+            image[..., 3],
+        ],
+        axis=-1,
+    )
+
+    shape = tf.shape(image)
+
+    # Calculate the output shape dynamically
+    # If the rank is 3, the output shape is [H, W*2, 3]
+    # If the rank is 4, the output shape is [B, H, W*2, 3]
+    output_shape = tf.concat(
+        [
+            shape[:-2],  # Keep all dimensions except the last two
+            [
+                # shape[-3],
+                shape[-2] * 2,
+                3,
+            ],  # Reshape the last two dimensions to [H, W*2, 3] or [B, H, W*2, 3]
+        ],
+        axis=0,
+    )
+
+    image_yuv = tf.reshape(
+        image_yuv_stack, output_shape
+    )  # [B, H_in, W_in*2, 3] or [H_in, W_in*2, 3]
+
+    return image_yuv
 
 
 def load_bhuman_jpeg_image(data, image_format=ImageFormat.GRAYSCALE):
