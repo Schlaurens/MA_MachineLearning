@@ -3,6 +3,7 @@ import os
 import tensorflow as tf
 
 from util import dataset as u_dataset
+from util import image as u_image
 from util import keypoint as u_keypoint
 
 from .layers import PatchExtractor, PatchSampler
@@ -417,7 +418,7 @@ class FullModel(tf.keras.Model):
     def call(self, batch_data, training=None):
         """
         Args:
-            image: The full resolution image from which the patches are extracted. [B, H_in, W_in, C]
+            image: The image (yuyv) from which the patches are extracted. [B, H_in, W_in/2, C]
             camera: The pose of the camera, represented as (roll angle, pitch angle, height above ground) [B, 3]
             intrinsics: The intrisics of the camera, represented as (cx, cy, fx, fy) [B, 4]
 
@@ -436,22 +437,8 @@ class FullModel(tf.keras.Model):
             maps = {
                 self.encoder.output_names[0]: maps
             }  # [B, H_out, W_out, 3] Encoder results for the first category
-        # Convert YUYV to YUV
-        # Stack the the image along the channel dimensions in order to go from YUYV to Y1UVY2UV. Then reshape it to [B, H_in, W_in/2, 3]
-        image_yuv_stack = tf.stack(
-            [
-                image[..., 0],
-                image[..., 1],
-                image[..., 3],
-                image[..., 2],
-                image[..., 1],
-                image[..., 3],
-            ],
-            axis=-1,
-        )
-        image_yuv = tf.reshape(
-            image_yuv_stack, (tf.shape(image)[0], tf.shape(image)[1], tf.shape(image)[2] * 2, 3)
-        )  # [B, H_in, W_in*2, 3]
+
+        image_yuv = u_image.convert_yuyv_to_yuv(image)
 
         results = {
             key: self._handle_category(
