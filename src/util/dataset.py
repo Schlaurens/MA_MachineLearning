@@ -132,16 +132,21 @@ def intrinsics_from_label(label):
     )
 
 
-def get_masks(label, object_name, input_dims=(480, 640), output_dims=(15, 20)) -> tuple:
+def get_masks(
+    label=None, object_name=None, coordinates=None, input_dims=(480, 640), output_dims=(15, 20)
+) -> tuple:
     """Return label masks that are used to train the encoder.
 
     Generate an offset mask that converts the image coordinates of the object into offsets relative
-    to given cell dimensions. And and objectsness mask that marks the cell where the center of
+    to given cell dimensions and an objectsness mask that marks the cell where the center of
     the object is in.
+
+    Input can be either (label and object_name) or coordinates.
 
     Args:
         label: label of the image
         object_name: name of the object to generate masks for
+        coordinates: the image coordinates of the object [B, 2]
         input_dims: the full dimensions of the camera image.
         output_dims: the number of cells. Should be the same dimensions of encoder output
 
@@ -150,22 +155,34 @@ def get_masks(label, object_name, input_dims=(480, 640), output_dims=(15, 20)) -
         portrayed in x and y coordinates.
 
     """
-    if object_name not in label:
-        # If there are no objects of interest in the image all the offset get an arbitrary value.
-        # In the loss function all offsets of cell without an object are ignored anyway.
+
+    def _empty_masks():
+        """generate default empty masks for when there are no objects in the image.
+        The offset_mask will contains only -1.0. This is an arbitrary value, that indicates that no object is in the image.
+        The objectness_mask will only contain False values as there are no objects any of the cells.
+        The loss_mask will only contain True values as no loss should be ignored.
+
+        Returns:
+            the masks
+        """
         offsets = tf.cast(tf.fill((*output_dims, 2), -1), dtype=tf.float32)
-
-        # All cell are marked as false, as there are no objects in the whole image.
         objectness_mask = tf.fill(output_dims, value=False)
-
-        # All cells are marked as true, as there are no objects in the image and therefore no loss should be ignored.
         loss_mask = tf.fill(output_dims, value=True)
-
         return offsets, objectness_mask, loss_mask
 
-    coordinates = list(label[object_name].values())[
-        :2
-    ]  # Only take x and y coordinates (ignore radius)
+    # Case 1: Direct coordinates provided
+    if coordinates is not None:
+        if tf.reduce_all(tf.math.equal(coordinates, -1.0)):
+            return _empty_masks()
+    # Case 2: Label and object_name provided
+    elif label is not None and object_name is not None:
+        if object_name not in label:
+            return _empty_masks()
+        coordinates = list(label[object_name].values())[
+            :2
+        ]  # Only take x and y coordinates (ignore radius)
+    else:
+        raise ValueError("Either (label and object_name) or coordinates must be provided.")
 
     # Make sure that input_dims are divisible by output_dims
     cell_dims = np.array(input_dims) // np.array(output_dims)
