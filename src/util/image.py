@@ -127,21 +127,44 @@ def load_bhuman_jpeg_image(data, image_format=ImageFormat.GRAYSCALE):
     return convert_yuv_to_rgb(image) if image_format == ImageFormat.RGB else image
 
 
-def show_masks_on_image(directory, label, object_name=None, mask_name=None, grid_dims=(15, 20)):
+def show_masks_on_image(
+    directory=None,
+    label=None,
+    image=None,
+    coordinates=None,
+    object_name=None,
+    mask_name=None,
+    grid_dims=(15, 20),
+):
     """Show the given image with an illustrated cell grid of given dimension.
 
-    If an object_name is given and that object is present in the label. Its objectness
-    mask and loss mask are drawn on the image.
+    If an object_name is given and that object is present in the label the mask with the given mask_name is drawn.
+
+    Input can be either (directory and label) or (coordinates and image).
 
     Args:
         directory: Directory of the image
         label: label of the image
+        image: image in RGB format
+        coordinates: image coordinates of the object
         object_name: name of the object. E. g. "ball". Defaults to None
         mask_name: Name of the mask that should be drawn. None := no mask, 'objectness' := Objectness mask, 'loss' := Loss mask
         grid_dims: The dimensions of the cell_grid. Defaults to (15,20).
 
     """
-    image = u_dataset.load_image(directory, label, image_format=ImageFormat.RGB)
+    if coordinates is not None and image is not None:
+        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
+            coordinates=coordinates, output_dims=grid_dims
+        )
+    elif directory is not None and label is not None:
+        image = u_dataset.load_image(directory, label, image_format=ImageFormat.RGB)
+        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
+            label, object_name, output_dims=grid_dims
+        )
+    else:
+        raise ValueError(
+            "Either (directory and label) or (coordinates and image) must be provided."
+        )
 
     # The dimension of a single cell
     cell_dims = np.array(image.shape[1::-1])[::-1] // np.array(grid_dims)
@@ -156,11 +179,7 @@ def show_masks_on_image(directory, label, object_name=None, mask_name=None, grid
     for i in range(image.shape[0])[:: cell_dims[0]]:
         ax.axhline(y=i, color="black")
 
-    if mask_name != None and object_name in label:
-        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
-            label, object_name, output_dims=grid_dims
-        )
-
+    if mask_name != None:
         if mask_name == "objectness":
             coords = u_dataset.get_coords_from_offsets(offset_mask)
             if coords != None:
