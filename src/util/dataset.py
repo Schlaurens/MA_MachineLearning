@@ -253,22 +253,17 @@ def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
     # Take the offset from the first cell of each offset_mask
     offset_cell = offset_mask[..., 0, 0, :]  # [B, 2]
 
-    # Generate mask that is [0, 0] at every index where the offsets are other than [-1.0, -1.0]. And [1, 1] everywhere else.
-    mask = tf.where(
-        tf.math.equal(offset_cell, -1.0),
-        tf.zeros_like(offset_cell, dtype=tf.float32),
-        tf.ones_like(offset_cell, dtype=tf.float32),
-    )  # [B, 2]
+    # Generate mask that is False if the offset is -1.0 and True else. The offset_cell is [-1.0, -1.0] if there are no objects in the image.
+    mask = tf.cast(tf.math.not_equal(offset_cell, -1.0), dtype=tf.float32)
 
     # Get the output dims from the offset_mask
     output_dims = tf.cast(tf.shape(offset_mask)[-3:-1], dtype=tf.int32)
-
     scale = tf.cast(keras.ops.array(output_dims) / keras.ops.array(image_dims), dtype=tf.float32)
 
     # Scale the first offset_cell up
     coords = offset_cell / scale * mask
 
-    # Put [-1.0, -1.0] at every index where the coords were set to [0, 0] by the mask.
+    # set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
     coords_masked = tf.where(tf.math.equal(coords, [0, 0]), tf.fill([2], -1.0), coords)
 
     return coords_masked
