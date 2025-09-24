@@ -181,15 +181,20 @@ def show_masks_on_image(
 
     if mask_name != None:
         if mask_name == "objectness":
-            coords = u_dataset.get_coords_from_offsets(offset_mask)
-            if coords != None:
+            coords = u_dataset.get_coords_from_offsets(offset_mask).numpy()
+            print(coords)
+            if -1.0 not in coords:
                 ax.plot(coords[0], coords[1], "rx")
+
+                # Without this the plot expands in x and y axis.
+                ax.set_xlim(0, image.shape[1])
+                ax.set_ylim(image.shape[0], 0)
 
             objectness_mask = np.array(objectness_mask)
 
             # Get the indices with the highest/lowest values.
-            indices_objectness_pos = np.dstack(np.where(objectness_mask == loss_mask.max()))[0]
-            indices_objectness_neg = np.dstack(np.where(objectness_mask == loss_mask.min()))[0]
+            indices_objectness_pos = np.dstack(np.where(objectness_mask == True))[0]
+            indices_objectness_neg = np.dstack(np.where(objectness_mask == False))[0]
 
             # Scale the indices to the size of the cell grid
             scaled_objectness_mask_indices_pos = indices_objectness_pos * np.array(cell_dims)
@@ -230,8 +235,10 @@ def show_masks_on_image(
                 ax.add_patch(rect_pos)
 
         if mask_name == "loss":
-            indices_loss_mask_pos = np.dstack(np.where(loss_mask == loss_mask.max()))[0]
-            indices_loss_mask_neg = np.dstack(np.where(loss_mask == loss_mask.min()))[0]
+            loss_mask = np.array(loss_mask)
+
+            indices_loss_mask_pos = np.dstack(np.where(loss_mask == True))[0]
+            indices_loss_mask_neg = np.dstack(np.where(loss_mask == False))[0]
 
             scaled_loss_mask_indices_pos = indices_loss_mask_pos * np.array(cell_dims)
             scaled_loss_mask_indices_neg = indices_loss_mask_neg * np.array(cell_dims)
