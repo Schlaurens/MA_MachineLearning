@@ -2,95 +2,12 @@ import os
 
 import tensorflow as tf
 
+from util import architectures as u_architectures
 from util import dataset as u_dataset
 from util import image as u_image
 from util import keypoint as u_keypoint
 
 from .layers import PatchExtractor, PatchSampler
-
-
-def get_encoder(height, width, category_names, n_context):
-    image = tf.keras.layers.Input((height, width, 4))
-    # TODO: input [B, H, W/2, 4] (treat each YUYV tuple as a pixel)
-    x = image
-
-    # 480x320x4
-
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 1), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 240x320x32
-
-    # ires-block(16, expansion=1)
-
-    # 240x320x16
-
-    # ires-block(24, stride=2, expansion=6)
-    # ires-block(24, stride=1, expansion=6)
-
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 120x160x24
-
-    # ires-block(32, stride=2, expansion=6)
-    # ires-block(32, stride=1, expansion=6)
-    # ires-block(32, stride=1, expansion=6)
-
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 60x80x32
-
-    # ires-block(64, stride=2, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 30x40x64
-
-    # ires-block(96, stride=1, expansion=6)
-    # ires-block(96, stride=1, expansion=6)
-    # ires-block(96, stride=1, expansion=6)
-
-    # 30x40x96
-
-    # ires-block(160, stride=2, expansion=6)
-    # ires-block(160, stride=1, expansion=6)
-    # ires-block(160, stride=1, expansion=6)
-
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 15x20x160
-
-    # ires-block(320, stride=1, expansion=6)
-
-    output = []
-    for name in category_names:
-        # TODO: some activated stuff here?
-        offset = tf.keras.layers.Conv2D(2, 1)(x)
-
-        x = tf.keras.layers.Conv2D(1, 1)(x)
-        interest = tf.keras.layers.Activation("sigmoid")(x)
-
-        output += [tf.keras.layers.Concatenate(name=name)([offset, interest])]
-
-    if n_context > 0:
-        context = tf.keras.layers.Conv2D(n_context, 1, name="context")(x)
-        output += [context]
-
-    return tf.keras.Model(
-        image, output, name="encoder"
-    )  # input: image, output: [offset, interest] for each category + context
 
 
 def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, with_offset=True):
@@ -134,10 +51,12 @@ def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, 
 
 
 class FullModel(tf.keras.Model):
-    def __init__(self, height, width):
+    def __init__(self, encoder_name, height, width, classifier_name=None):
         super().__init__()  # Subclass of the Model class
         # Size of context vector
         self.patch_size = (32, 32)
+        self.encoder_name = encoder_name
+        self.classifier_name = classifier_name
         self.image_height = height
         self.image_width = width
         self.patch_channels = 3
@@ -185,8 +104,9 @@ class FullModel(tf.keras.Model):
                 self.n_context,
                 value["n_classes"],
             )  # The patch classifier for the category with the fixed number of classes
-        # self.encoder is a Model
-        self.encoder = get_encoder(height, width, self.categories.keys(), self.n_context)
+        self.encoder = u_architectures.get_encoder(
+            self.encoder_name, height, width, self.categories.keys(), self.n_context
+        )
 
     def encoder_loss(self, batch_data, maps):
         # Compute Binary Cross Entropy
