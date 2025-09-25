@@ -96,14 +96,14 @@ def main():
     # )
     
     # ==== When loading from models ====
-    model_timestamp = "20250915-105208"
-    model = FullModel.load(
-        input_dims=model_input_dims,
-        filepath="models",
-        filename=f"{model_timestamp}.keras",
-        encoder_only=True,  # < when only loading the encoder
-        verbose=True,
-    )
+    # model_timestamp = "20250915-105208"
+    # model = FullModel.load(
+    #     input_dims=model_input_dims,
+    #     filepath="models",
+    #     filename=f"{model_timestamp}.keras",
+    #     encoder_only=True,  # < when only loading the encoder
+    #     verbose=True,
+    # )
 
     callbacks = get_callbacks(timestamp)
 
