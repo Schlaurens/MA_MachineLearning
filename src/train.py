@@ -97,7 +97,7 @@ def main():
     #     encoder_only=False,  # < when only loading the encoder
     #     verbose=True,
     # )
-    
+
     # ==== When loading from models ====
     # model_timestamp = "20250915-105208"
     # model = FullModel.load(
