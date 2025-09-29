@@ -1,15 +1,23 @@
+import argparse
 import datetime
 import glob
 
 import tensorflow as tf
+import yaml
 
 from train.models import FullModel
 from util import callbacks as u_callbacks
 from util import dataset as u_dataset
 
 
-def get_callbacks(timestamp: str):
-    log_dir = "logs/fit/" + timestamp
+def load_config(config_path):
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def get_callbacks(timestamp: str, config):
+    log_dir = config["callbacks"]["log_dir"] + timestamp
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
@@ -20,12 +28,18 @@ def get_callbacks(timestamp: str):
     csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor="val_total_loss", mode="min", factor=0.2, patience=15, min_lr=0.0
+        monitor=config["callbacks"]["reduce_lr"]["monitor"],
+        mode=config["callbacks"]["reduce_lr"]["mode"],
+        factor=config["callbacks"]["reduce_lr"]["factor"],
+        patience=config["callbacks"]["reduce_lr"]["patience"],
+        min_lr=config["callbacks"]["reduce_lr"]["min_lr"],
     )
 
     # Stop training when no improvement has happened
     early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_total_loss", mode="min", patience=40
+        monitor=config["callbacks"]["early_stopping"]["monitor"],
+        mode=config["callbacks"]["early_stopping"]["mode"],
+        patience=config["callbacks"]["early_stopping"]["patience"],
     )
 
     # Terminate training, when NaN loss is encountered
@@ -41,9 +55,9 @@ def get_callbacks(timestamp: str):
     ]
 
 
-def load_datasets(batch_size=32):
-    path_to_train = glob.glob("data/train_ds*.tfrecords")
-    path_to_val = glob.glob("data/val_ds*.tfrecords")
+def load_datasets(config):
+    path_to_train = glob.glob(config["data"]["train_path"])
+    path_to_val = glob.glob(config["data"]["val_path"])
 
     train_ds = u_dataset.get_dataset(path_to_train)
     val_ds = u_dataset.get_dataset(path_to_val)
@@ -56,6 +70,7 @@ def load_datasets(batch_size=32):
     print("Train Size: ", train_samples)
     print("Val Samples: ", val_samples)
 
+    batch_size = config["training"]["batch_size"]
     train_ds = train_ds.batch(batch_size)
     val_ds = val_ds.batch(batch_size)
 
@@ -71,16 +86,20 @@ def load_datasets(batch_size=32):
     }
 
 
-def main():
+def main(config):
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    epochs = 200
-    batch_size = 32
-    epoch = 0  # < change when continuing training
-    model_input_dims = (480, 320)
-    encoder_architecture = "default_heavy"
-    only_train_encoder = False
+    epochs = config["training"]["epochs"]
+    initial_epoch = (
+        config["training"]["load_checkpoint"]["initial_epoch"]
+        if config["training"]["load_checkpoint"]["from_checkpoint"]
+        else config["training"]["initial_epoch"]
+    )
+    batch_size = config["training"]["batch_size"]
+    model_input_dims = config["training"]["model_input_dims"]
+    encoder_architecture = config["training"]["encoder_architecture"]
+    only_train_encoder = config["training"]["only_train_encoder"]
 
-    dataset = load_datasets(batch_size)
+    dataset = load_datasets(config)
 
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(
@@ -89,26 +108,28 @@ def main():
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
     # ==== When loading a checkpoint ====
-    # timestamp = ""
-    # model = FullModel.load(
-    #     input_dims=model_input_dims,
-    #     filepath=f"checkpoints/{timestamp}",
-    #     filename=f"epoch_{epoch}.keras",
-    #     encoder_only=False,  # < when only loading the encoder
-    #     verbose=True,
-    # )
+    if config["training"]["load_checkpoint"]["from_checkpoint"]:
+        timestamp = config["training"]["load_checkpoint"]["timestamp"]
+        model = FullModel.load(
+            input_dims=model_input_dims,
+            filepath=f"{config['callbacks']['checkpoint_dir']}{timestamp}",  # TODO: do this with pathlib
+            filename=f"epoch_{initial_epoch}.keras",
+            encoder_only=config["training"]["load_checkpoint"]["encoder_only"],
+            verbose=config["training"]["load_checkpoint"]["verbose"],
+        )
 
     # ==== When loading from models ====
-    # model_timestamp = "20250915-105208"
-    # model = FullModel.load(
-    #     input_dims=model_input_dims,
-    #     filepath="models",
-    #     filename=f"{model_timestamp}.keras",
-    #     encoder_only=True,  # < when only loading the encoder
-    #     verbose=True,
-    # )
+    if config["training"]["load_model"]["from_model"]:
+        model_timestamp = config["training"]["load_model"]["timestamp"]
+        model = FullModel.load(
+            input_dims=model_input_dims,
+            filepath=config["training"]["load_model"]["filepath"],
+            filename=f"{model_timestamp}.keras",
+            encoder_only=config["training"]["load_model"]["encoder_only"],
+            verbose=config["training"]["load_model"]["verbose"],
+        )
 
-    callbacks = get_callbacks(timestamp)
+    callbacks = get_callbacks(timestamp, config)
 
     model.fit(
         x=dataset["train_ds"],
@@ -117,8 +138,8 @@ def main():
         steps_per_epoch=dataset["train_samples"] // batch_size,
         validation_steps=dataset["val_samples"] // batch_size,
         callbacks=callbacks,
-        verbose=0,
-        initial_epoch=epoch,
+        verbose=config["training"]["verbose"],
+        initial_epoch=initial_epoch,
     )
 
     model.save("models", f"{timestamp}", only_save_encoder=only_train_encoder)
@@ -127,4 +148,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="This script starts the training process of the model."
+    )
+    parser.add_argument("config_file")
+    args = parser.parse_args()
+
+    config = load_config(f"settings/{args.config_file}")
+
+    main(config)
