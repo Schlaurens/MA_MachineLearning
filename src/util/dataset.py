@@ -138,8 +138,10 @@ def get_masks(
     """Return label masks that are used to train the encoder.
 
     Generate an offset mask that converts the image coordinates of the object into offsets relative
-    to given cell dimensions and an objectsness mask that marks the cell where the center of
+    to given cell dimensions 
+    An object mask that marks the cell where the center of
     the object is in.
+    And a loss mask that indicted which cell should have an impact on the loss function.
 
     Input can be either (label and object_name) or coordinates.
 
@@ -151,8 +153,7 @@ def get_masks(
         output_dims: the number of cells. Should be the same dimensions of encoder output
 
     Returns:
-        an array of shape [output_dims_x, output_dims_y, 2]. Where the offset for each cell is
-        portrayed in x and y coordinates.
+        a dictionary with all three masks.
 
     """
 
@@ -163,12 +164,13 @@ def get_masks(
         The loss_mask will only contain True values as no loss should be ignored.
 
         Returns:
-            the masks
+            the masks in a dictionary
         """
         offsets = tf.cast(tf.fill((*output_dims, 2), -1), dtype=tf.float32)
-        objectness_mask = tf.fill(output_dims, value=False)
+        object_mask = tf.fill(output_dims, value=False)
         loss_mask = tf.fill(output_dims, value=True)
-        return offsets, objectness_mask, loss_mask
+        # return offsets, objectness_mask, loss_mask
+        return {"offsets": offsets, "object_mask": object_mask, "loss_mask": loss_mask}
 
     # Case 1: Direct coordinates provided
     if coordinates is not None:
@@ -206,11 +208,12 @@ def get_masks(
     offsets_scaled = offsets * scale
 
     # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
-    objectness_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offsets_scaled]
+    object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offsets_scaled]
 
-    loss_mask = _generate_loss_mask(objectness_mask)
+    loss_mask = _generate_loss_mask(object_mask)
 
-    return offsets_scaled, objectness_mask, loss_mask
+    # return offsets_scaled, objectness_mask, loss_mask
+    return {"offsets": offsets_scaled, "object_mask": object_mask, "loss_mask": loss_mask}
 
 
 def _generate_loss_mask(objectness_mask):
@@ -492,7 +495,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_ball[1], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_ball["object_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )
@@ -500,7 +503,7 @@ def make_example(directory, label):
     offset_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
-                tf.io.serialize_tensor(tf.reshape(masks_ball[0], (15, 20, 2))).numpy(),
+                tf.io.serialize_tensor(tf.reshape(masks_ball["offsets"], (15, 20, 2))).numpy(),
             ]
         )
     )
@@ -508,7 +511,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_ball[2], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_ball["loss_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )
@@ -517,7 +520,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_penaltyMark[1], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_penaltyMark["object_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )
@@ -525,7 +528,7 @@ def make_example(directory, label):
     offset_feature_penaltyMark = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
-                tf.io.serialize_tensor(tf.reshape(masks_penaltyMark[0], (15, 20, 2))).numpy(),
+                tf.io.serialize_tensor(tf.reshape(masks_penaltyMark["offsets"], (15, 20, 2))).numpy(),
             ]
         )
     )
@@ -533,7 +536,7 @@ def make_example(directory, label):
         bytes_list=tf.train.BytesList(
             value=[
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_penaltyMark[2], dtype=tf.float32), (15, 20))
+                    tf.reshape(tf.cast(masks_penaltyMark["loss_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
             ]
         )

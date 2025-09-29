@@ -32,12 +32,12 @@ def show_masks_on_image(
 
     """
     if coordinates is not None and image is not None:
-        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
+        masks = u_dataset.get_masks(
             coordinates=coordinates, output_dims=grid_dims
         )
     elif directory is not None and label is not None:
         image = u_dataset.load_image(directory, label, image_format=u_image.ImageFormat.RGB)
-        offset_mask, objectness_mask, loss_mask = u_dataset.get_masks(
+        masks = u_dataset.get_masks(
             label, object_name, output_dims=grid_dims
         )
     else:
@@ -60,7 +60,7 @@ def show_masks_on_image(
 
     if mask_name != None:
         if mask_name == "objectness":
-            coords = u_dataset.get_coords_from_offsets(offset_mask).numpy()
+            coords = u_dataset.get_coords_from_offsets(masks["offsets"]).numpy()
             print(coords)
             if -1.0 not in coords:
                 ax.plot(coords[0], coords[1], "rx")
@@ -69,7 +69,7 @@ def show_masks_on_image(
                 ax.set_xlim(0, image.shape[1])
                 ax.set_ylim(image.shape[0], 0)
 
-            objectness_mask = np.array(objectness_mask)
+            objectness_mask = np.array(masks["object_mask"])
 
             # Get the indices with the highest/lowest values.
             indices_objectness_pos = np.dstack(np.where(objectness_mask == True))[0]
@@ -114,7 +114,7 @@ def show_masks_on_image(
                 ax.add_patch(rect_pos)
 
         if mask_name == "loss":
-            loss_mask = np.array(loss_mask)
+            loss_mask = np.array(masks["loss_mask"])
 
             indices_loss_mask_pos = np.dstack(np.where(loss_mask == True))[0]
             indices_loss_mask_neg = np.dstack(np.where(loss_mask == False))[0]
