@@ -52,12 +52,12 @@ def get_patch_classifier(patch_size, channels_in, n_meta, n_context, n_classes, 
 
 class FullModel(tf.keras.Model):
     def __init__(
-        self, encoder_name, height, width, only_train_encoder=False, classifier_name=None
+        self, encoder_architecture, height, width, only_train_encoder=False, classifier_name=None
     ):
         super().__init__()  # Subclass of the Model class
         # Size of context vector
         self.patch_size = (32, 32)
-        self.encoder_name = encoder_name
+        self.encoder_architecture = encoder_architecture
         self.classifier_name = classifier_name
         self.image_height = height
         self.image_width = width
@@ -108,7 +108,7 @@ class FullModel(tf.keras.Model):
                 value["n_classes"],
             )  # The patch classifier for the category with the fixed number of classes
         self.encoder = u_architectures.get_encoder(
-            self.encoder_name, height, width, self.categories.keys(), self.n_context
+            self.encoder_architecture, height, width, self.categories.keys(), self.n_context
         )
 
     def encoder_loss(self, batch_data, maps):
@@ -320,7 +320,7 @@ class FullModel(tf.keras.Model):
     @classmethod
     def load(
         cls,
-        encoder_name,
+        encoder_architecture,
         input_dims,
         filepath,
         filename,
@@ -330,7 +330,7 @@ class FullModel(tf.keras.Model):
         **kwargs,
     ):
         # Rebuild model
-        model = cls(encoder_name, *input_dims, only_train_encoder=only_train_encoder)
+        model = cls(encoder_architecture, *input_dims, only_train_encoder=only_train_encoder)
 
         # Load the encoder
         encoder = tf.keras.models.load_model(os.path.join(filepath, "encoder", f"{filename}"))

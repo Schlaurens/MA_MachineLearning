@@ -77,14 +77,14 @@ def main():
     batch_size = 32
     epoch = 0  # < change when continuing training
     model_input_dims = (480, 320)
-    encoder_name = "default_heavy"
+    encoder_architecture = "default_heavy"
     only_train_encoder = False
 
     dataset = load_datasets(batch_size)
 
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(
-        encoder_name, *model_input_dims, only_train_encoder=only_train_encoder
+        encoder_architecture, *model_input_dims, only_train_encoder=only_train_encoder
     )
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 

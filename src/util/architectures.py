@@ -1,13 +1,13 @@
 import tensorflow as tf
 
 
-def get_encoder(encoder_name, height, width, category_names, n_context, **kwargs):
-    if encoder_name == "default":
+def get_encoder(encoder_architecture, height, width, category_names, n_context, **kwargs):
+    if encoder_architecture == "default":
         return _get_encoder_default(height, width, category_names, n_context, **kwargs)
-    if encoder_name == "default_heavy":
+    if encoder_architecture == "default_heavy":
         return _get_encoder_heavy(height, width, category_names, n_context, **kwargs)
     else:
-        raise ValueError(f"Unknown encoder name: {encoder_name}")
+        raise ValueError(f"Unknown encoder name: {encoder_architecture}")
 
 
 def _get_common_output(x, category_names, n_context, image):
