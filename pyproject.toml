@@ -17,6 +17,7 @@ dependencies = [
     "pyqt6>=6.9.0",
     "scipy>=1.15.2",
     "dvc>=3.63.0",
+    "dvc-ssh>=4.2.1",
 ]
 
 [tool.uv.sources]
