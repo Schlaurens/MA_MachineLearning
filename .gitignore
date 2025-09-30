@@ -6,3 +6,4 @@ uv.lock
 .continue/*
 *.tfrecords
 *.keras
+data/gamelogs/
