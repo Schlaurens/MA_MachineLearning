@@ -1,7 +1,29 @@
 import tensorflow as tf
 
 
-def get_encoder(encoder_architecture, height, width, category_names, n_context, **kwargs):
+def get_encoder(
+    encoder_architecture: str,
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    **kwargs,
+):
+    """Return the specified encoder model
+
+    Args:
+        encoder_architecture: The name of the encoder architecture
+        height: The height of the input image
+        width: The width of the input image
+        category_names: The names of the different object categories the encoder needs to be able to detect
+        n_context: The size of the context vector
+
+    Raises:
+        ValueError: When the provided encoder architecture is unknown
+
+    Returns:
+        A tf.keras.Model with the provided architecture
+    """
     if encoder_architecture == "default":
         return _get_encoder_default(height, width, category_names, n_context, **kwargs)
     if encoder_architecture == "default_heavy":
@@ -11,6 +33,17 @@ def get_encoder(encoder_architecture, height, width, category_names, n_context, 
 
 
 def _get_common_output(x, category_names, n_context, image):
+    """Return the common output logic for every encoder architecture. The different outputs for each categories are concatenated here.
+
+    Args:
+        x: The tensor output of the hidden encoder layers
+        category_names: The names of the object categories. Used to build the output
+        n_context: The size of the context vector
+        image: The input image. Used to build the tf.keras.Model
+
+    Returns:
+        A tf.keras.Model
+    """
     output = []
     for name in category_names:
         # TODO: some activated stuff here?
