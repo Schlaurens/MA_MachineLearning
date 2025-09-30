@@ -24,10 +24,10 @@ def get_encoder(
     Returns:
         A tf.keras.Model with the provided architecture
     """
-    if encoder_architecture == "default":
-        return _get_encoder_default(height, width, category_names, n_context, **kwargs)
+    if encoder_architecture == "default_light":
+        return _get_encoder_default_light(height, width, category_names, n_context, **kwargs)
     if encoder_architecture == "default_heavy":
-        return _get_encoder_heavy(height, width, category_names, n_context, **kwargs)
+        return _get_encoder_default_heavy(height, width, category_names, n_context, **kwargs)
     else:
         raise ValueError(f"Unknown encoder name: {encoder_architecture}")
 
@@ -63,7 +63,7 @@ def _get_common_output(x, category_names, n_context, image):
     )  # input: image, output: [offset, interest] for each category + context
 
 
-def _get_encoder_heavy(height, width, category_names, n_context):
+def _get_encoder_default_heavy(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     x = image
 
@@ -96,7 +96,7 @@ def _get_encoder_heavy(height, width, category_names, n_context):
     return _get_common_output(x, category_names, n_context, image)
 
 
-def _get_encoder_default(height, width, category_names, n_context):
+def _get_encoder_default_light(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     # TODO: input [B, H, W/2, 4] (treat each YUYV tuple as a pixel)
     x = image
