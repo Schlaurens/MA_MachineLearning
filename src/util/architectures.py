@@ -66,7 +66,7 @@ def _get_common_output(x, category_names, n_context, image):
 def _get_encoder_heavy(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     x = image
-    
+
     # 480x320x4
     x = tf.keras.layers.Conv2D(16, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
@@ -91,15 +91,16 @@ def _get_encoder_heavy(height, width, category_names, n_context):
     x = tf.keras.layers.Conv2D(64, 3, strides=(2, 2), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
-    
+
     # 15x20x64
     return _get_common_output(x, category_names, n_context, image)
+
 
 def _get_encoder_default(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     # TODO: input [B, H, W/2, 4] (treat each YUYV tuple as a pixel)
     x = image
-    
+
     # 480x320x4
     x = tf.keras.layers.Conv2D(32, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
