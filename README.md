@@ -7,6 +7,22 @@ B-Human python bindings are used that require authentication. For this environme
 
 `UV_INDEX_PYBH_PASSWORD=<access-token>`
 
-### Credits
+### Dataset
+- structure
+- types
+- file format
 
+### Training
+
+- training configuration
+  - `n_context`, etc.
+- defining a model
+- tensorboard
+- saves and checkpoints
+
+### Evaluation
+
+
+
+### Credits
 The foundation of this code was authored by Arne Hasselbring.
