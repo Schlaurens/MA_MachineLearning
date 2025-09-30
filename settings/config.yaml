@@ -10,14 +10,14 @@ training:
   batch_size: 32
   verbose: 0
   from_checkpoint: False # < when starting training from checkpoint
-  from_model: False
+  from_model: False # < when loading an existing model
   load_checkpoint:
     initial_epoch: 0
-    timestamp: "20250925-134902" 
+    timestamp: "" 
     encoder_only: False # < when only loading the encoder
     verbose: True
   load_model:
-    timestamp: "20250925-134902"
+    timestamp: ""
     filepath: "models"
     encoder_only: False # < when only loading the encoder
     verbose: True
