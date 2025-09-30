@@ -56,7 +56,7 @@ class FullModel(tf.keras.Model):
         encoder_architecture,
         height,
         width,
-        n_context,
+        n_context=0,
         only_train_encoder=False,
         classifier_name=None,
     ):
@@ -67,7 +67,7 @@ class FullModel(tf.keras.Model):
             height: encoder input height
             width: encoder input width
             only_train_encoder: True if ONLY the encoder is the be trained. Then the classifiers have no impact on the loss function. Defaults to False.
-            n_context: The size of the context vector
+            n_context: The size of the context vector. Defaults to 0.
             classifier_architecture: the name of classifier architecture. Defaults to None.
         """
         super().__init__()  # Subclass of the Model class
