@@ -111,13 +111,13 @@ def main(config):
     epochs = config["training"]["epochs"]
     initial_epoch = (
         config["training"]["load_checkpoint"]["initial_epoch"]
-        if config["training"]["load_checkpoint"]["from_checkpoint"]
+        if config["training"]["from_checkpoint"]
         else config["training"]["initial_epoch"]
     )
     batch_size = config["training"]["batch_size"]
-    model_input_dims = config["training"]["model_input_dims"]
-    encoder_architecture = config["training"]["encoder_architecture"]
-    only_train_encoder = config["training"]["only_train_encoder"]
+    model_input_dims = config["model"]["model_input_dims"]
+    encoder_architecture = config["model"]["encoder_architecture"]
+    only_train_encoder = config["model"]["only_train_encoder"]
 
     log_config(timestamp, config)
 
@@ -125,12 +125,15 @@ def main(config):
 
     # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(
-        encoder_architecture, *model_input_dims, only_train_encoder=only_train_encoder
+        encoder_architecture,
+        *model_input_dims,
+        n_context=config["model"]["n_context"],
+        only_train_encoder=only_train_encoder,
     )
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
     # ==== When loading a checkpoint ====
-    if config["training"]["load_checkpoint"]["from_checkpoint"]:
+    if config["training"]["from_checkpoint"]:
         timestamp = config["training"]["load_checkpoint"]["timestamp"]
         model = FullModel.load(
             input_dims=model_input_dims,
@@ -141,7 +144,7 @@ def main(config):
         )
 
     # ==== When loading from models ====
-    if config["training"]["load_model"]["from_model"]:
+    if config["training"]["from_model"]:
         model_timestamp = config["training"]["load_model"]["timestamp"]
         model = FullModel.load(
             input_dims=model_input_dims,

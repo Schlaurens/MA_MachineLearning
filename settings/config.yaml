@@ -1,19 +1,22 @@
+model:
+  encoder_architecture: "default_heavy"
+  model_input_dims: [480, 320]
+  only_train_encoder: False
+  n_context: 0
+
 training:
   epochs: 400
   initial_epoch: 0
   batch_size: 32
-  model_input_dims: [480, 320]
-  encoder_architecture: "default_heavy"
-  only_train_encoder: False
   verbose: 0
+  from_checkpoint: False # < when starting training from checkpoint
+  from_model: False
   load_checkpoint:
-    from_checkpoint: False # < when starting training from checkpoint
     initial_epoch: 0
     timestamp: "20250925-134902" 
     encoder_only: False # < when only loading the encoder
     verbose: True
   load_model:
-    from_model: False
     timestamp: "20250925-134902"
     filepath: "models"
     encoder_only: False # < when only loading the encoder
