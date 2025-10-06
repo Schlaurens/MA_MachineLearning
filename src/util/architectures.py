@@ -147,54 +147,26 @@ def _get_encoder_default_light(height, width, category_names, n_context):
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x32
-    # ires-block(16, expansion=1)
-
-    # 240x320x16
-    # ires-block(24, stride=2, expansion=6)
-    # ires-block(24, stride=1, expansion=6)
-
     x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
-    # 120x160x24
-    # ires-block(32, stride=2, expansion=6)
-    # ires-block(32, stride=1, expansion=6)
-    # ires-block(32, stride=1, expansion=6)
-
+    # 120x160x32
     x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 60x80x32
-
-    # ires-block(64, stride=2, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-    # ires-block(64, stride=1, expansion=6)
-
     x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
-    # 30x40x64
-
-    # ires-block(96, stride=1, expansion=6)
-    # ires-block(96, stride=1, expansion=6)
-    # ires-block(96, stride=1, expansion=6)
-
-    # 30x40x96
-
-    # ires-block(160, stride=2, expansion=6)
-    # ires-block(160, stride=1, expansion=6)
-    # ires-block(160, stride=1, expansion=6)
-
+    # 30x40x32
     x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization(scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 15x20x160
-
-    # ires-block(320, stride=1, expansion=6)
+    return _get_common_output(x, category_names, n_context, image)
 
     return _get_common_output(x, category_names, n_context, image)
