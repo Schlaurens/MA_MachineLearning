@@ -63,6 +63,46 @@ def _get_common_output(x, category_names, n_context, image):
     )  # input: image, output: [offset, interest] for each category + context
 
 
+def _ires_block(x, filters, stride=1, expansion=6):
+    """Inverted residual block as specified in MobileNetV2
+
+    Args:
+        x: output from previous layer
+        filters: Number of filters
+        stride: The stride. Defaults to 1.
+        expansion: Expand the number of filters by multiplying them with this number. Defaults to 6.
+
+    Returns:
+        The sum of residual and x.
+    """
+    residual = x
+
+    # Expansion phase: 1x1 convolution to expand channels
+    x = tf.keras.layers.Conv2D(filters * expansion, 1, padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # Use Depthwise convolution
+    x = tf.keras.layers.DepthwiseConv2D(3, strides=stride, padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    # Projection phase: 1x1 convolution to project back to original channels
+    x = tf.keras.layers.Conv2D(filters, 1, padding="same", use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+
+    # If dimensions changed, project the residual
+    if stride != 1 or residual.shape[-1] != filters:
+        residual = tf.keras.layers.Conv2D(
+            filters, 1, strides=stride, padding="same", use_bias=False
+        )(residual)
+        residual = tf.keras.layers.BatchNormalization(scale=False)(residual)
+
+    # Add residual
+    x = tf.keras.layers.Add()([x, residual])
+    return x
+
+
 def _get_encoder_default_heavy(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     x = image
