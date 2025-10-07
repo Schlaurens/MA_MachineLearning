@@ -252,11 +252,11 @@ class FullModel(tf.keras.Model):
 
     def train_step(self, batch_data):
         with tf.GradientTape() as tape:
-            results, maps = self(
+            outputs = self(
                 (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True
             )  # calls call()
 
-            losses = self._calculate_losses(batch_data, results, maps)
+            losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
             total_loss = (
                 losses["encoder_loss"]
@@ -281,11 +281,11 @@ class FullModel(tf.keras.Model):
         }
 
     def test_step(self, batch_data):
-        results, maps = self(
-            (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True
+        outputs = self(
+            (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=False
         )  # calls call()
 
-        losses = self._calculate_losses(batch_data, results, maps)
+        losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
         total_loss = (
             losses["encoder_loss"]
@@ -442,12 +442,10 @@ class FullModel(tf.keras.Model):
             for key, value in self.categories.items()
         }  # Call _handle_category for each category and store the results in a dictionary
 
-        if training:
-            # results: patches, masks
-            # maps: [B, H_out, W_out, 3] (offsets, logits) or [B, H_out, W_out, n_context]
-            return results, maps
-
-        return results
+        
+        # results: patches, masks
+        # maps: [B, H_out, W_out, 3] (offsets, logits) or [B, H_out, W_out, n_context]
+        return {"results": results, "maps": maps}
 
     def _handle_category(
         self,
