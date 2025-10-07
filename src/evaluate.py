@@ -86,15 +86,13 @@ class EvaluateApplication:
         self.fig.canvas.draw()
 
     def update_predictions(self, index):
-        image = u_dataset.load_image(
-            self.directory, self.labels[index], image_format=self.image_format
-        )
-        predictions = 1.0 / (
-            1.0 + np.exp(-self.model(image[np.newaxis, ...], training=False)[0].numpy())
-        )
-        self.im_ax_ball.set_data(predictions[:, :, 0])
-        self.im_ax_penalty_mark.set_data(predictions[:, :, 1])
-        self.im_ax_obstacles.set_data(predictions[:, :, 2])
+    def normalize_array(self, arr):
+        arr_min = arr.min()
+        arr_max = arr.max()
+        if arr_max == arr_min:
+            return np.zeros_like(arr)
+
+        return (arr - arr_min) / (arr_max - arr_min)
 
     def image_slider_changed(self, val):
         self.select_image(int(val))
