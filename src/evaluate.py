@@ -33,12 +33,16 @@ class EvaluateApplication:
 
         self.ax_img = self.fig.add_subplot(self.gs[0:4, 0:5])
         self.ax_img.axis("off")
+        self.ax_img.set_title("Image")
         self.ax_ball = self.fig.add_subplot(self.gs[0:4, 5:10])
         self.ax_ball.axis("off")
-        self.ax_obstacles = self.fig.add_subplot(self.gs[4:8, 0:5])
+        self.ax_ball.set_title("Ball")
+        self.ax_obstacles = self.fig.add_subplot(self.gs[5:9, 0:5])
         self.ax_obstacles.axis("off")
-        self.ax_penalty_mark = self.fig.add_subplot(self.gs[4:8, 5:10])
+        self.ax_obstacles.set_title("Obstacles")
+        self.ax_penalty_mark = self.fig.add_subplot(self.gs[5:9, 5:10])
         self.ax_penalty_mark.axis("off")
+        self.ax_penalty_mark.set_title("PenaltyMark")
 
         self.ax_slider_image = self.fig.add_subplot(self.gs[9, :])
         self.slider_image = widgets.Slider(
