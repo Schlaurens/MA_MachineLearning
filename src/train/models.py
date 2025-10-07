@@ -342,6 +342,8 @@ class FullModel(tf.keras.Model):
         only_train_encoder=False,
         encoder_only=False,
         verbose=False,
+        n_context=0,
+        categories_config=None,
         **kwargs,
     ):
         """load existing encoder and/or classifiers into the model.
@@ -359,7 +361,13 @@ class FullModel(tf.keras.Model):
             A tf.keras.Model with the loaded models.
         """
         # Rebuild model
-        model = cls(encoder_architecture, *input_dims, only_train_encoder=only_train_encoder)
+        model = cls(
+            encoder_architecture,
+            *input_dims,
+            n_context=n_context,
+            categories_config=categories_config,
+            only_train_encoder=only_train_encoder,
+        )
 
         # Load the encoder
         encoder = tf.keras.models.load_model(os.path.join(filepath, "encoder", f"{filename}"))

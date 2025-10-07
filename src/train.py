@@ -137,14 +137,18 @@ def main(config):
     if config["training"]["from_checkpoint"]:
         timestamp = config["training"]["load_checkpoint"]["timestamp"]
         model = FullModel.load(
+            encoder_architecture=config["model"]["encoder_architecture"],
             input_dims=model_input_dims,
             filepath=os.path.join(config["callbacks"]["checkpoint_dir"], timestamp),
             filename=f"epoch_{initial_epoch}.keras",
             encoder_only=config["training"]["load_checkpoint"]["encoder_only"],
             verbose=config["training"]["load_checkpoint"]["verbose"],
+            n_context=config["model"]["n_context"],
+            categories_config=config["categories"],
         )
 
     # ==== When loading from models ====
+    # TODO: fix arguments
     if config["training"]["from_model"]:
         model_timestamp = config["training"]["load_model"]["timestamp"]
         model = FullModel.load(
