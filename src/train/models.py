@@ -2,7 +2,7 @@ import os
 
 import tensorflow as tf
 
-from util import architectures as u_architectures
+from train import architectures as u_architectures
 from util import dataset as u_dataset
 from util import image as u_image
 from util import keypoint as u_keypoint
