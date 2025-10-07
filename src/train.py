@@ -42,7 +42,7 @@ def get_callbacks(timestamp: str, config):
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
     checkpoint_callback = u_callbacks.CustomCheckpointCallback(
-        filepath=f"checkpoints/{timestamp}", overwrite=True, verbose=False
+        filepath=f"models/checkpoints/{timestamp}", overwrite=True, verbose=False
     )
 
     csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
@@ -167,7 +167,7 @@ def main(config):
         initial_epoch=initial_epoch,
     )
 
-    model.save("models", f"{timestamp}", only_save_encoder=only_train_encoder)
+    model.save("finished/models", f"{timestamp}", only_save_encoder=only_train_encoder)
 
     return
 
