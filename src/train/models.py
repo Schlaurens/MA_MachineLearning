@@ -57,6 +57,7 @@ class FullModel(tf.keras.Model):
         height,
         width,
         n_context=0,
+        categories_config=None,
         only_train_encoder=False,
         classifier_name=None,
     ):
@@ -84,29 +85,18 @@ class FullModel(tf.keras.Model):
         self.full_image_size = tf.constant(
             [self.image_height, self.image_width * 2], dtype=tf.float32
         )  # constructor input image_width is halved due to YUYV
-        self.categories = {
-            "ball": {
-                "object_size": 0.175,
-                "object_height": 0.05,
-                "n_classes": 1,
-                "n_candidates": 5,
-            },
-            "penaltyMark": {
-                "object_size": 0.175,
-                "object_height": 0.0,
-                "n_classes": 1,
-                "n_candidates": 5,
-            },
-            # "field": {
-            #     "object_size": 0.2,
-            #     "n_classes": 6,  # penalty mark, center mark, X intersection, L intersection, T intersection, goal post
-            #     "n_candidates": 7,
-            # },
-            # "player":
-            #     "object_size": 0.5,
-            #     "n_classes": 1,
-            # },
-        }
+        self.categories = (
+            categories_config
+            if categories_config is not None
+            else {
+                "ball": {
+                    "object_size": 0.175,
+                    "object_height": 0.05,
+                    "n_classes": 1,
+                    "n_candidates": 5,
+                },
+            }
+        )
         for _, value in self.categories.items():
             value["sampler"] = PatchSampler(
                 value["n_candidates"]
@@ -442,7 +432,6 @@ class FullModel(tf.keras.Model):
             for key, value in self.categories.items()
         }  # Call _handle_category for each category and store the results in a dictionary
 
-        
         # results: patches, masks
         # maps: [B, H_out, W_out, 3] (offsets, logits) or [B, H_out, W_out, n_context]
         return {"results": results, "maps": maps}

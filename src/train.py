@@ -128,6 +128,7 @@ def main(config):
         encoder_architecture,
         *model_input_dims,
         n_context=config["model"]["n_context"],
+        categories_config=config["categories"],
         only_train_encoder=only_train_encoder,
     )
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
