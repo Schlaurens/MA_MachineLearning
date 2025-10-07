@@ -498,7 +498,7 @@ class FullModel(tf.keras.Model):
         logits = tf.reshape(logits, (-1, tf.reduce_prod(res_out)))
 
         # Gather n_candidates coordinates from the coordinate list
-        patch_indices = sampler(logits)  # [B, N_out]
+        patch_indices = sampler(logits, training=training)  # [B, N_out]
         coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2]
         (
             patches,
