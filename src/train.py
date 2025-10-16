@@ -19,6 +19,10 @@ def load_config(config_path):
 
 
 def log_config(timestamp: str, config):
+    # if the training is started from a checkpoint, do not log the config a in a new directory
+    if config["training"]["from_checkpoint"]:
+        return
+
     log_dir = os.path.join(config["callbacks"]["log_dir"], timestamp)
 
     # Create a directory
