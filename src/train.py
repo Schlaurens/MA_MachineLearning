@@ -176,7 +176,7 @@ def main(config):
         initial_epoch=initial_epoch,
     )
 
-    model.save("finished/models", f"{timestamp}", only_save_encoder=only_train_encoder)
+    model.save("models/finished", f"{timestamp}", only_save_encoder=only_train_encoder)
 
     return
 
