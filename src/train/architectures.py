@@ -38,7 +38,7 @@ def get_encoder(
         )
     if encoder_architecture == "inverted_residual_single_category_v2":
         return _get_encoder_inverted_residual_single_category_v2(
-            height, width, category_names, n_context, **kwargs
+            height, width, category_names, n_context, batch_norm=False, **kwargs
         )
     else:
         raise ValueError(f"Unknown encoder name: {encoder_architecture}")
@@ -75,40 +75,54 @@ def _get_common_output(x, category_names, n_context, image):
     )  # input: image, output: [offset, interest] for each category + context
 
 
-def _ires_block(x, filters, stride=1, expansion=6):
+def _ires_block(x, filters, batch_norm=False, stride=1, expansion=6):
     """Inverted residual block as specified in MobileNetV2
 
     Args:
         x: output from previous layer
         filters: Number of filters
+        batch_norm: If True use Batch Normalization. Else use Group Normalization.
         stride: The stride. Defaults to 1.
         expansion: Expand the number of filters by multiplying them with this number. Defaults to 6.
 
     Returns:
         The sum of residual and x.
     """
+    groups = -1  # Number of groups in the GroupNorm. If -1 then the number of groups are the number of input channel (InstanceNorm)
     residual = x
 
     # Expansion phase: 1x1 convolution to expand channels
     x = tf.keras.layers.Conv2D(filters * expansion, 1, padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.GroupNormalization(scale=False, groups=groups)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # Use Depthwise convolution
     x = tf.keras.layers.DepthwiseConv2D(3, strides=stride, padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.GroupNormalization(scale=False, groups=groups)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # Projection phase: 1x1 convolution to project back to original channels
     x = tf.keras.layers.Conv2D(filters, 1, padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.GroupNormalization(scale=False, groups=groups)(x)
 
     # If dimensions changed, project the residual
     if stride != 1 or residual.shape[-1] != filters:
         residual = tf.keras.layers.Conv2D(
             filters, 1, strides=stride, padding="same", use_bias=False
         )(residual)
-        residual = tf.keras.layers.BatchNormalization(scale=False)(residual)
+        if batch_norm:
+            residual = tf.keras.layers.BatchNormalization(scale=False)(residual)
+        else:
+            residual = tf.keras.layers.GroupNormalization(scale=False, groups=groups)(residual)
 
     # Add residual
     x = tf.keras.layers.Add()([x, residual])
@@ -223,6 +237,7 @@ def _get_encoder_inverted_residual_light(height, width, category_names, n_contex
     # 15x20x64
     return _get_common_output(x, category_names, n_context, image)
 
+
 def _get_encoder_inverted_residual_single_category(height, width, category_names, n_context):
     image = tf.keras.layers.Input((height, width, 4))
     # Be careful not to make the tensors too much for the GPU memory. (keep the expansion low for the bigger tensors)
@@ -264,7 +279,10 @@ def _get_encoder_inverted_residual_single_category(height, width, category_names
     # 15x20x64
     return _get_common_output(x, category_names, n_context, image)
 
-def _get_encoder_inverted_residual_single_category_v2(height, width, category_names, n_context):
+
+def _get_encoder_inverted_residual_single_category_v2(
+    height, width, category_names, n_context, batch_norm=False
+):
     image = tf.keras.layers.Input((height, width, 4))
     # Be careful not to make the tensors too much for the GPU memory. (keep the expansion low for the bigger tensors)
     x = image
@@ -272,35 +290,38 @@ def _get_encoder_inverted_residual_single_category_v2(height, width, category_na
     # 480x320x4
     # cannot be ires block due to uneven stride
     x = tf.keras.layers.Conv2D(16, 3, strides=(2, 1), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.GroupNormalization(scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
-    x = _ires_block(x, 16, stride=1, expansion=1)
+    x = _ires_block(x, 16, batch_norm=batch_norm, stride=1, expansion=1)
 
     # 240x320x24
-    x = _ires_block(x, 16, stride=2, expansion=1)
+    x = _ires_block(x, 16, batch_norm=batch_norm, stride=2, expansion=1)
 
     # 120x160x24
-    # x = _ires_block(x, 16, stride=1, expansion=1)
+    # x = _ires_block(x, 16, batch_norm=batch_norm, stride=1, expansion=1)
 
     # 120x160x24
-    x = _ires_block(x, 24, stride=2, expansion=4)
+    x = _ires_block(x, 24, batch_norm=batch_norm, stride=2, expansion=4)
 
     # 60x80x32
-    x = _ires_block(x, 24, stride=1, expansion=4)
+    x = _ires_block(x, 24, batch_norm=batch_norm, stride=1, expansion=4)
 
     # 60x80x32
-    x = _ires_block(x, 32, stride=2, expansion=4)
+    x = _ires_block(x, 32, batch_norm=batch_norm, stride=2, expansion=4)
 
     # 30x40x64
-    x = _ires_block(x, 32, stride=1, expansion=4)
+    x = _ires_block(x, 32, batch_norm=batch_norm, stride=1, expansion=4)
 
     # 30x40x64
-    x = _ires_block(x, 32, stride=2, expansion=4)
+    x = _ires_block(x, 32, batch_norm=batch_norm, stride=2, expansion=4)
 
     # 15x20x64
-    x = _ires_block(x, 32, stride=1, expansion=4)
+    x = _ires_block(x, 32, batch_norm=batch_norm, stride=1, expansion=4)
 
     # 15x20x64
     return _get_common_output(x, category_names, n_context, image)
