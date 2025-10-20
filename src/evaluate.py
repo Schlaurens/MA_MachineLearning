@@ -114,7 +114,7 @@ class EvaluateApplication:
             (480, 320, 4),
         )
 
-        predictions = self.model(image[np.newaxis, ...], training=True)
+        predictions = self.model(image[np.newaxis, ...], training=False)
 
         output_penaltyMark = predictions[0].numpy()  # remove batch dimension
 
