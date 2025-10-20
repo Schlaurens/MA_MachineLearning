@@ -40,7 +40,50 @@ def get_encoder(
         raise ValueError(f"Unknown encoder name: {encoder_architecture}")
 
 
-def _get_common_output(x, category_names, n_context, image):
+def get_classifier(
+    classifier_architecture: str,
+    patch_size: tuple[int],
+    channels_in: int,
+    n_meta: int,
+    n_context: int,
+    n_classes: int,
+    with_offset: bool,
+    batch_norm: bool,
+    **kwargs,
+):
+    """Return the specified classifier model
+
+    Args:
+        classifier_architecture: The name of the classifier architecture
+        patch_size: The size of the patch in pixel
+        channels_in: The amount of the channels of the patch
+        n_meta: ...
+        n_context: The size of the context vector.
+        n_classes: The amount of the classes to predict
+        with_offset: Whether the classifier should predict an offset.
+        batch_norm: Whether to use batch normalization or instance normalization.
+
+    Raises:
+        ValueError: When the provided encoder architecture is unknown
+
+    Returns:
+        A tf.keras.Model with the provided architecture
+    """
+    if classifier_architecture == "classifier_inverted_residual_single_category_v2":
+        return _get_classifier_inverted_residual_single_category(
+            patch_size,
+            channels_in,
+            n_meta,
+            n_context,
+            n_classes,
+            with_offset,
+            batch_norm,
+        )
+    else:
+        raise ValueError(f"Unknown encoder name: {classifier_architecture}")
+
+
+def _get_common_encoder_output(x, category_names, n_context, image):
     """Return the common output logic for every encoder architecture. The different outputs for each categories are concatenated here.
 
     Args:
@@ -69,6 +112,32 @@ def _get_common_output(x, category_names, n_context, image):
     return tf.keras.Model(
         image, output, name="encoder"
     )  # input: image, output: [offset, interest] for each category + context
+
+
+def _get_common_classifier_output(x, n_classes, with_offset, inputs):
+    """Return the common output logic for every classifier architecture.
+
+    Args:
+        x: The tensor output of the hidden encoder layers
+        n_classes: The amount of the classes to predict
+        with_offset: Whether the classifier should predict an offset.
+        inputs: The inputs of the classifier.
+
+    Returns:
+        A tf.keras.Model
+    """
+    if n_classes < 2:
+        x = tf.keras.layers.Dense(1)(x)
+        out = tf.keras.layers.Activation("sigmoid")(x)
+    else:
+        tf.keras.layers.Dense(n_classes + 1)(x)  # + 1 for the background class
+        out = tf.keras.layers.Activation("softmax")(x)
+
+    if with_offset:
+        offset = tf.keras.layers.Dense(2)(x)
+        out = [out, offset]
+
+    return tf.keras.Model(inputs, out, name="classifier")
 
 
 def _ires_block(x, filters, batch_norm=False, stride=1, expansion=6):
@@ -167,7 +236,7 @@ def _get_encoder_inverted_residual_light(height, width, category_names, n_contex
     x = _ires_block(x, 32, stride=1, expansion=6)
 
     # 15x20x64
-    return _get_common_output(x, category_names, n_context, image)
+    return _get_common_encoder_output(x, category_names, n_context, image)
 
 
 def _get_encoder_inverted_residual_single_category(height, width, category_names, n_context):
@@ -209,7 +278,7 @@ def _get_encoder_inverted_residual_single_category(height, width, category_names
     x = _ires_block(x, 32, stride=1, expansion=1)
 
     # 15x20x64
-    return _get_common_output(x, category_names, n_context, image)
+    return _get_common_encoder_output(x, category_names, n_context, image)
 
 
 def _get_encoder_inverted_residual_single_category_v2(
@@ -256,4 +325,45 @@ def _get_encoder_inverted_residual_single_category_v2(
     x = _ires_block(x, 32, batch_norm=batch_norm, stride=1, expansion=4)
 
     # 15x20x64
-    return _get_common_output(x, category_names, n_context, image)
+    return _get_common_encoder_output(x, category_names, n_context, image)
+
+
+# ========= Classifier Architectures =========
+
+
+def _get_classifier_inverted_residual_single_category(
+    patch_size, channels_in, n_meta, n_context, n_classes, with_offset=True, batch_norm=False
+):
+    image = tf.keras.layers.Input((*patch_size, channels_in))
+    inputs = [image]
+
+    if n_meta > 0:
+        meta = tf.keras.layers.Input((n_meta,))
+        inputs += [meta]
+
+    if n_context > 0:
+        context = tf.keras.layers.Input((n_context,))
+        inputs += [n_context]
+
+    # x = tf.keras.layers.Flatten()(image)
+    x = image
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([image, meta])
+    x = tf.keras.layers.Conv2D(32, 3, padding="same", use_bias=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.GroupNormalization(scale=False, group=-1)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([image, context])
+    x = tf.keras.layers.Conv2D(32, 3, padding="same", use_bias=False)(x)
+    if batch_norm:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    else:
+        x = tf.keras.layers.BatchNormalization(scale=False)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+    x = tf.keras.layers.Flatten()(x)
+
+    return _get_common_classifier_output(x, n_classes, with_offset, inputs)
