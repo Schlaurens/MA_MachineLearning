@@ -24,10 +24,6 @@ def get_encoder(
     Returns:
         A tf.keras.Model with the provided architecture
     """
-    if encoder_architecture == "default_light":
-        return _get_encoder_default_light(height, width, category_names, n_context, **kwargs)
-    if encoder_architecture == "default_heavy":
-        return _get_encoder_default_heavy(height, width, category_names, n_context, **kwargs)
     if encoder_architecture == "inverted_residual_light":
         return _get_encoder_inverted_residual_light(
             height, width, category_names, n_context, **kwargs
@@ -129,71 +125,7 @@ def _ires_block(x, filters, batch_norm=False, stride=1, expansion=6):
     return x
 
 
-def _get_encoder_default_heavy(height, width, category_names, n_context):
-    image = tf.keras.layers.Input((height, width, 4))
-    x = image
-
-    # 480x320x4
-    x = tf.keras.layers.Conv2D(16, 3, strides=(2, 1), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 240x320x16
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 120x160x32
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 60x80x32
-    x = tf.keras.layers.Conv2D(64, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 30x40x64
-    x = tf.keras.layers.Conv2D(64, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 15x20x64
-    return _get_common_output(x, category_names, n_context, image)
-
-
-def _get_encoder_default_light(height, width, category_names, n_context):
-    image = tf.keras.layers.Input((height, width, 4))
-    # TODO: input [B, H, W/2, 4] (treat each YUYV tuple as a pixel)
-    x = image
-
-    # 480x320x4
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 1), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 240x320x32
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 120x160x32
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 60x80x32
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 30x40x32
-    x = tf.keras.layers.Conv2D(32, 3, strides=(2, 2), padding="same", use_bias=False)(x)
-    x = tf.keras.layers.BatchNormalization(scale=False)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    # 15x20x160
-    return _get_common_output(x, category_names, n_context, image)
+# ========= Encoder Architectures =========
 
 
 def _get_encoder_inverted_residual_light(height, width, category_names, n_context):
