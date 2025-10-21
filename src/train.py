@@ -119,49 +119,61 @@ def main(config):
         else config["training"]["initial_epoch"]
     )
     batch_size = config["training"]["batch_size"]
-    model_input_dims = config["model"]["model_input_dims"]
-    encoder_architecture = config["model"]["encoder_architecture"]
-    only_train_encoder = config["model"]["only_train_encoder"]
+    model_input_dims = config["model"]["encoder"]["input_dims"]
+    encoder_architecture = config["model"]["encoder"]["architecture"]
+    classifier_architecture = config["model"]["classifier"]["architecture"]
+    only_train_encoder = config["model"]["encoder"]["only_train_encoder"]
 
     log_config(timestamp, config)
 
     dataset = load_datasets(config)
 
-    # Upper camera dimensions. Width is halved because of YUYV format
     model = FullModel(
         encoder_architecture,
+        classifier_architecture,
         *model_input_dims,
-        n_context=config["model"]["n_context"],
-        categories_config=config["categories"],
+        n_context=config["model"]["encoder"]["n_context"],
         only_train_encoder=only_train_encoder,
+        classifier_offsets=config["model"]["classifier"]["with_offsets"],
+        n_meta=config["model"]["classifier"]["n_meta"],
+        encoder_use_batch_norm=config["model"]["encoder"]["use_batch_norm"],
+        classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
+        categories_config=config["categories"],
     )
     model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
-    # ==== When loading a checkpoint ====
-    if config["training"]["from_checkpoint"]:
-        timestamp = config["training"]["load_checkpoint"]["timestamp"]
-        model = FullModel.load(
-            encoder_architecture=config["model"]["encoder_architecture"],
-            input_dims=model_input_dims,
-            filepath=os.path.join(config["callbacks"]["checkpoint_dir"], timestamp),
-            filename=f"epoch_{initial_epoch}.keras",
-            encoder_only=config["training"]["load_checkpoint"]["encoder_only"],
-            verbose=config["training"]["load_checkpoint"]["verbose"],
-            n_context=config["model"]["n_context"],
-            categories_config=config["categories"],
-        )
+    if config["training"]["from_checkpoint"] or config["training"]["from_model"]:
+        # ==== When loading an existing model ====
+        if config["training"]["from_model"]:
+            model_timestamp = config["training"]["load_model"]["timestamp"]
 
-    # ==== When loading from models ====
-    if config["training"]["from_model"]:
-        model_timestamp = config["training"]["load_model"]["timestamp"]
+            filepath = config["training"]["load_model"]["filepath"]
+            filename = f"{model_timestamp}.keras"
+            encoder_only = config["training"]["load_model"]["encoder_only"]
+            verbose = config["training"]["load_model"]["verbose"]
+
+        # ==== When loading a ceckpoint ====
+        else:
+            timestamp = config["training"]["load_checkpoint"]["timestamp"]
+            filepath = os.path.join(config["callbacks"]["checkpoint_dir"], timestamp)
+            filename = f"epoch_{initial_epoch}.keras"
+            encoder_only = config["training"]["load_checkpoint"]["encoder_only"]
+            verbose = config["training"]["load_checkpoint"]["verbose"]
+
         model = FullModel.load(
-            encoder_architecture=config["model"]["encoder_architecture"],
+            encoder_architecture,
+            classifier_architecture,
             input_dims=model_input_dims,
-            filepath=config["training"]["load_model"]["filepath"],
-            filename=f"{model_timestamp}.keras",
-            encoder_only=config["training"]["load_model"]["encoder_only"],
-            verbose=config["training"]["load_model"]["verbose"],
-            n_context=config["model"]["n_context"],
+            filepath=filepath,
+            filename=filename,
+            n_context=config["model"]["encoder"]["n_context"],
+            only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
+            classifier_offsets=config["model"]["classifier"]["with_offsets"],
+            encoder_only=encoder_only,
+            verbose=verbose,
+            n_meta=config["model"]["classifier"]["n_meta"],
+            encoder_use_batch_norm=config["model"]["encoder"]["use_batch_norm"],
+            classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
             categories_config=config["categories"],
         )
 

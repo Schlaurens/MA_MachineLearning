@@ -1,8 +1,16 @@
 model:
-  encoder_architecture: "inverted_residual_single_category"
-  model_input_dims: [480, 320]
-  only_train_encoder: True
-  n_context: 0
+  encoder:
+    architecture: "inverted_residual_single_category_v2"
+    input_dims: [480, 320]
+    n_context: 0
+    only_train_encoder: False
+    use_batch_norm: False
+  classifier:
+    architecture: "classifier_inverted_residual_single_category"
+    patch_size: [32, 32]
+    n_meta: 0
+    with_offsets: True
+    use_batch_norm: False
 
 training:
   epochs: 40
@@ -10,16 +18,16 @@ training:
   batch_size: 32
   verbose: 1
   from_checkpoint: False # < when starting training from checkpoint
-  from_model: False # < when loading an existing model
+  from_model: True # < when loading an existing model
   load_checkpoint:
     initial_epoch: 0
-    timestamp: "" 
-    encoder_only: False # < when only loading the encoder
+    timestamp: "20251013-124614" 
+    encoder_only: True # < when only loading the encoder
     verbose: True
   load_model:
-    timestamp: ""
-    filepath: "models"
-    encoder_only: False # < when only loading the encoder
+    timestamp: "20251020-142906"
+    filepath: "models/finished/"
+    encoder_only: True # < when only loading the encoder
     verbose: True
 
 categories:
@@ -45,15 +53,15 @@ callbacks:
   reduce_lr:
     monitor: "val_total_loss"
     mode: "min"
-    factor: 0.2
-    patience: 15
-    min_lr: 0.0
+    factor: 0.5
+    patience: 6
+    min_lr: 0.00001
   early_stopping:
     monitor: "val_total_loss"
     mode: "min"
     patience: 40
   log_dir: "logs/fit/"
-  checkpoint_dir: "checkpoints/"
+  checkpoint_dir: "models/checkpoints/"
 
 data:
   train_path: "data/tfrecords/train_ds*.tfrecords"

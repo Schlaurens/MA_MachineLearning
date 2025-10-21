@@ -13,14 +13,17 @@ from .layers import PatchExtractor, PatchSampler
 class FullModel(tf.keras.Model):
     def __init__(
         self,
-        encoder_architecture,
-        classifier_architecture,
-        height,
-        width,
-        n_context=0,
-        categories_config=None,
-        only_train_encoder=False,
-        classifier_name=None,
+        encoder_architecture: str,
+        classifier_architecture: str,
+        height: int,
+        width: int,
+        n_context: int = 0,
+        only_train_encoder: bool = False,
+        classifier_offsets: bool = True,
+        n_meta: int = 0,
+        encoder_use_batch_norm: bool = False,
+        classifier_use_batch_norm: bool = False,
+        categories_config: dict = None,
     ):
         """Constructs the FullModel
 
@@ -32,18 +35,24 @@ class FullModel(tf.keras.Model):
             n_context: The size of the context vector. Defaults to 0.
             classifier_architecture: the name of classifier architecture. Defaults to None.
         """
-        super().__init__()  # Subclass of the Model class
-        # Size of context vector
-        self.patch_size = (32, 32)
-        self.encoder_architecture = encoder_architecture
-        self.classifier_architecture = classifier_architecture
-        self.classifier_name = classifier_name
+        super().__init__()
         self.image_height = height
         self.image_width = width
-        self.only_train_encoder = only_train_encoder
+
+        # Encoder config
+        self.encoder_architecture = encoder_architecture
         self.n_context = n_context
+        self.only_train_encoder = only_train_encoder
+        self.encoder_use_batch_norm = encoder_use_batch_norm
+
+        # Classifier config
+        self.classifier_architecture = classifier_architecture
+        self.patch_size = [32, 32]
         self.patch_channels = 3
-        self.n_meta = 0
+        self.n_meta = n_meta
+        self.classifier_offsets = classifier_offsets
+        self.classifier_use_batch_norm = classifier_use_batch_norm
+
         self.full_image_size = tf.constant(
             [self.image_height, self.image_width * 2], dtype=tf.float32
         )  # constructor input image_width is halved due to YUYV
@@ -64,9 +73,9 @@ class FullModel(tf.keras.Model):
                 value["n_candidates"]
             )  # The patch sampler for the category with a fixed number of candidates
             value["extractor"] = PatchExtractor(
-                patch_size=self.patch_size,
-                object_size=value["object_size"],
-                object_height=value.get("object_height", 0),
+                self.patch_size,
+                value["object_size"],
+                value.get("object_height", 0),
             )  # The patch extractor for the category with the fixed object parameters
             value["classifier"] = u_architectures.get_classifier(
                 self.classifier_architecture,
@@ -75,9 +84,16 @@ class FullModel(tf.keras.Model):
                 self.n_meta,
                 self.n_context,
                 value["n_classes"],
+                self.classifier_offsets,
+                self.classifier_use_batch_norm,
             )  # The patch classifier for the category with the fixed number of classes
         self.encoder = u_architectures.get_encoder(
-            self.encoder_architecture, height, width, self.categories.keys(), self.n_context
+            self.encoder_architecture,
+            self.image_height,
+            self.image_width,
+            self.categories.keys(),
+            self.n_context,
+            self.encoder_use_batch_norm,
         )
 
     def encoder_loss(self, batch_data, maps):
@@ -306,15 +322,20 @@ class FullModel(tf.keras.Model):
     @classmethod
     def load(
         cls,
-        encoder_architecture,
-        input_dims,
-        filepath,
-        filename,
-        only_train_encoder=False,
-        encoder_only=False,
-        verbose=False,
-        n_context=0,
-        categories_config=None,
+        encoder_architecture: str,
+        classifier_architecture: str,
+        input_dims: list[int] | tuple[int],
+        filepath: str,
+        filename: str,
+        n_context: int = 0,
+        only_train_encoder: bool = False,
+        classifier_offsets: bool = True,
+        encoder_only: bool = False,
+        verbose: bool = False,
+        n_meta: int = 0,
+        encoder_use_batch_norm: bool = False,
+        classifier_use_batch_norm: bool = False,
+        categories_config: dict = None,
         **kwargs,
     ):
         """load existing encoder and/or classifiers into the model.
@@ -334,10 +355,15 @@ class FullModel(tf.keras.Model):
         # Rebuild model
         model = cls(
             encoder_architecture,
+            classifier_architecture,
             *input_dims,
-            n_context=n_context,
-            categories_config=categories_config,
-            only_train_encoder=only_train_encoder,
+            n_context,
+            only_train_encoder,
+            classifier_offsets,
+            n_meta,
+            encoder_use_batch_norm,
+            classifier_use_batch_norm,
+            categories_config,
         )
 
         # Load the encoder
