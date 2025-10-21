@@ -161,7 +161,7 @@ class FullModel(tf.keras.Model):
 
         boxes = results["boxes"]  # [B, N, 4]
 
-        coords_true_normalized = coords_true / self.full_image_size[tf.newaxis, :]  # [B, N, 2]
+        coords_true_normalized = coords_true / self.full_image_size[tf.newaxis, :]  # [B, 1, 2]
         coords_pred_normalized = coords_pred / self.full_image_size[tf.newaxis, :]  # [B, N, 2]
         # TODO: test this with values
         are_coords_true_inside_patch = u_keypoint.are_coords_in_patch(
@@ -171,14 +171,14 @@ class FullModel(tf.keras.Model):
             coords_pred_normalized, boxes
         )  # [B, N]
 
-        y_true = are_coords_true_inside_patch
+        y_true = are_coords_true_inside_patch  # [B, N]
 
         # Theoretical maximum error, distance between (0,0) and (max, max) of patch
-        max_error = tf.norm(tf.cast(self.patch_size, dtype=tf.float32))
+        max_error = tf.norm(tf.cast(self.patch_size, dtype=tf.float32))  # Shape: ()
 
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=False, name="classifier_bce")(
             y_true, y_pred
-        )
+        )  # Shape: ()
 
         tf.debugging.assert_all_finite(bce, "Classifier BCE")
 
@@ -200,10 +200,10 @@ class FullModel(tf.keras.Model):
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
         squared_error_multiplied = squared_error * y_pred  # [B, N]
 
-        mse = tf.reduce_mean(squared_error_multiplied)
+        mse = tf.reduce_mean(squared_error_multiplied)  # Shape: ()
         tf.debugging.assert_all_finite(mse, "Classifier MSE")
 
-        loss = bce + mse
+        loss = bce + mse  # Shape: ()
 
         return {"loss": loss, "mse": mse, "bce": bce}
 
