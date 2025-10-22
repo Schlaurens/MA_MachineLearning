@@ -156,7 +156,7 @@ class FullModel(tf.keras.Model):
         coords_pred = results["positions"]  # [B, N, 2]
         coords_true = tf.expand_dims(
             u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
-        )  # [B, 1, 2]
+        )  # [B, 1, 2] (x, y)
 
         # Theoretical maximum error, distance between (0,0) and (max, max) of patch
         max_error = tf.norm(tf.cast(self.patch_size, dtype=tf.float32))  # Shape: ()
