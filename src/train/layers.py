@@ -145,6 +145,7 @@ class PatchExtractor(tf.keras.layers.Layer):
             patches, tf.concat([tf.shape(masks), tf.shape(patches)[-3:]], -1)
         )  # [B, N, H_out, W_out, C]
 
+        # TODO: dont return so much unneeded variables
         return (
             patches,
             masks,
