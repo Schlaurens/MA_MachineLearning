@@ -59,8 +59,6 @@ def are_coords_in_patch(coords: tf.Tensor, boxes: tf.Tensor) -> tf.Tensor:
         tf.greater(coords[..., 1], boxes[..., 0]), tf.less(coords[..., 1], boxes[..., 2])
     )  # [B, ..., ]
 
-    # tf.print("x_check: ", tf.shape(x_check))
-    # tf.print("y_check: ", tf.shape(y_check))
     return tf.where(
         tf.logical_and(x_check, y_check),
         tf.constant([True], dtype=tf.bool),
