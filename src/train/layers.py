@@ -1,6 +1,141 @@
 import tensorflow as tf
 
 
+class Normalization(tf.keras.layers.Layer):
+    def __init__(
+        self, batch_norm: bool = False, scale: bool = False, groups: int = -1, name: str = None
+    ):
+        """This Layer returns a normalization layer that is either BatchNormalization or GroupNormalization.
+
+        Args:
+            batch_norm: If True normalization will be BatchNorm, else GroupNorm . Defaults to False.
+            scale: If True, multiply by gamma. If False, gamma is not used. Defaults to False.
+            groups: Size of the groups for the GroupNormalization. If -1 the groupsize is the size of the input dimension (InstanceNormalization). Defaults to -1.
+            name: The Name of the layer. Defaults to None.
+        """
+        super().__init__(name=name)
+        self.norm_layer = (
+            tf.keras.layers.BatchNormalization(scale=scale)
+            if batch_norm
+            else tf.keras.layers.GroupNormalization(scale=scale, groups=groups)
+        )
+
+    def call(self, inputs):
+        return self.norm_layer(inputs)
+
+
+class IresBlock(tf.keras.layers.Layer):
+    def __init__(
+        self,
+        filters: int,
+        use_batch_norm: bool = False,
+        stride: int = 1,
+        expansion: int = 6,
+        name: str = None,
+        **kwargs,
+    ):
+        """Inverted residual block as specified in MobileNetV2
+
+        Args:
+            filters: Number of filters
+            use_batch_norm: If True use Batch Normalization. Else use Group Normalization.
+            stride: The stride. Defaults to 1.
+            expansion: Expand the number of filters by multiplying them with this number. Defaults to 6.
+            name: The Name of the layer. Defaults to None.
+        """
+        super().__init__(name=name, **kwargs)
+        self.filters = filters
+        self.use_batch_norm = use_batch_norm
+        self.expansion = expansion
+        self.stride = stride
+
+    def build(self, input_shape):
+        # Expansion phase: 1x1 convolution to expand channels
+        self.conv_expand = tf.keras.layers.Conv2D(
+            self.filters * self.expansion,
+            1,
+            padding="same",
+            use_bias=False,
+            name=f"{self.name}_conv_expand",
+        )
+        self.norm_expand = Normalization(
+            batch_norm=self.use_batch_norm, scale=False, groups=-1, name=f"{self.name}_norm_expand"
+        )
+
+        # Use Depthwise convolution
+        self.conv_depthwise = tf.keras.layers.DepthwiseConv2D(
+            3,
+            strides=self.stride,
+            padding="same",
+            use_bias=False,
+            name=f"{self.name}_conv_depthwise",
+        )
+        self.norm_depthwise = Normalization(
+            batch_norm=self.use_batch_norm,
+            scale=False,
+            groups=-1,
+            name=f"{self.name}_norm_depthwise",
+        )
+
+        # Projection phase: 1x1 convolution to project back to original channels
+        self.conv_projection = tf.keras.layers.Conv2D(
+            self.filters, 1, padding="same", use_bias=False, name=f"{self.name}_conv_projection"
+        )
+        self.norm_projection = Normalization(
+            batch_norm=self.use_batch_norm,
+            scale=False,
+            groups=-1,
+            name=f"{self.name}_norm_projection",
+        )
+
+        # Residual projection if dimensions change
+        self.conv_residual = tf.keras.layers.Conv2D(
+            self.filters,
+            1,
+            strides=self.stride,
+            padding="same",
+            use_bias=False,
+            name=f"{self.name}_conv_residual",
+        )
+        self.norm_residual = Normalization(
+            batch_norm=self.use_batch_norm,
+            scale=False,
+            groups=-1,
+            name=f"{self.name}_norm_residual",
+        )
+
+        # Activation and Add layers
+        self.relu = tf.keras.layers.ReLU(6.0)
+        self.add = tf.keras.layers.Add()
+
+        super().build(input_shape)
+
+    def call(self, inputs):
+        residual = inputs
+
+        # Expansion phase: 1x1 convolution to expand channels
+        x = self.conv_expand(inputs)
+        x = self.norm_expand(x)
+        x = self.relu(x)
+
+        # Use Depthwise convolution
+        x = self.conv_depthwise(x)
+        x = self.norm_depthwise(x)
+        x = self.relu(x)
+
+        # Projection phase: 1x1 convolution to project back to original channels
+        x = self.conv_projection(x)
+        x = self.norm_projection(x)
+
+        # If dimensions changed, project the residual
+        if self.stride != 1 or residual.shape[-1] != self.filters:
+            residual = self.conv_residual(residual)
+            residual = self.norm_residual(residual)
+
+        # Add residual
+        return self.add([x, residual])
+
+
 class PatchExtractor(tf.keras.layers.Layer):
     """This layer extracts patches from an image. The center coordinates are given,
     and the size in pixels of the crop in the original image is determined based on
