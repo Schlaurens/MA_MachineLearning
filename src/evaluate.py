@@ -20,12 +20,11 @@ import yaml
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-import matplotlib.widgets as widgets
 import numpy as np
 import tensorflow as tf
 from matplotlib import patches
+from matplotlib.gridspec import GridSpec
 from matplotlib.widgets import Slider
 
 from train.models import FullModel
@@ -54,7 +53,7 @@ class EvaluateApplication:
         )
 
         self.fig = plt.figure(figsize=(12, 8))
-        self.gs = gridspec.GridSpec(11, 16, figure=self.fig)
+        self.gs = GridSpec(11, 16, figure=self.fig)
 
         self.ax_ball_patches = self.fig.add_subplot(self.gs[0:4, 0:5])
         self.ax_ball_patches.axis("off")
@@ -100,7 +99,7 @@ class EvaluateApplication:
         )
 
         self.ax_slider_image = self.fig.add_subplot(self.gs[10, :])
-        self.slider_image = widgets.Slider(
+        self.slider_image = Slider(
             self.ax_slider_image,
             "Index",
             0,
