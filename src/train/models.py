@@ -289,7 +289,7 @@ class FullModel(tf.keras.Model):
         # Save the encoder
         encoder_path = os.path.join(filepath, "encoder", f"{filename}.keras")
 
-        self.get_layer("encoder").save(encoder_path, overwrite)
+        self.encoder.save(encoder_path, overwrite)
 
         if verbose:
             print("Encoder saved!")
