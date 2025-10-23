@@ -3,13 +3,13 @@ This script provides an interactive visualization tool for evaluating the predic
 
 Usage:
     Run this script from the command line with the following arguments:
-        python evaluate.py <directory> <model_path>
-    where <directory> is the path to the dataset and <model_path> is the path to the trained model.
+        python evaluate.py <data_path> <model_path>
+    where <data_path> is the path to the dataset and <model_path> is the path to the trained model.
 Arguments:
-    directory (str): Path to the directory containing the labeled dataset.
+    data_path (str): Path to the .tfrecords file with the data that the model should be evaluated on.
     model_path (str): Path to the trained TensorFlow model.
 Features:
-    - Loads a trained model and dataset labels.
+    - Loads a trained model and dataset.
     - Displays the input image and model predictions for different object categories.
     - Interactive navigation through images using a slider or left/right arrow keys.
 """
@@ -29,9 +29,8 @@ from util import image as u_image
 
 
 class EvaluateApplication:
-    def __init__(self, model_path, directory):
-        self.directory = directory
-        self.labels = u_dataset.load_labels(directory)
+    def __init__(self, model_path, data_path):
+        self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
         self.model = tf.keras.models.load_model(model_path, compile=False)
         assert len(self.model.input_shape) == 4
         self.image_format = (
@@ -68,16 +67,12 @@ class EvaluateApplication:
             self.ax_slider_image,
             "Index",
             0,
-            len(self.labels) - 1,
+            len(self.data) - 1,
             valinit=0,
             valfmt="%i",
         )
 
-        self.im_ax_img = self.ax_img.imshow(
-            u_dataset.load_image(
-                self.directory, self.labels[0], image_format=u_image.ImageFormat.RGB
-            )
-        )
+        self.im_ax_img = self.ax_img.imshow(u_image.convert_yuyv_to_rgb(self.data[0]["image"]))
         stuff = np.zeros((15, 20))
         stuff[0][0] = 1
         self.im_ax_ball = self.ax_ball.imshow(stuff)
@@ -95,36 +90,22 @@ class EvaluateApplication:
         plt.show()
 
     def select_image(self, index):
-        self.im_ax_img.set_data(
-            u_dataset.load_image(
-                self.directory,
-                self.labels[index],
-                image_format=u_image.ImageFormat.RGB,
-            )
-        )
+        self.im_ax_img.set_data(u_image.convert_yuyv_to_rgb(self.data[index]["image"]))
         self.update_predictions(index)
         self.fig.canvas.draw()
 
     def update_predictions(self, index):
-        # Load image in YUYV format and reshape to a usable (480, 320, 4) as the input for the encoder
-        image = np.reshape(
-            u_dataset.load_image(
-                self.directory, self.labels[index], image_format=u_image.ImageFormat.YUYV
-            ),
-            (480, 320, 4),
-        )
-
+        image = self.data[index]["image"]
         predictions = self.model(image[np.newaxis, ...], training=False)
 
         output_penaltyMark = predictions[0].numpy()  # remove batch dimension
 
+        # Set prediction figures
         self.im_ax_penalty_mark.set_data(output_penaltyMark[..., 2])
 
         # Set groundtruth figures
-        masks_penaltyMark = u_dataset.get_masks(self.labels[index], "penaltyMark")
-        masks_ball = u_dataset.get_masks(self.labels[index], "ball")
-        self.im_ax_ball_gt.set_data(masks_ball["object_mask"])
-        self.im_ax_penalty_mark_gt.set_data(masks_penaltyMark["object_mask"])
+        self.im_ax_ball_gt.set_data(self.data[index]["ball"]["object_mask"])
+        self.im_ax_penalty_mark_gt.set_data(self.data[index]["penaltyMark"]["object_mask"])
 
     def normalize_array(self, arr):
         arr_min = arr.min()
@@ -149,9 +130,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="This script shows the results of a model.")
-    parser.add_argument("directory")
+    parser.add_argument("data_path")
     parser.add_argument("model_path")
     args = parser.parse_args()
 
-    app = EvaluateApplication(args.model_path, args.directory)
+    app = EvaluateApplication(args.model_path, args.data_path)
     app.run()
