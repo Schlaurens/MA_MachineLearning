@@ -16,6 +16,8 @@ Features:
 
 import os
 
+import yaml
+
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 import matplotlib.gridspec as gridspec
@@ -24,6 +26,7 @@ import matplotlib.widgets as widgets
 import numpy as np
 import tensorflow as tf
 
+from train.models import FullModel
 from util import dataset as u_dataset
 from util import image as u_image
 
@@ -31,14 +34,19 @@ from util import image as u_image
 class EvaluateApplication:
     def __init__(self, model_path, data_path):
         self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
-        self.model = tf.keras.models.load_model(model_path, compile=False)
-        assert len(self.model.input_shape) == 4
+
+        config = self.load_config(f"logs/fit/{model_path.split('/')[-1].split('.')[0]}/config.yaml")
+
+        # self.model = tf.keras.models.load_model(model_path, compile=False)
+        self.model = self.load_model(config, model_path)
+
+        assert len(self.model.encoder.input_shape) == 4
         self.image_format = (
             u_image.ImageFormat.GRAYSCALE
-            if self.model.input_shape[3] == 1
+            if self.model.encoder.input_shape[3] == 1
             else (
                 u_image.ImageFormat.YUYV
-                if self.model.input_shape[3] == 2
+                if self.model.encoder.input_shape[3] == 2
                 else u_image.ImageFormat.YUV
             )
         )
@@ -106,13 +114,22 @@ class EvaluateApplication:
         self.fig.canvas.draw()
 
     def update_predictions(self, index):
-        image = self.data[index]["image"]
-        predictions = self.model(image[np.newaxis, ...], training=False)
+        # image = self.data[index]["image"]
+        results = self.model(
+            (
+                self.data[index]["image"][np.newaxis, ...],
+                self.data[index]["camera"][np.newaxis, ...],
+                self.data[index]["intrinsics"][np.newaxis, ...],
+            ),
+            training=False,
+        )
 
-        output_penaltyMark = predictions[0].numpy()  # remove batch dimension
+        output_penaltyMark = results["results"]["penaltyMark"]["logits"][
+            0
+        ].numpy()  # remove batch dimension
 
         # Set prediction figures
-        self.im_ax_penalty_mark.set_data(output_penaltyMark[..., 2])
+        self.im_ax_penalty_mark.set_data(np.reshape(output_penaltyMark, (15, 20)))
 
         # Set groundtruth figures
         self.im_ax_ball_gt.set_data(self.data[index]["ball"]["object_mask"])
@@ -134,7 +151,32 @@ class EvaluateApplication:
             current = int(self.slider_image.val)
             sign = 1 if event.key == "right" else -1
             current += sign
-            self.slider_image.set_val(max(0, min(current, len(self.labels) - 1)))
+            self.slider_image.set_val(max(0, min(current, len(self.data) - 1)))
+
+    def load_config(self, config_path):
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        return config
+
+    def load_model(self, config, model_path):
+        model = FullModel.load(
+            encoder_architecture=config["model"]["encoder"]["architecture"],
+            classifier_architecture=config["model"]["classifier"]["architecture"],
+            input_dims=config["model"]["encoder"]["input_dims"],
+            filepath="/".join(model_path.split("/")[:-2]),
+            filename=model_path.split("/")[-1],
+            n_context=config["model"]["encoder"]["n_context"],
+            only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
+            classifier_offsets=config["model"]["classifier"]["with_offsets"],
+            encoder_only=False,
+            verbose=True,
+            n_meta=config["model"]["classifier"]["n_meta"],
+            encoder_use_batch_norm=config["model"]["encoder"]["use_batch_norm"],
+            classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
+            categories_config=config["categories"],
+        )
+        model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+        return model
 
 
 if __name__ == "__main__":
