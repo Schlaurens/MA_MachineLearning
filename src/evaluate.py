@@ -194,6 +194,7 @@ class EvaluateApplication:
         ):  # take index 0 to remove batch dimension
             patch_index = output["results"][object_name]["patch_indices"][0][i]
 
+            # dont draw patch if its prediction is under the threshold
             if output["results"][object_name]["logits"][0][patch_index] < self.get_threshold(
                 object_name
             ):
