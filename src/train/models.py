@@ -2,7 +2,7 @@ import os
 
 import tensorflow as tf
 
-from train import architectures as u_architectures
+from train import classifier_architectures as u_classifiers
 from util import dataset as u_dataset
 from util import image as u_image
 from util import keypoint as u_keypoint
@@ -77,7 +77,7 @@ class FullModel(tf.keras.Model):
                 value["object_size"],
                 value.get("object_height", 0),
             )  # The patch extractor for the category with the fixed object parameters
-            value["classifier"] = u_architectures.get_classifier(
+            value["classifier"] = u_classifiers.get_classifier(
                 self.classifier_architecture,
                 self.patch_size,
                 self.patch_channels,
