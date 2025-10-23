@@ -3,6 +3,7 @@ import os
 import tensorflow as tf
 
 from train import classifier_architectures as u_classifiers
+from train import encoder_architectures as u_encoders
 from util import dataset as u_dataset
 from util import image as u_image
 from util import keypoint as u_keypoint
@@ -87,7 +88,7 @@ class FullModel(tf.keras.Model):
                 self.classifier_offsets,
                 self.classifier_use_batch_norm,
             )  # The patch classifier for the category with the fixed number of classes
-        self.encoder = u_architectures.get_encoder(
+        self.encoder = u_encoders.get_encoder(
             self.encoder_architecture,
             self.image_height,
             self.image_width,
