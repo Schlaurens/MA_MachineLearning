@@ -197,7 +197,7 @@ class EvaluateApplication:
             if output["results"][object_name]["logits"][0][patch_index] < self.get_threshold(
                 object_name
             ):
-                return
+                continue
             # Coordinates for each box are y1, x1, y2, x2
             # Upscale the normalized coordinates
             coords = (box[1] * (image.shape[1] - 1), box[0] * (image.shape[0] - 1))
