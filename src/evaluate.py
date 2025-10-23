@@ -177,36 +177,42 @@ class EvaluateApplication:
         self.draw_patches(image_rgb, self.ax_penalty_mark_patches, output, "penaltyMark")
 
     def remove_artists(self):
-        """Remove all the Artists (texts and patches) for all the axes."""
+        """Remove all the Artists (texts, patches and lines) for all the axes."""
         # Remove texts and patches
         for text in self.ax_ball_patches.texts:
             text.remove()
         for patch in self.ax_ball_patches.patches:
             patch.remove()
+        for lines in self.ax_ball_patches.lines:
+            lines.remove()
         for text in self.ax_penalty_mark_patches.texts:
             text.remove()
         for patch in self.ax_penalty_mark_patches.patches:
             patch.remove()
+        for lines in self.ax_penalty_mark_patches.lines:
+            lines.remove()
 
     def draw_patches(self, image, axes, output, object_name):
         for i, box in enumerate(
             output["results"][object_name]["boxes"][0]
         ):  # take index 0 to remove batch dimension
             patch_index = output["results"][object_name]["patch_indices"][0][i]
+            logit = output["results"][object_name]["logits"][0][patch_index]
+            coords_pred = output["results"][object_name]["coords"][0][i]
+            position_pred = output["results"][object_name]["positions"][0][i]
 
             # dont draw patch if its prediction is under the threshold
-            if output["results"][object_name]["logits"][0][patch_index] < self.get_threshold(
-                object_name
-            ):
+            if logit < self.get_threshold(object_name):
                 continue
+
             # Coordinates for each box are y1, x1, y2, x2
             # Upscale the normalized coordinates
-            coords = (box[1] * (image.shape[1] - 1), box[0] * (image.shape[0] - 1))
+            box_coords = (box[1] * (image.shape[1] - 1), box[0] * (image.shape[0] - 1))
             width = (box[3] - box[1]) * (image.shape[1] - 1)
             height = (box[2] - box[0]) * (image.shape[0] - 1)
 
             rect = patches.Rectangle(
-                coords,
+                box_coords,
                 width,
                 height,
                 linewidth=1,
@@ -215,8 +221,10 @@ class EvaluateApplication:
             )
 
             # Each patch has a number to identify the ordering
-            axes.text(x=(coords[0] + 4.0), y=coords[1] + 17.0, s=i + 1, color="lime")
+            axes.text(x=(box_coords[0] + 4.0), y=box_coords[1] + 17.0, s=i + 1, color="lime")
             axes.add_patch(rect)
+            axes.plot(coords_pred[0], coords_pred[1], "rx")
+            axes.plot(position_pred[0], position_pred[1], "bx")
 
     def image_slider_changed(self, val):
         self.index = int(val)
