@@ -73,6 +73,7 @@ class EvaluateApplication:
         self.ax_penalty_mark_gt = self.fig.add_subplot(self.gs[5:9, 10:15])
         self.ax_penalty_mark_gt.axis("off")
         self.ax_penalty_mark_gt.set_title("PenaltyMark Groundtruth")
+        self.index = 0
 
         self.ax_slider_image = self.fig.add_subplot(self.gs[10, :])
         self.slider_image = widgets.Slider(
@@ -101,25 +102,31 @@ class EvaluateApplication:
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
         self.fig.canvas.mpl_connect("key_release_event", lambda event: self.key_released(event))
 
-        self.select_image(0)
+        self.select_image()
 
     def run(self):
         plt.show()
 
-    def select_image(self, index):
-        self.im_ax_ball_patches.set_data(u_image.convert_yuyv_to_rgb(self.data[index]["image"]))
-        self.im_ax_penalty_mark_patches.set_data(
-            u_image.convert_yuyv_to_rgb(self.data[index]["image"])
+    def select_image(self):
+        self.im_ax_ball_patches.set_data(
+            u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])
         )
-        self.update_predictions(index)
+        self.im_ax_penalty_mark_patches.set_data(
+            u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])
+        )
+        self.update_predictions()
         self.fig.canvas.draw()
 
+    def update_predictions(self):
         self.remove_artists()
+
+        image = self.data[self.index]["image"]
         image_rgb = u_image.convert_yuyv_to_rgb(image)
+        output = self.model(
             (
-                self.data[index]["image"][np.newaxis, ...],
-                self.data[index]["camera"][np.newaxis, ...],
-                self.data[index]["intrinsics"][np.newaxis, ...],
+                image[np.newaxis, ...],
+                self.data[self.index]["camera"][np.newaxis, ...],
+                self.data[self.index]["intrinsics"][np.newaxis, ...],
             ),
             training=False,
         )
@@ -180,7 +187,8 @@ class EvaluateApplication:
             axes.add_patch(rect)
 
     def image_slider_changed(self, val):
-        self.select_image(int(val))
+        self.index = int(val)
+        self.select_image()
 
     def key_released(self, event):
         if event.key in ["left", "right"]:
