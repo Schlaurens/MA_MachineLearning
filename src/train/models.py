@@ -385,9 +385,7 @@ class FullModel(tf.keras.Model):
                     if verbose:
                         print(f"Failed to load {name.capitalize()}-Classifier: {e}")
 
-        # If only the encoder is loaded, the model needs to be compiled again for training.
-        if encoder_only:
-            model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+        model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
         if verbose:
             print("Only Train Encoder = ", only_train_encoder)
