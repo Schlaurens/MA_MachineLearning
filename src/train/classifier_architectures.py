@@ -157,13 +157,10 @@ def _get_classifier_inverted_residual_single_category_v2(
     if n_meta > 0:
         x = tf.keras.layers.Concatenate()([image, meta])
 
-    x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
-
-    x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
-    x = tf.keras.layers.ReLU(6.0)(x)
+    x = IresBlock(8, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlock(16, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlock(16, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlock(24, use_batch_norm, stride=2, expansion=3)(x)
 
     x = tf.keras.layers.Flatten()(x)
 
