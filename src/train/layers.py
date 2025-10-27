@@ -289,6 +289,7 @@ class PatchExtractor(tf.keras.layers.Layer):
             boxes,
             coords,
             intrinsics,
+            distances_in_camera,
         )
 
 
