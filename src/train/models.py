@@ -190,7 +190,8 @@ class FullModel(tf.keras.Model):
         )  # Shape: ()
 
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
-        squared_error_multiplied = squared_error * y_pred  # [B, N]
+        squared_error_multiplied = squared_error * tf.stop_gradient(y_pred)  # [B, N]
+
         mse = tf.reduce_mean(squared_error_multiplied)  # Shape: ()
 
         tf.debugging.assert_all_finite(mse, "Classifier MSE")
