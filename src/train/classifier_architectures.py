@@ -82,6 +82,26 @@ def get_classifier(
             with_offset,
             use_batch_norm,
         )
+    if classifier_architecture == "classifier_ires_single_category_v2":
+        return _get_classifier_ires_single_category_v2(
+            patch_size,
+            channels_in,
+            n_meta,
+            n_context,
+            n_classes,
+            with_offset,
+            use_batch_norm,
+        )
+    if classifier_architecture == "classifier_ires_single_category_v3":
+        return _get_classifier_ires_single_category_v3(
+            patch_size,
+            channels_in,
+            n_meta,
+            n_context,
+            n_classes,
+            with_offset,
+            use_batch_norm,
+        )
     else:
         raise ValueError(f"Unknown classifier name: {classifier_architecture}")
 
@@ -367,6 +387,76 @@ def _get_classifier_ires_single_category(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    return _get_common_classifier_output(x, n_classes, with_offset, inputs)
+
+def _get_classifier_ires_single_category_v2(
+    patch_size: list[int],
+    channels_in: int,
+    n_meta: int,
+    n_context: int,
+    n_classes: int,
+    with_offset: bool,
+    use_batch_norm: bool,
+):
+    image = tf.keras.layers.Input((*patch_size, channels_in))
+    inputs = [image]
+
+    if n_meta > 0:
+        meta = tf.keras.layers.Input((n_meta,))
+        inputs += [meta]
+
+    if n_context > 0:
+        context = tf.keras.layers.Input((n_context,))
+        inputs += [n_context]
+
+    x = image
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([image, meta])
+
+    x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
+    x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
+    x = IresBlock(32, use_batch_norm, stride=2, expansion=6)(x)
+
+    x = tf.keras.layers.Flatten()(x)
+
+    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    return _get_common_classifier_output(x, n_classes, with_offset, inputs)
+
+def _get_classifier_ires_single_category_v3(
+    patch_size: list[int],
+    channels_in: int,
+    n_meta: int,
+    n_context: int,
+    n_classes: int,
+    with_offset: bool,
+    use_batch_norm: bool,
+):
+    image = tf.keras.layers.Input((*patch_size, channels_in))
+    inputs = [image]
+
+    if n_meta > 0:
+        meta = tf.keras.layers.Input((n_meta,))
+        inputs += [meta]
+
+    if n_context > 0:
+        context = tf.keras.layers.Input((n_context,))
+        inputs += [n_context]
+
+    x = image
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([image, meta])
+
+    x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
+    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlock(24, use_batch_norm, stride=2, expansion=4)(x)
+
+    x = tf.keras.layers.Flatten()(x)
+
+    x = tf.keras.layers.Dense(24)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     return _get_common_classifier_output(x, n_classes, with_offset, inputs)
