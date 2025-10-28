@@ -52,44 +52,6 @@ class EvaluateApplication:
             )
         )
 
-        self.fig = plt.figure(figsize=(15, 8))
-        self.gs = GridSpec(11, 18, figure=self.fig)
-
-        self.ax_ball_patches = self.fig.add_subplot(self.gs[0:4, 0:5])
-        self.ax_ball_patches.axis("off")
-        self.ax_ball_patches.set_title("Ball Patches")
-
-        self.ax_ball = self.fig.add_subplot(self.gs[0:4, 5:10])
-        self.ax_ball.axis("off")
-        self.ax_ball.set_title("Ball")
-
-        self.ax_ball_gt = self.fig.add_subplot(self.gs[0:4, 10:15])
-        self.ax_ball_gt.axis("off")
-        self.ax_ball_gt.set_title("Ball Groundtruth")
-
-        self.ax_ball_result = self.fig.add_subplot(self.gs[0:4, 15:18])
-        self.ax_ball_result.axis("off")
-        self.ax_ball_result.set_title("Ball Result")
-
-        self.ax_penalty_mark_patches = self.fig.add_subplot(self.gs[5:9, 0:5])
-        self.ax_penalty_mark_patches.axis("off")
-        self.ax_penalty_mark_patches.set_title("PenaltyMark Patches")
-
-        self.ax_penalty_mark = self.fig.add_subplot(self.gs[5:9, 5:10])
-        self.ax_penalty_mark.axis("off")
-        self.ax_penalty_mark.set_title("PenaltyMark")
-
-        self.ax_penalty_mark_gt = self.fig.add_subplot(self.gs[5:9, 10:15])
-        self.ax_penalty_mark_gt.axis("off")
-        self.ax_penalty_mark_gt.set_title("PenaltyMark Groundtruth")
-
-        self.ax_penalty_mark_result = self.fig.add_subplot(self.gs[5:9, 15:18])
-        self.ax_penalty_mark_result.axis("off")
-        self.ax_penalty_mark_result.set_title("Ball Result")
-
-        self.penalty_mark_threshold = 0.8
-        self.ball_threshold = 0.8
-
         self.index = 0
         self.thresholds = {
             "encoder": {
@@ -101,6 +63,8 @@ class EvaluateApplication:
                 "penaltyMark": 0.6,
             },
         }
+
+        self.initialize_figures()
         self.select_image()
 
     def update_threshold(self, encoder: bool, object_name: str, val: float):
@@ -294,17 +258,96 @@ class EvaluateApplication:
         model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
         return model
 
-    def get_threshold(self, object_name):
-        if object_name == "ball":
-            return self.ball_threshold
-        elif object_name == "penaltyMark":
-            return self.penalty_mark_threshold
+    def initialize_figures(self):
+        self.fig = plt.figure(figsize=(15, 8))
+        self.gs = GridSpec(11, 18, figure=self.fig)
 
-    def set_threshold(self, object_name, value):
-        if object_name == "ball":
-            self.ball_threshold = value
-        if object_name == "penaltyMark":
-            self.penalty_mark_threshold = value
+        self.ax_ball_patches = self.fig.add_subplot(self.gs[0:4, 0:5])
+        self.ax_ball_patches.axis("off")
+        self.ax_ball_patches.set_title("Ball Patches")
+
+        self.ax_ball = self.fig.add_subplot(self.gs[0:4, 5:10])
+        self.ax_ball.axis("off")
+        self.ax_ball.set_title("Ball")
+
+        self.ax_ball_gt = self.fig.add_subplot(self.gs[0:4, 10:15])
+        self.ax_ball_gt.axis("off")
+        self.ax_ball_gt.set_title("Ball Groundtruth")
+
+        self.ax_ball_result = self.fig.add_subplot(self.gs[0:4, 15:18])
+        self.ax_ball_result.axis("off")
+        self.ax_ball_result.set_title("Ball Result")
+
+        self.ax_penalty_mark_patches = self.fig.add_subplot(self.gs[5:9, 0:5])
+        self.ax_penalty_mark_patches.axis("off")
+        self.ax_penalty_mark_patches.set_title("PenaltyMark Patches")
+
+        self.ax_penalty_mark = self.fig.add_subplot(self.gs[5:9, 5:10])
+        self.ax_penalty_mark.axis("off")
+        self.ax_penalty_mark.set_title("PenaltyMark")
+
+        self.ax_penalty_mark_gt = self.fig.add_subplot(self.gs[5:9, 10:15])
+        self.ax_penalty_mark_gt.axis("off")
+        self.ax_penalty_mark_gt.set_title("PenaltyMark Groundtruth")
+
+        self.ax_penalty_mark_result = self.fig.add_subplot(self.gs[5:9, 15:18])
+        self.ax_penalty_mark_result.axis("off")
+        self.ax_penalty_mark_result.set_title("Ball Result")
+
+        self.ax_penalty_mark_slider = self.fig.add_axes([0.1, 0.25, 0.0225, 0.2725])
+        self.penalty_mark_slider = Slider(
+            ax=self.ax_penalty_mark_slider,
+            label="t",
+            valmin=0,
+            valmax=1,
+            valinit=self.thresholds["encoder"]["penaltyMark"],
+            orientation="vertical",
+        )
+        self.ax_ball_slider = self.fig.add_axes([0.1, 0.61, 0.0225, 0.2725])
+        self.ball_slider = Slider(
+            ax=self.ax_ball_slider,
+            label="t",
+            valmin=0,
+            valmax=1,
+            valinit=self.thresholds["encoder"]["ball"],
+            orientation="vertical",
+        )
+
+        self.ax_slider_image = self.fig.add_subplot(self.gs[10, :])
+        self.slider_image = Slider(
+            self.ax_slider_image,
+            "Index",
+            0,
+            len(self.data) - 1,
+            valinit=0,
+            valfmt="%i",
+        )
+
+        self.im_ax_ball_patches = self.ax_ball_patches.imshow(
+            u_image.convert_yuyv_to_rgb(self.data[0]["image"])
+        )
+        self.im_ax_penalty_mark_patches = self.ax_penalty_mark_patches.imshow(
+            u_image.convert_yuyv_to_rgb(self.data[0]["image"])
+        )
+        stuff = np.zeros((15, 20))
+        stuff[0][0] = 1
+        stuff_patch = np.zeros((32, 32))
+
+        self.im_ax_ball = self.ax_ball.imshow(stuff)
+        self.im_ax_ball_gt = self.ax_ball_gt.imshow(stuff)
+        self.im_ax_ball_result = self.ax_ball_result.imshow(stuff_patch)
+        self.im_ax_penalty_mark = self.ax_penalty_mark.imshow(stuff)
+        self.im_ax_penalty_mark_gt = self.ax_penalty_mark_gt.imshow(stuff)
+        self.im_ax_penalty_mark_result = self.ax_penalty_mark_result.imshow(stuff_patch)
+
+        self.ball_slider.on_changed(lambda val: self.update_threshold(True, "ball", val))
+        self.penalty_mark_slider.on_changed(
+            lambda val: self.update_threshold(True, "penaltyMark", val)
+        )
+
+        self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
+        self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
+        self.fig.canvas.mpl_connect("key_release_event", lambda event: self.key_released(event))
 
 
 if __name__ == "__main__":
