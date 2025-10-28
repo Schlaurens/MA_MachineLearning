@@ -34,11 +34,8 @@ from util import image as u_image
 
 class EvaluateApplication:
     def __init__(self, model_path, data_path):
-        self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
-
         config = self.load_config(f"logs/fit/{model_path.split('/')[-1].split('.')[0]}/config.yaml")
-
-        # self.model = tf.keras.models.load_model(model_path, compile=False)
+        self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
         self.model = self.load_model(config, model_path)
 
         assert len(self.model.encoder.input_shape) == 4
@@ -191,7 +188,9 @@ class EvaluateApplication:
             patch_index = output["results"][object_name]["patch_indices"][0][i]
             logit = output["results"][object_name]["logits"][0][patch_index]
             coords_pred = output["results"][object_name]["coords"][0][i]
-            coords_true = u_dataset.get_coords_from_offsets(self.data[self.index][object_name]["offset_mask"])
+            coords_true = u_dataset.get_coords_from_offsets(
+                self.data[self.index][object_name]["offset_mask"]
+            )
             position_pred = output["results"][object_name]["positions"][0][i]
 
             # dont draw patch if its prediction is under the threshold
