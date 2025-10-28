@@ -34,9 +34,16 @@ from util import image as u_image
 
 class EvaluateApplication:
     def __init__(self, model_path, data_path):
-        config = self.load_config(f"logs/fit/{model_path.split('/')[-1].split('.')[0]}/config.yaml")
+        path_to_model = "/".join(model_path.split("/")[:-2])
+        model_name = model_path.split("/")[-1]
+        if "checkpoints" in path_to_model:
+            model_timestamp = path_to_model.split("/")[-1]
+        else:
+            model_timestamp = model_name.split(".")[0]
+
+        config = self.load_config(f"logs/fit/{model_timestamp}/config.yaml")
         self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
-        self.model = self.load_model(config, model_path)
+        self.model = self.load_model(config, path_to_model, model_name)
 
         assert len(self.model.encoder.input_shape) == 4
         self.image_format = (
@@ -230,13 +237,13 @@ class EvaluateApplication:
             config = yaml.safe_load(f)
         return config
 
-    def load_model(self, config, model_path):
+    def load_model(self, config, path_to_model, model_name):
         model = FullModel.load(
             encoder_architecture=config["model"]["encoder"]["architecture"],
             classifier_architecture=config["model"]["classifier"]["architecture"],
             input_dims=config["model"]["encoder"]["input_dims"],
-            filepath="/".join(model_path.split("/")[:-2]),
-            filename=model_path.split("/")[-1],
+            filepath=path_to_model,
+            filename=model_name,
             n_context=config["model"]["encoder"]["n_context"],
             only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
             classifier_offsets=config["model"]["classifier"]["with_offsets"],
