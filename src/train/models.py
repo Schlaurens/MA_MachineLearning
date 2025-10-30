@@ -210,21 +210,21 @@ class FullModel(tf.keras.Model):
             key: self.classifier_loss(batch_data[key], results=value)
             for key, value in results.items()
         }  # (loss, mse, rmse, bce) for each category
+        result = {}
+        result["encoder_loss"] = tf.reduce_sum([value["loss"] for value in encoder_losses.values()])
+        result["classifier_loss"] = tf.reduce_sum(
+            [value["loss"] for value in classifier_losses.values()]
+        )
 
-        return {
-            "encoder_loss": tf.reduce_sum([value["loss"] for value in encoder_losses.values()]),
-            "encoder_bce": tf.reduce_sum([value["bce"] for value in encoder_losses.values()]),
-            "encoder_mse": tf.reduce_sum([value["mse"] for value in encoder_losses.values()]),
-            "encoder_rmse": tf.reduce_sum([value["rmse"] for value in encoder_losses.values()]),
-            "classifier_loss": tf.reduce_sum(
-                [value["loss"] for value in classifier_losses.values()]
-            ),
-            "classifier_bce": tf.reduce_sum([value["bce"] for value in classifier_losses.values()]),
-            "classifier_mse": tf.reduce_sum([value["mse"] for value in classifier_losses.values()]),
-            "classifier_rmse": tf.reduce_sum(
-                [value["rmse"] for value in classifier_losses.values()]
-            ),
-        }
+        for key in self.categories:
+            result[f"encoder_bce_{key}"] = encoder_losses[key]["bce"]
+            result[f"encoder_mse_{key}"] = encoder_losses[key]["mse"]
+            result[f"encoder_rmse_{key}"] = encoder_losses[key]["rmse"]
+            result[f"classifier_bce_{key}"] = classifier_losses[key]["bce"]
+            result[f"classifier_mse_{key}"] = classifier_losses[key]["mse"]
+            result[f"classifier_rmse_{key}"] = classifier_losses[key]["rmse"]
+
+        return result
 
     def train_step(self, batch_data):
         with tf.GradientTape() as tape:
@@ -246,17 +246,8 @@ class FullModel(tf.keras.Model):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables, strict=True))
 
-        return {
-            "total_loss": total_loss,
-            "encoder_bce": losses["encoder_bce"],
-            "encoder_mse": losses["encoder_mse"],
-            "encoder_rmse": losses["encoder_rmse"],
-            "encoder_loss": losses["encoder_loss"],
-            "classifier_bce": losses["classifier_bce"],
-            "classifier_mse": losses["classifier_mse"],
-            "classifier_rmse": losses["classifier_rmse"],
-            "classifier_loss": losses["classifier_loss"],
-        }
+        losses["total_loss"] = total_loss
+        return losses
 
     def test_step(self, batch_data):
         outputs = self(
@@ -271,17 +262,8 @@ class FullModel(tf.keras.Model):
             else losses["encoder_loss"] + losses["classifier_loss"]
         )
 
-        return {
-            "total_loss": total_loss,
-            "encoder_bce": losses["encoder_bce"],
-            "encoder_mse": losses["encoder_mse"],
-            "encoder_rmse": losses["encoder_rmse"],
-            "encoder_loss": losses["encoder_loss"],
-            "classifier_bce": losses["classifier_bce"],
-            "classifier_mse": losses["classifier_mse"],
-            "classifier_rmse": losses["classifier_rmse"],
-            "classifier_loss": losses["classifier_loss"],
-        }
+        losses["total_loss"] = total_loss
+        return losses
 
     def save(
         self, filepath, filename, only_save_encoder=False, overwrite=True, verbose=False, **kwargs
