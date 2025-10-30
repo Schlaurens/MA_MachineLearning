@@ -298,22 +298,41 @@ class EvaluateApplication:
         self.ax_penalty_mark_result.axis("off")
         self.ax_penalty_mark_result.set_title("Ball Result")
 
-        self.ax_penalty_mark_slider = self.fig.add_axes([0.1, 0.25, 0.0225, 0.2725])
-        self.penalty_mark_slider = Slider(
-            ax=self.ax_penalty_mark_slider,
-            label="t",
+        self.ax_penalty_mark_encoder_slider = self.fig.add_axes([0.1, 0.25, 0.0225, 0.2725])
+        self.penalty_mark_encoder_slider = Slider(
+            ax=self.ax_penalty_mark_encoder_slider,
+            label="enc",
             valmin=0,
             valmax=1,
             valinit=self.thresholds["encoder"]["penaltyMark"],
             orientation="vertical",
         )
-        self.ax_ball_slider = self.fig.add_axes([0.1, 0.61, 0.0225, 0.2725])
-        self.ball_slider = Slider(
-            ax=self.ax_ball_slider,
-            label="t",
+        self.ax_ball_encoder_slider = self.fig.add_axes([0.1, 0.61, 0.0225, 0.2725])
+        self.ball_encoder_slider = Slider(
+            ax=self.ax_ball_encoder_slider,
+            label="enc",
             valmin=0,
             valmax=1,
             valinit=self.thresholds["encoder"]["ball"],
+            orientation="vertical",
+        )
+
+        self.ax_penalty_mark_classifier_slider = self.fig.add_axes([0.075, 0.25, 0.0225, 0.2725])
+        self.penalty_mark_classifier_slider = Slider(
+            ax=self.ax_penalty_mark_classifier_slider,
+            label="cla",
+            valmin=0,
+            valmax=1,
+            valinit=self.thresholds["classifier"]["penaltyMark"],
+            orientation="vertical",
+        )
+        self.ax_ball_classifier_slider = self.fig.add_axes([0.075, 0.61, 0.0225, 0.2725])
+        self.ball_classifier_slider = Slider(
+            ax=self.ax_ball_classifier_slider,
+            label="cla",
+            valmin=0,
+            valmax=1,
+            valinit=self.thresholds["classifier"]["ball"],
             orientation="vertical",
         )
 
@@ -344,9 +363,15 @@ class EvaluateApplication:
         self.im_ax_penalty_mark_gt = self.ax_penalty_mark_gt.imshow(stuff)
         self.im_ax_penalty_mark_result = self.ax_penalty_mark_result.imshow(stuff_patch)
 
-        self.ball_slider.on_changed(lambda val: self.update_threshold(True, "ball", val))
-        self.penalty_mark_slider.on_changed(
+        self.ball_encoder_slider.on_changed(lambda val: self.update_threshold(True, "ball", val))
+        self.penalty_mark_encoder_slider.on_changed(
             lambda val: self.update_threshold(True, "penaltyMark", val)
+        )
+        self.ball_classifier_slider.on_changed(
+            lambda val: self.update_threshold(False, "ball", val)
+        )
+        self.penalty_mark_classifier_slider.on_changed(
+            lambda val: self.update_threshold(False, "penaltyMark", val)
         )
 
         self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
