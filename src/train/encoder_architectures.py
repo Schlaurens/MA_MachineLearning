@@ -53,11 +53,11 @@ def _get_common_encoder_output(x, category_names, n_context, image):
     """
     output = []
     for name in category_names:
-        # TODO: some activated stuff here?
-        offset = tf.keras.layers.Conv2D(2, 1)(x)
+        y = x
+        offset = tf.keras.layers.Conv2D(2, 1)(y)
 
-        x = tf.keras.layers.Conv2D(1, 1)(x)
-        interest = tf.keras.layers.Activation("sigmoid")(x)
+        y = tf.keras.layers.Conv2D(1, 1)(y)
+        interest = tf.keras.layers.Activation("sigmoid")(y)
 
         output += [tf.keras.layers.Concatenate(name=name)([offset, interest])]
 
