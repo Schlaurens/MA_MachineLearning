@@ -396,7 +396,6 @@ class FullModel(tf.keras.Model):
                     if verbose:
                         print(f"Failed to load {name.capitalize()}-Classifier: {e}")
 
-        model.encoder.trainable = False
         model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
         if verbose:
