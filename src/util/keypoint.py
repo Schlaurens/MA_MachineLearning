@@ -43,7 +43,7 @@ def are_coords_in_patch(coords: tf.Tensor, boxes: tf.Tensor) -> tf.Tensor:
     """_summary_
 
     Args:
-        coords: the coordinates to check [B, ..., 2]
+        coords: the normalized coordinates to check [B, ..., 2]
         boxes: the corner points of the patch (y1, x1, y2, x2) [B, ..., 4]
 
     Returns:
