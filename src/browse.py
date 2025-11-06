@@ -168,7 +168,7 @@ class BrowseApplication:
         if event.inaxes != self.ax_img or self.augmentation:
             return
         current = int(self.slider_image.val)
-        remove = event.button != 1
+        remove = event.button != 1  # MouseButton 1 is left click
         if self.label_mode == LabelMode.BALL:
             if remove:
                 u_labels.unset_ball(self.labels[current])
