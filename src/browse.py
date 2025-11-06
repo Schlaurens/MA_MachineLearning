@@ -56,6 +56,7 @@ class BrowseApplication:
         self.fig.canvas.mpl_connect(
             "button_release_event", lambda event: self.image_button_released(event)
         )
+        self.fig.canvas.mpl_connect("motion_notify_event", lambda event: self.on_motion(event))
 
         self.drag_start_pos = None
         self.patches = []
@@ -171,6 +172,12 @@ class BrowseApplication:
         self.drag_start_pos = (event.xdata, event.ydata)
 
     def image_button_released(self, event):
+        # If the cursor was dragged no new label will be set at this button release event.
+        global is_dragging
+        if is_dragging:
+            is_dragging = False
+            return
+
         if event.inaxes != self.ax_img or self.augmentation:
             return
         current = int(self.slider_image.val)
@@ -245,6 +252,28 @@ class BrowseApplication:
         elif self.label_mode == LabelMode.INTERSECTION_X:
             u_labels.unset_intersection(self.labels[current], u_labels.IntersectionType.X)
         self.redraw_labels(self.labels[current])#
+
+    def on_motion(self, event):
+        """Check whether the cursor has been dragged over a certain distance. If the cursor has been dragged more than 2 pixels the drag_distance variable gets set to True.
+
+        Args:
+            event: The motion_notify_event
+        """
+        global is_dragging
+        if not event.button:
+            return
+
+        drag_distance = np.sqrt(
+            (event.xdata - self.drag_start_pos[0]) ** 2
+            + (event.ydata - self.drag_start_pos[1]) ** 2
+        )
+
+        if drag_distance > 3:
+            is_dragging = True
+            print(f"Dragging distance: {drag_distance}")
+        else:
+            is_dragging = False
+
 
 if __name__ == "__main__":
     import argparse
