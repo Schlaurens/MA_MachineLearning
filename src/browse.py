@@ -17,6 +17,9 @@ class LabelMode(Enum):
     BALL = 1
     OBSTACLES = 2
     PENALTY_MARK = 3
+    INTERSECTION_X = 4
+    INTERSECTION_T = 5
+    INTERSECTION_L = 6
 
 
 class BrowseApplication:
@@ -83,7 +86,25 @@ class BrowseApplication:
             x, y = u_labels.get_penalty_mark(labels)
             self.patches.append(
                 self.ax_img.add_patch(plt.Circle((x, y), 32, color="b", fill=False))
-            )
+        if u_labels.has_intersections(labels):
+            intersections = u_labels.get_intersections(labels)
+            for type in u_labels.IntersectionType:
+                for intersection in intersections[type.value]:
+                    self.patches.append(
+                        self.ax_img.add_patch(
+                            plt.Circle(
+                                (intersection["x"], intersection["y"]), 2, color="m", fill=True
+                            )
+                        )
+                    )
+                    self.patches.append(
+                        self.ax_img.text(
+                            intersection["x"] - 7,
+                            intersection["y"] - 7,
+                            type.value,
+                            color="m",
+                        )
+                    )
         if u_labels.has_obstacles(labels):
             mask = u_labels.get_obstacles(labels)
             for y, row in enumerate(mask):
@@ -124,6 +145,12 @@ class BrowseApplication:
             self.label_mode = LabelMode.OBSTACLES
         elif event.key == "p":
             self.label_mode = LabelMode.PENALTY_MARK
+        elif event.key == "q":
+            self.label_mode = LabelMode.INTERSECTION_L
+        elif event.key == "w":
+            self.label_mode = LabelMode.INTERSECTION_T
+        elif event.key == "e":
+            self.label_mode = LabelMode.INTERSECTION_X
         elif event.key == "s":
             u_dataset.save_labels(self.directory, self.labels)
         elif event.key == "a":
@@ -185,6 +212,27 @@ class BrowseApplication:
                 u_labels.unset_penalty_mark(self.labels[current])
             else:
                 u_labels.set_penalty_mark(self.labels[current], event.xdata, event.ydata)
+        elif self.label_mode == LabelMode.INTERSECTION_L:
+            if remove:
+                u_labels.unset_intersection(self.labels[current], u_labels.IntersectionType.L)
+            else:
+                u_labels.set_intersections(
+                    self.labels[current], event.xdata, event.ydata, u_labels.IntersectionType.L
+                )
+        elif self.label_mode == LabelMode.INTERSECTION_T:
+            if remove:
+                u_labels.unset_intersection(self.labels[current], u_labels.IntersectionType.T)
+            else:
+                u_labels.set_intersections(
+                    self.labels[current], event.xdata, event.ydata, u_labels.IntersectionType.T
+                )
+        elif self.label_mode == LabelMode.INTERSECTION_X:
+            if remove:
+                u_labels.unset_intersection(self.labels[current], u_labels.IntersectionType.X)
+            else:
+                u_labels.set_intersections(
+                    self.labels[current], event.xdata, event.ydata, u_labels.IntersectionType.X
+                )
         self.redraw_labels(self.labels[current])
         self.drag_start_pos = None
 

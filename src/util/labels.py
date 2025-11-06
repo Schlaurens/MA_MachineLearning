@@ -7,6 +7,12 @@ class ObstaclesOp(Enum):
     UNSET = 2
 
 
+class IntersectionType(Enum):
+    L = "L"
+    T = "T"
+    X = "X"
+
+
 OBSTACLES_WIDTH = 20
 OBSTACLES_HEIGHT = 15
 
@@ -105,3 +111,28 @@ def set_penalty_mark(label, x, y):
 
 def unset_penalty_mark(label):
     del label["penaltyMark"]
+
+
+def has_intersections(label):
+    return "intersections" in label
+
+
+def get_intersections(label):
+    return label["intersections"]
+
+
+def set_intersections(label, x, y, type):
+    intersection = {"x": x, "y": y}
+    if not has_intersections(label):
+        label["intersections"] = {
+            IntersectionType.L.value: [],
+            IntersectionType.T.value: [],
+            IntersectionType.X.value: [],
+        }
+    label["intersections"][type.value].append(intersection)
+
+
+def unset_intersection(label, type):
+    if len(label["intersections"][type.value]) == 0:
+        return
+    del label["intersections"][type.value][-1]
