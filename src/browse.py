@@ -86,6 +86,8 @@ class BrowseApplication:
             x, y = u_labels.get_penalty_mark(labels)
             self.patches.append(
                 self.ax_img.add_patch(plt.Circle((x, y), 32, color="b", fill=False))
+            )
+            self.patches.append(self.ax_img.add_patch(plt.Circle((x, y), 2, color="b", fill=True)))
         if u_labels.has_intersections(labels):
             intersections = u_labels.get_intersections(labels)
             for type in u_labels.IntersectionType:
