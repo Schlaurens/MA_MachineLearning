@@ -58,6 +58,7 @@ class BrowseApplication:
         )
         self.fig.canvas.mpl_connect("motion_notify_event", lambda event: self.on_motion(event))
 
+        self.is_dragging = False
         self.drag_start_pos = None
         self.patches = []
 
@@ -173,9 +174,8 @@ class BrowseApplication:
 
     def image_button_released(self, event):
         # If the cursor was dragged no new label will be set at this button release event.
-        global is_dragging
-        if is_dragging:
-            is_dragging = False
+        if self.is_dragging:
+            self.is_dragging = False
             return
 
         if event.inaxes != self.ax_img or self.augmentation:
@@ -253,7 +253,6 @@ class BrowseApplication:
         Args:
             event: The motion_notify_event
         """
-        global is_dragging
         if not event.button:
             return
 
@@ -263,10 +262,10 @@ class BrowseApplication:
         )
 
         if drag_distance > 3:
-            is_dragging = True
+            self.is_dragging = True
             print(f"Dragging distance: {drag_distance}")
         else:
-            is_dragging = False
+            self.is_dragging = False
 
 
 if __name__ == "__main__":
