@@ -24,27 +24,55 @@ def main(data_path: str):
     number_of_ball_samples = len([_ for _ in labels_concat if u_labels.has_ball(_)])
     number_of_penalty_mark_samples = len([_ for _ in labels_concat if u_labels.has_penalty_mark(_)])
 
-    number_of_l_intersection_samples = sum(
-        [
-            len(x["intersections"][u_labels.IntersectionType.L.value])
-            for x in labels_concat
-            if u_labels.has_intersections(x)
-        ]
-    )
-    number_of_t_intersection_samples = sum(
-        [
-            len(x["intersections"][u_labels.IntersectionType.T.value])
-            for x in labels_concat
-            if u_labels.has_intersections(x)
-        ]
-    )
-    number_of_x_intersection_samples = sum(
-        [
-            len(x["intersections"][u_labels.IntersectionType.X.value])
-            for x in labels_concat
-            if u_labels.has_intersections(x)
-        ]
-    )
+    number_of_l_intersections_for_each_log = [
+        sum(
+            [
+                len(sample["intersections"][u_labels.IntersectionType.L.value])
+                for sample in x
+                if u_labels.has_intersections(sample)
+            ]
+        )
+        for x in labels
+    ]
+    number_of_t_intersections_for_each_log = [
+        sum(
+            [
+                len(sample["intersections"][u_labels.IntersectionType.T.value])
+                for sample in x
+                if u_labels.has_intersections(sample)
+            ]
+        )
+        for x in labels
+    ]
+    number_of_x_intersections_for_each_log = [
+        sum(
+            [
+                len(sample["intersections"][u_labels.IntersectionType.X.value])
+                for sample in x
+                if u_labels.has_intersections(sample)
+            ]
+        )
+        for x in labels
+    ]
+
+    number_of_ignored_intersection_samples_for_each_log = [
+        sum(
+            [
+                int(sample["intersections"]["ignore_sample"])
+                for sample in x
+                if u_labels.has_intersections(sample)
+            ]
+        )
+        for x in labels
+    ]
+
+    log_zip_l_intersections = zip(log_names, number_of_l_intersections_for_each_log, strict=True)
+    log_zip_t_intersections = zip(log_names, number_of_t_intersections_for_each_log, strict=True)
+    log_zip_x_intersections = zip(log_names, number_of_x_intersections_for_each_log, strict=True)
+
+    number_of_l_intersection_samples = sum(number_of_l_intersections_for_each_log)
+    number_of_t_intersection_samples = sum(number_of_t_intersections_for_each_log)
+    number_of_x_intersection_samples = sum(number_of_x_intersections_for_each_log)
 
     print("Number of logs: ", len(labels))
     print("Number of samples: ", number_of_samples)
@@ -54,6 +82,14 @@ def main(data_path: str):
     print("Number of L intersection samples:", number_of_l_intersection_samples)
     print("Number of T intersection samples:", number_of_t_intersection_samples)
     print("Number of X intersection samples:", number_of_x_intersection_samples)
+
+    print(
+        "Number of ignored intersections samples per log: ",
+        number_of_ignored_intersection_samples_for_each_log,
+    )
+    print("L intersections per log: ", number_of_l_intersections_for_each_log)
+    print("T intersections per log: ", number_of_t_intersections_for_each_log)
+    print("X intersections per log: ", number_of_x_intersections_for_each_log)
     print("=========")
     print("% of ball samples: ", round((number_of_ball_samples / number_of_samples) * 100, 2))
     print(
