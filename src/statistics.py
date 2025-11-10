@@ -5,16 +5,12 @@ from util import dataset as u_dataset
 from util import labels as u_labels
 
 
-def load_dataset(data_path):
+def main(data_path: str):
     label_dirs = [dir[0] for dir in os.walk(data_path)][1:]
-
     labels = [u_dataset.load_labels(dir) for dir in label_dirs]
 
-    return labels
+    log_names = [label_dir.split("/")[-1] for label_dir in label_dirs]
 
-
-def main(data_path: str):
-    labels = load_dataset(data_path)
     labels_concat = list(itertools.chain.from_iterable(labels))
 
     number_of_samples = len(labels_concat)
