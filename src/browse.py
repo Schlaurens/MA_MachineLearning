@@ -93,6 +93,18 @@ class BrowseApplication:
             self.patches.append(self.ax_img.add_patch(plt.Circle((x, y), 2, color="b", fill=True)))
         if u_labels.has_intersections(labels):
             intersections = u_labels.get_intersections(labels)
+            self.patches.append(
+                self.ax_img.add_patch(
+                    plt.Rectangle(
+                        (0, 0),
+                        width=self.img_dims[1],
+                        height=self.img_dims[0],
+                        color="r" if intersections["ignore_sample"] else "b",
+                        fill=False,
+                        linewidth=4,
+                    )
+                )
+            )
             for type in u_labels.IntersectionType:
                 for intersection in intersections[type.value]:
                     self.patches.append(
@@ -136,6 +148,9 @@ class BrowseApplication:
             current = int(self.slider_image.val)
             sign = 1 if event.key == "right" else -1
             current += sign
+            # If no intersection has been set, ignore this sample for intersections.
+            if not u_labels.has_intersections(self.labels[current]):
+                u_labels.set_ignore_intersection_sample_flag(self.labels[current], True)
             self.slider_image.set_val(max(0, min(current, len(self.labels) - 1)))
         elif event.key in ["up", "down"]:
             current = int(self.slider_image.val)
