@@ -24,6 +24,7 @@ class LabelMode(Enum):
 
 class BrowseApplication:
     def __init__(self, directory):
+        self.img_dims = (480, 640)  # y, x
         self.directory = directory
         self.labels = u_dataset.load_labels(args.directory)
         self.label_mode = LabelMode.BALL
@@ -45,7 +46,7 @@ class BrowseApplication:
             valfmt="%i",
         )
 
-        self.im_ax_img = self.ax_img.imshow(np.zeros((480, 640)))  # TODO: don't hardcode this here
+        self.im_ax_img = self.ax_img.imshow(np.zeros(self.img_dims))
 
         self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
