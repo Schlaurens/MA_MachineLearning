@@ -125,11 +125,24 @@ def set_intersections(label, x, y, type):
     intersection = {"x": x, "y": y}
     if not has_intersections(label):
         label["intersections"] = {
+            "ignore_sample": True,
             IntersectionType.L.value: [],
             IntersectionType.T.value: [],
             IntersectionType.X.value: [],
         }
     label["intersections"][type.value].append(intersection)
+    label["intersections"]["ignore_sample"] = False
+
+
+def set_ignore_intersection_sample_flag(label, ignore_sample=False):
+    if not has_intersections(label):
+        label["intersections"] = {
+            "ignore_sample": True,
+            IntersectionType.L.value: [],
+            IntersectionType.T.value: [],
+            IntersectionType.X.value: [],
+        }
+    label["intersections"]["ignore_sample"] = ignore_sample
 
 
 def unset_intersection(label, type):
