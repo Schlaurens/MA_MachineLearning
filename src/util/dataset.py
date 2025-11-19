@@ -1,5 +1,6 @@
 import glob
 import json
+from enum import Enum
 from pathlib import Path
 
 import keras
@@ -8,6 +9,13 @@ import tensorflow as tf
 from shapely.geometry import Point, Polygon
 
 from . import image as u_image
+
+
+class IntersectionType(Enum):
+    NONE = 0
+    L = 1
+    T = 2
+    X = 3
 
 
 def get_label_path(directory):
@@ -211,6 +219,8 @@ def get_masks(
     # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
     object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offsets_scaled]
 
+    classification_mask = _generate_classification_mask()
+
     loss_mask = _generate_loss_mask(object_mask)
 
     # return offsets_scaled, object_mask, loss_mask
@@ -267,6 +277,17 @@ def _generate_object_mask(object_name, label, cells):
     # Generate object_mask for penaltyMark
     if object_name == "penaltyMark":
         pass
+
+
+def _generate_classification_mask():
+    """Generate a mask that has a value in each cell that corresponds to the class type of the object category.
+    Example:
+    The classification mask for line intersections can have four values: NONE, L, T, X. The values 
+    
+    Returns:
+        A mask like described above.
+    """
+    pass
 
 
 def _generate_loss_mask(object_mask):
