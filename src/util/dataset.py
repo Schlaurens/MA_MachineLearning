@@ -240,7 +240,21 @@ def get_masks(
     loss_mask = _generate_loss_mask(object_mask)
 
     # return offsets_scaled, object_mask, loss_mask
-    return {"offsets": offsets_scaled, "object_mask": object_mask, "loss_mask": loss_mask}
+def are_coords_in_same_cell(coords_a: np.array, coords_b: np.array, cell_dims: np.array) -> bool:
+    """Checks whether two given coordinate pairs are inside the same cell in the cellgrid.
+
+    Args:
+        coords_a: The first coordinate pair.
+        coords_b: The second coordinate pair.
+        cell_dims: The cell dimensions.
+
+    Returns:
+        True if coords_a and coords_b share the same cell.
+    """
+    cell_of_a = (coords_a[0] // cell_dims[0], coords_a[1] // cell_dims[1])
+    cell_of_b = (coords_b[0] // cell_dims[0], coords_b[1] // cell_dims[1])
+
+    return cell_of_a == cell_of_b
 
 
 def _generate_object_mask(object_name, label, cells):
