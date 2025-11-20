@@ -203,7 +203,8 @@ class BrowseApplication:
             self.is_dragging = False
             return
 
-        if event.inaxes != self.ax_img or self.augmentation:
+        # TODO: change augmentations and enable labelling accordingly.
+        if event.inaxes != self.ax_img: #or self.augmentation:
             return
         current = int(self.slider_image.val)
         if self.label_mode == LabelMode.BALL:
