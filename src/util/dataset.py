@@ -378,28 +378,27 @@ def _generate_loss_mask(object_mask):
 
     """
 
-    # Loss mask for 1 dimensional objects
+    # invert object_mask to even make cells without objects True.
+    inverted_obj_mask = np.logical_not(np.array(object_mask))  # (H, W)
 
-    # invert object_mask
-    inverted_obj_mask = np.logical_not(np.array(object_mask))
-
-    # get index
-    index = np.unravel_index(inverted_obj_mask.argmin(), inverted_obj_mask.shape)
+    object_indices = np.stack(np.where(object_mask)).T  # (N_O, 2)
 
     # turn the cells surrounding the index cell to 0
-    inverted_obj_mask[index] = 1.0
-
     # TODO: use a more elegant way to set the surrounding cells to 0, like convolution or einsum
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            if i == 0 and j == 0:
-                continue
-            # Check boundries
-            if (0 <= index[0] + i < inverted_obj_mask.shape[0]) and (
-                0 <= index[1] + j < inverted_obj_mask.shape[1]
-            ):
-                # Set the surrounding cells to 0
-                inverted_obj_mask[index[0] + i, index[1] + j] = 0.0
+    for idx in object_indices:
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i == 0 and j == 0:
+                    continue
+                # Check boundries
+                if (0 <= idx[0] + i < inverted_obj_mask.shape[0]) and (
+                    0 <= idx[1] + j < inverted_obj_mask.shape[1]
+                ):
+                    # Set the surrounding cells to 0
+                    inverted_obj_mask[idx[0] + i, idx[1] + j] = 0.0
+
+    for idx in object_indices:
+        inverted_obj_mask[idx[0]][idx[1]] = 1.0
 
     return inverted_obj_mask
 
