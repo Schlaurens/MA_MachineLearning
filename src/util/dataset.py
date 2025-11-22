@@ -68,8 +68,6 @@ class DatasetUtils:
             label: label of the image
             object_name: name of the object to generate masks for
             coordinates: the image coordinates of the object [B, 2]
-            input_dims: the full dimensions of the camera image.
-            output_dims: the number of cells. Should be the same dimensions of encoder output
 
         Returns:
             a dictionary with all three masks.
@@ -82,8 +80,11 @@ class DatasetUtils:
             The object_mask will only contain False values as there are no objects any of the cells.
             The loss_mask will only contain True values as no loss should be ignored.
 
+            Args:
+                ignore_sample: If `ignore_sample` is set to `True` the `loss_mask` consists of only `False` values so that this sample is ignored in the loss function. This is useful for the case that there are objects in the image that are not annotated. If `ignore_sample` is False the `loss_mask` consists of only `True` values.
+            
             Returns:
-                the masks in a dictionary
+                The masks in a dictionary
             """
             offsets = tf.cast(tf.fill((*self.config.output_dims, 2), -1), dtype=tf.float32)
             object_mask = tf.fill(self.config.output_dims, value=False)
@@ -156,13 +157,11 @@ class DatasetUtils:
         # return offsets_scaled, object_mask, loss_mask
         return {"offsets": offset_mask, "object_mask": object_mask, "loss_mask": loss_mask}
 
-    def _generate_offset_mask(self, coordinates):
+    def _generate_offset_mask(self, coordinates) -> tf.Tensor:
         """Generate the offset_mask for the given list of coordinates.
 
         Args:
-            cells: A tf.Tensor of the cellgrid.
             coordinates: A tf.Tensor that contains the coords that make up the offset_mask.
-            scale: The scaling factor to scale the offset_mask to the image dimensions.
 
         Returns:
             The offset_mask
@@ -193,7 +192,6 @@ class DatasetUtils:
         Args:
             coords_a: The first coordinate pair.
             coords_b: The second coordinate pair.
-            cell_dims: The cell dimensions.
 
         Returns:
             True if coords_a and coords_b share the same cell.
@@ -318,7 +316,6 @@ class DatasetUtils:
 
         Args:
             mask: the offset mask [B, H, W, 2]
-            image_dims: the dimensions of the input image
 
         Returns:
             A `tf.Tensor` of shape (N, 2) with N := Number of objects in the sample. The `tf.Tensor` contains the coordinates (x, y) of the objects. (-1.0, -1.0) if the object is not in the image
