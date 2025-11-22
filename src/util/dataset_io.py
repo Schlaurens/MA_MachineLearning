@@ -8,6 +8,8 @@ import tensorflow as tf
 from . import dataset as u_dataset
 from . import image as u_image
 
+dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
+
 
 def get_label_path(directory: str) -> str:
     """Just a helper function to get the label path.
@@ -302,8 +304,8 @@ def make_example(directory: str, label: dict):
 
     # TODO: instantiate datasetUtils
 
-    masks_ball = u_dataset.get_masks(label, "ball")
-    masks_penaltyMark = u_dataset.get_masks(label, "penaltyMark")
+    masks_ball = dataset_utils.get_masks(label, u_dataset.CategoryNames.BALL.value)
+    masks_penaltyMark = dataset_utils.get_masks(label, u_dataset.CategoryNames.PENALTYMARK.value)
     image_feature = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[

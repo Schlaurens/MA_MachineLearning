@@ -29,7 +29,11 @@ from matplotlib.widgets import Slider
 
 from train.models import FullModel
 from util import dataset as u_dataset
+from util import dataset_io as u_dataset_io
 from util import image as u_image
+from util import metrics as u_metrics
+
+dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
 
 
 class EvaluateApplication:
@@ -42,7 +46,7 @@ class EvaluateApplication:
             model_timestamp = model_name.split(".")[0]
 
         config = self.load_config(f"logs/fit/{model_timestamp}/config.yaml")
-        self.data = list(u_dataset.get_dataset(data_path).as_numpy_iterator())
+        self.data = list(u_dataset_io.get_dataset(data_path).as_numpy_iterator())
         self.model = self.load_model(config, path_to_model, model_name)
 
         assert len(self.model.encoder.input_shape) == 4
@@ -195,7 +199,7 @@ class EvaluateApplication:
             patch_index = output["results"][object_name]["patch_indices"][0][i]
             logit = output["results"][object_name]["logits"][0][patch_index]
             coords_pred = output["results"][object_name]["coords"][0][i]
-            coords_true = u_dataset.get_coords_from_offsets(
+            coords_true = dataset_utils.get_coords_from_offsets(
                 self.data[self.index][object_name]["offset_mask"]
             )
             position_pred = output["results"][object_name]["positions"][0][i]
@@ -224,7 +228,8 @@ class EvaluateApplication:
             axes.add_patch(rect)
             axes.plot(coords_pred[0], coords_pred[1], "rx")
             axes.plot(position_pred[0], position_pred[1], "bx")
-            axes.plot(coords_true[0], coords_true[1], "gx")
+            for c_true in coords_true:
+                axes.plot(c_true[0], c_true[1], "gx")
 
     def image_slider_changed(self, val):
         self.index = int(val)
