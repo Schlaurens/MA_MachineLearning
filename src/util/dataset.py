@@ -305,7 +305,10 @@ class DatasetUtils:
         return inverted_obj_mask
 
     @tf.function
-    def get_coords_from_offsets(self, offset_mask, image_dims=(480, 640)) -> tuple:
+    def get_coords_from_offsets(
+        self,
+        offset_mask: tf.Tensor,
+    ) -> tf.Tensor:
         """Extract the image coordinates from the offset mask
 
         Args:
@@ -315,24 +318,24 @@ class DatasetUtils:
         Returns:
             The coordinates of the object (x, y). (-1.0, -1.0) if the object is not in the image
         """
-        # TODO: implement solution for offset_masks with multiple objects
-
-        # Take the offset from the first cell of each offset_mask
-        offset_cell = offset_mask[..., 0, 0, :]  # [B, 2]
 
         # Generate mask that is False if the offset is -1.0 and True else. The offset_cell is [-1.0, -1.0] if there are no objects in the image.
-        mask = tf.cast(tf.math.not_equal(offset_cell, -1.0), dtype=tf.float32)
+        mask = tf.cast(tf.math.not_equal(offset_mask, -1.0), dtype=tf.float32)
 
-        # Get the output dims from the offset_mask
-        output_dims = tf.cast(tf.shape(offset_mask)[-3:-1], dtype=tf.int32)
-        scale = tf.cast(
-            keras.ops.array(output_dims) / keras.ops.array(image_dims), dtype=tf.float32
+        # Convert the offset_mask to an absolute coord_mask where all values that are [-1.0, -1.0] are set to 0.
+        coord_mask = (offset_mask / self.config.scale + self.config.cell_grid) * mask
+
+        flat_mask = tf.reshape(
+            coord_mask, [self.config.output_dims[0] * self.config.output_dims[1], 2]
         )
 
-        # Scale the first offset_cell up
-        coords = offset_cell / scale * mask
+        # Cast the coords to float16 and back to float32 to effectively round to a precision
+        unique_coords, _ = tf.raw_ops.UniqueV2(x=(tf.cast(flat_mask, dtype=tf.float16)), axis=[0])
+        unique_coords = tf.cast(unique_coords, tf.float32)
 
-        # set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
-        coords_masked = tf.where(tf.math.equal(coords, [0, 0]), tf.fill([2], -1.0), coords)
+        # Set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
+        coords_masked = tf.where(
+            tf.math.equal(unique_coords, [0, 0]), tf.fill([2], -1.0), unique_coords
+        )
 
         return coords_masked
