@@ -31,6 +31,12 @@ class DatasetConfig:
         )  # (15, 20)
 
 
+class CategoryNames(Enum):
+    BALL = "ball"
+    PENALTYMARK = "penaltyMark"
+    INTERSECTIONS = "intersections"
+
+
 class IntersectionType(Enum):
     NONE = 0
     L = 1
@@ -95,7 +101,7 @@ class DatasetUtils:
             if object_name not in label:
                 return _empty_masks()
 
-            if object_name == "intersections":
+            if object_name == CategoryNames.INTERSECTIONS.value:
                 if label[object_name]["ignore_sample"]:
                     return _empty_masks(ignore_sample=True)
 
