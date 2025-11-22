@@ -17,6 +17,9 @@ class DatasetConfig:
     def __post_init__(self):
         self.scale = np.array(self.output_dims) / np.array(self.input_dims)
         self.cell_dims = np.array(self.input_dims) // np.array(self.output_dims)
+
+        # Generate the cell grid in the full image scale
+        # (values point to upper left corner of each cell)
         self.cell_grid = tf.cast(
             tf.stack(
                 tf.meshgrid(
@@ -40,295 +43,296 @@ class DatasetUtils:
     def __init__(self, config: DatasetConfig):
         self.config = config
 
-def get_masks(
-    label=None, object_name=None, coordinates=None, input_dims=(480, 640), output_dims=(15, 20)
-) -> tuple:
-    """Return label masks that are used to train the encoder.
+    def get_masks(
+        self,
+        label: dict = None,
+        object_name: str = None,
+        coordinates: list[list[float]] | tf.Tensor = None,
+    ) -> dict[str, tf.Tensor]:
+        """Return label masks that are used to train the encoder.
 
-    Generate an offset mask that converts the image coordinates of the object into offsets relative
-    to given cell dimensions
-    An object mask that marks the cell where the center of
-    the object is in.
-    And a loss mask that indicted which cell should have an impact on the loss function.
+        Generate an offset mask that converts the image coordinates of the object into offsets relative
+        to given cell dimensions
+        An object mask that marks the cell where the center of
+        the object is in.
+        And a loss mask that indicted which cell should have an impact on the loss function.
 
-    Input can be either (label and object_name) or coordinates.
+        Input can be either (label and object_name) or coordinates.
 
-    Args:
-        label: label of the image
-        object_name: name of the object to generate masks for
-        coordinates: the image coordinates of the object [B, 2]
-        input_dims: the full dimensions of the camera image.
-        output_dims: the number of cells. Should be the same dimensions of encoder output
-
-    Returns:
-        a dictionary with all three masks.
-
-    """
-
-    def _empty_masks(ignore_sample: bool = False):
-        """generate default empty masks for when there are no objects in the image.
-        The offset_mask will contains only -1.0. This is an arbitrary value, that indicates that no object is in the image.
-        The object_mask will only contain False values as there are no objects any of the cells.
-        The loss_mask will only contain True values as no loss should be ignored.
+        Args:
+            label: label of the image
+            object_name: name of the object to generate masks for
+            coordinates: the image coordinates of the object [B, 2]
+            input_dims: the full dimensions of the camera image.
+            output_dims: the number of cells. Should be the same dimensions of encoder output
 
         Returns:
-            the masks in a dictionary
+            a dictionary with all three masks.
+
         """
-        offsets = tf.cast(tf.fill((*output_dims, 2), -1), dtype=tf.float32)
-        object_mask = tf.fill(output_dims, value=False)
-        loss_mask = tf.fill(output_dims, value=not ignore_sample)
-        # return offsets, object_mask, loss_mask
-        return {"offsets": offsets, "object_mask": object_mask, "loss_mask": loss_mask}
 
-    # Case 1: Direct coordinates provided
-    # TODO: make possible with a list of cooordinates.
-    if coordinates is not None:
-        if tf.reduce_all(tf.math.equal(coordinates, -1.0)):
-            return _empty_masks()
-    # Case 2: Label and object_name provided
-    elif label is not None and object_name is not None:
-        if object_name not in label:
-            return _empty_masks()
+        def _empty_masks(ignore_sample: bool = False):
+            """generate default empty masks for when there are no objects in the image.
+            The offset_mask will contains only -1.0. This is an arbitrary value, that indicates that no object is in the image.
+            The object_mask will only contain False values as there are no objects any of the cells.
+            The loss_mask will only contain True values as no loss should be ignored.
 
-        if object_name == "intersections":
-            if label[object_name]["ignore_sample"]:
-                return _empty_masks(ignore_sample=True)
+            Returns:
+                the masks in a dictionary
+            """
+            offsets = tf.cast(tf.fill((*self.config.output_dims, 2), -1), dtype=tf.float32)
+            object_mask = tf.fill(self.config.output_dims, value=False)
+            loss_mask = tf.fill(self.config.output_dims, value=not ignore_sample)
+            # return offsets, object_mask, loss_mask
+            return {"offsets": offsets, "object_mask": object_mask, "loss_mask": loss_mask}
 
-            # Intersection coords
-            l_coords = (
-                tf.constant([list(x.values()) for x in label[object_name]["L"]], dtype=tf.float32)
-                if len(label[object_name]["L"]) > 0
-                else tf.constant([], dtype=tf.float32, shape=(0, 2))
-            )  # (N_L, 2)
-            t_coords = (
-                tf.constant([list(x.values()) for x in label[object_name]["T"]], dtype=tf.float32)
-                if len(label[object_name]["T"]) > 0
-                else tf.constant([], dtype=tf.float32, shape=(0, 2))
-            )  # (N_T, 2)
-            x_coords = (
-                tf.constant([list(x.values()) for x in label[object_name]["X"]], dtype=tf.float32)
-                if len(label[object_name]["X"]) > 0
-                else tf.constant([], dtype=tf.float32, shape=(0, 2))
-            )  # (N_X, 2)
-            coordinate_list = tf.concat([l_coords, t_coords, x_coords], axis=0)  # (N_O, 2)
-
-            if tf.size(coordinate_list) == 0:
+        # Case 1: Direct coordinates provided
+        # TODO: make possible with a list of cooordinates.
+        if coordinates is not None:
+            if tf.reduce_all(tf.math.equal(coordinates, -1.0)):
                 return _empty_masks()
+        # Case 2: Label and object_name provided
+        elif label is not None and object_name is not None:
+            if object_name not in label:
+                return _empty_masks()
+
+            if object_name == "intersections":
+                if label[object_name]["ignore_sample"]:
+                    return _empty_masks(ignore_sample=True)
+
+                # Intersection coords
+                l_coords = (
+                    tf.constant(
+                        [list(x.values()) for x in label[object_name]["L"]], dtype=tf.float32
+                    )
+                    if len(label[object_name]["L"]) > 0
+                    else tf.constant([], dtype=tf.float32, shape=(0, 2))
+                )  # (N_L, 2)
+                t_coords = (
+                    tf.constant(
+                        [list(x.values()) for x in label[object_name]["T"]], dtype=tf.float32
+                    )
+                    if len(label[object_name]["T"]) > 0
+                    else tf.constant([], dtype=tf.float32, shape=(0, 2))
+                )  # (N_T, 2)
+                x_coords = (
+                    tf.constant(
+                        [list(x.values()) for x in label[object_name]["X"]], dtype=tf.float32
+                    )
+                    if len(label[object_name]["X"]) > 0
+                    else tf.constant([], dtype=tf.float32, shape=(0, 2))
+                )  # (N_X, 2)
+                coordinate_list = tf.concat([l_coords, t_coords, x_coords], axis=0)  # (N_O, 2)
+
+                if tf.size(coordinate_list) == 0:
+                    return _empty_masks()
+            else:
+                coordinate_list = [
+                    list(label[object_name].values())[:2]
+                ]  # Only take x and y coordinates (ignore radius) # has to be list of lists
         else:
-            coordinate_list = [
-                list(label[object_name].values())[:2]
-            ]  # Only take x and y coordinates (ignore radius) # has to be list of lists
-    else:
-        raise ValueError("Either (label and object_name) or coordinates must be provided.")
+            raise ValueError("Either (label and object_name) or coordinates must be provided.")
 
-    # Make sure that input_dims are divisible by output_dims
-    cell_dims = np.array(input_dims) // np.array(output_dims)
-    scale = np.array(output_dims) / np.array(input_dims)
+        offset_mask = self._generate_offset_mask(coordinate_list)
 
-    # Generate the cell grid in the full image scale
-    # (values point to upper left corner of each cell)
-    cells = tf.cast(
-        tf.stack(
-            tf.meshgrid(
-                range(input_dims[1])[:: cell_dims[1]], range(input_dims[0])[:: cell_dims[0]]
-            ),
-            axis=-1,
-        ),
-        dtype=tf.float32,
-    )  # (15, 20)
+        # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
+        object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offset_mask]
 
-    offset_mask = _generate_offset_mask(cells, coordinate_list, scale)
+        # l_offsets = _generate_offset_mask(cells, l_coords, scale)  # (H, W, 2)
+        # l_object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in l_offsets]
+        # print(l_object_mask)
 
-    # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
-    object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offset_mask]
+        # classification_mask = _generate_classification_mask(
+        #     cells, object_name, coordinates, object_mask, scale
+        # )
 
-    l_offsets = _generate_offset_mask(cells, l_coords, scale)  # (H, W, 2)
-    l_object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in l_offsets]
-    print(l_object_mask)
+        loss_mask = self._generate_loss_mask(object_mask)
 
-    # classification_mask = _generate_classification_mask(
-    #     cells, object_name, coordinates, object_mask, scale
-    # )
+        # return offsets_scaled, object_mask, loss_mask
+        return {"offsets": offset_mask, "object_mask": object_mask, "loss_mask": loss_mask}
 
-    loss_mask = _generate_loss_mask(object_mask)
+    def _generate_offset_mask(self, coordinates):
+        """Generate the offset_mask for the given list of coordinates.
 
-    # return offsets_scaled, object_mask, loss_mask
-    return {"offsets": offset_mask, "object_mask": object_mask, "loss_mask": loss_mask}
+        Args:
+            cells: A tf.Tensor of the cellgrid.
+            coordinates: A tf.Tensor that contains the coords that make up the offset_mask.
+            scale: The scaling factor to scale the offset_mask to the image dimensions.
 
+        Returns:
+            The offset_mask
+        """
+        # Prepare cells for broadcast
+        cells_reshaped = tf.expand_dims(self.config.cell_grid, axis=2)  # (H, W, 1, 2)
 
-def _generate_offset_mask(cells, coordinates, scale):
-    """Generate the offset_mask for the given list of coordinates.
+        distances = tf.sqrt(
+            tf.reduce_sum((coordinates - cells_reshaped) ** 2, axis=-1)
+        )  # (H, W, N_O)
+        closest_indices = tf.argmin(distances, axis=-1)  # (H, W)
+        closest_coords = tf.gather(coordinates, closest_indices)  # (H, W)
 
-    Args:
-        cells: A tf.Tensor of the cellgrid.
-        coordinates: A tf.Tensor that contains the coords that make up the offset_mask.
-        scale: The scaling factor to scale the offset_mask to the image dimensions.
+        offsets = closest_coords - self.config.cell_grid
 
-    Returns:
-        The offset_mask
-    """
-    # Prepare cells for broadcast
-    cells_reshaped = tf.expand_dims(cells, axis=2)  # (H, W, 1, 2)
+        # TODO: if multiple intersection per cell. Take the lower one
 
-    distances = tf.sqrt(tf.reduce_sum((coordinates - cells_reshaped) ** 2, axis=-1))  # (H, W, N_X)
-    closest_indices = tf.argmin(distances, axis=-1)  # (H, W)
-    closest_coords = tf.gather(coordinates, closest_indices)  # (H, W)
+        # Scale offsets to the output size
+        return offsets * self.config.scale
 
-    offsets = closest_coords - cells
-    
-    # TODO: if multiple intersection per cell. Take the lower one
+    def are_coords_in_same_cell(
+        self,
+        coords_a: np.ndarray | list[float] | tf.Tensor,
+        coords_b: np.ndarray | list[float] | tf.Tensor,
+    ) -> bool:
+        """Checks whether two given coordinate pairs are inside the same cell in the cellgrid.
 
-    # Scale offsets to the output size
-    return offsets * scale
+        Args:
+            coords_a: The first coordinate pair.
+            coords_b: The second coordinate pair.
+            cell_dims: The cell dimensions.
 
+        Returns:
+            True if coords_a and coords_b share the same cell.
+        """
+        cell_of_a = (
+            coords_a[0] // self.config.cell_dims[0],
+            coords_a[1] // self.config.cell_dims[1],
+        )
+        cell_of_b = (
+            coords_b[0] // self.config.cell_dims[0],
+            coords_b[1] // self.config.cell_dims[1],
+        )
 
-def are_coords_in_same_cell(coords_a: np.array, coords_b: np.array, cell_dims: np.array) -> bool:
-    """Checks whether two given coordinate pairs are inside the same cell in the cellgrid.
+        return cell_of_a == cell_of_b
 
-    Args:
-        coords_a: The first coordinate pair.
-        coords_b: The second coordinate pair.
-        cell_dims: The cell dimensions.
+    # def _generate_object_mask(self, object_name, label, cells):
+    #     """Generate the binary object_mask using the cell coverage values for each object_category.
 
-    Returns:
-        True if coords_a and coords_b share the same cell.
-    """
-    cell_of_a = (coords_a[0] // cell_dims[0], coords_a[1] // cell_dims[1])
-    cell_of_b = (coords_b[0] // cell_dims[0], coords_b[1] // cell_dims[1])
+    #     ===== Work in Progress =====
 
-    return cell_of_a == cell_of_b
+    #     If the IoU value of the object and the cell is greater than a specified threshold, that cell is marked with a 1.0. And
+    #     0.0 otherwise.
 
+    #     Args:
+    #         object_name: _description_
+    #         label: _description_
+    #     """
 
-# def _generate_object_mask(object_name, label, cells):
-#     """Generate the binary object_mask using the cell coverage values for each object_category.
+    #     def _get_threshold(distance, min_threshold=0.1, max_threshold=0.75):
+    #         # Do some linear interpolation for the threshold
+    #         pass
 
-#     ===== Work in Progress =====
+    #     # Generate object_mask for ball
+    #     if object_name == "ball":
+    #         # Geometry object of the ball
+    #         ball = Point([label[object_name]["x"], label[object_name]["y"]]).buffer(
+    #             label[object_name]["radius"], 128
+    #         )
 
-#     If the IoU value of the object and the cell is greater than a specified threshold, that cell is marked with a 1.0. And
-#     0.0 otherwise.
+    #         # All cells from the cell grid as shapely polygons
+    #         cell_polygons = [
+    #             Polygon(
+    #                 (
+    #                     (coords[0], coords[1]),
+    #                     (coords[0], coords[1] + 32),
+    #                     (coords[0] + 32, coords[1] + 32),
+    #                     (coords[0] + 32, coords[1]),
+    #                 )
+    #             )
+    #             for coords in cells.numpy().reshape(-1, 2)
+    #         ]
 
-#     Args:
-#         object_name: _description_
-#         label: _description_
-#     """
+    #         intersections = np.array([ball.intersection(p).area for p in cell_polygons]).reshape(15, 20)
+    #         # unions = np.array([ball.union(p).area for p in polygons]).reshape(15, 20)
+    #         cell_areas = np.array([p.area for p in cell_polygons]).reshape(15, 20)
 
-#     def _get_threshold(distance, min_threshold=0.1, max_threshold=0.75):
-#         # Do some linear interpolation for the threshold
-#         pass
+    #         cell_coverage = np.divide(intersections, cell_areas)
+    #         print(cell_coverage)
 
-#     # Generate object_mask for ball
-#     if object_name == "ball":
-#         # Geometry object of the ball
-#         ball = Point([label[object_name]["x"], label[object_name]["y"]]).buffer(
-#             label[object_name]["radius"], 128
-#         )
+    #         # if the ball is inside any of the cells, then the object_mask is 1.0
+    #         return cell_coverage > 0
 
-#         # All cells from the cell grid as shapely polygons
-#         cell_polygons = [
-#             Polygon(
-#                 (
-#                     (coords[0], coords[1]),
-#                     (coords[0], coords[1] + 32),
-#                     (coords[0] + 32, coords[1] + 32),
-#                     (coords[0] + 32, coords[1]),
-#                 )
-#             )
-#             for coords in cells.numpy().reshape(-1, 2)
-#         ]
+    #     # Generate object_mask for penaltyMark
+    #     if object_name == "penaltyMark":
+    #         pass
 
-#         intersections = np.array([ball.intersection(p).area for p in cell_polygons]).reshape(15, 20)
-#         # unions = np.array([ball.union(p).area for p in polygons]).reshape(15, 20)
-#         cell_areas = np.array([p.area for p in cell_polygons]).reshape(15, 20)
+    def _generate_classification_mask(self, object_name: str, coordinates, object_mask):
+        """Generate a mask that has a value in each cell that corresponds to the class type of the object category.
+        Example:
+        The classification mask for line intersections can have four values: NONE, L, T, X. The values
 
-#         cell_coverage = np.divide(intersections, cell_areas)
-#         print(cell_coverage)
+        Returns:
+            A mask like described above.
+        """
+        pass
 
-#         # if the ball is inside any of the cells, then the object_mask is 1.0
-#         return cell_coverage > 0
+    def _generate_loss_mask(self, object_mask: tf.Tensor | np.ndarray):
+        """Generate a binary mask that is 0 in each cell where the loss function should be ignored and 1 everywhere else
 
-#     # Generate object_mask for penaltyMark
-#     if object_name == "penaltyMark":
-#         pass
+        The loss function should be ignored when the presence of an object inside a cell in ambiguous. Whether this
+        is the case can be determined by the IoU value of the object and the cell. If the object is just a 1 dimensional point
+        (e. g. a penalty mark) the cell that contains the object coordinates is marked as one and the 8 cells surrounding it are  marked as 0 (just in case).
 
+        Args:
+            object_mask: the object mask
 
-def _generate_classification_mask(cells, object_name, coordinates, object_mask, scale):
-    """Generate a mask that has a value in each cell that corresponds to the class type of the object category.
-    Example:
-    The classification mask for line intersections can have four values: NONE, L, T, X. The values
+        Returns:
+            A binary mask like described above.
 
-    Returns:
-        A mask like described above.
-    """
-    pass
+        """
 
+        # invert object_mask to even make cells without objects True.
+        inverted_obj_mask = np.logical_not(np.array(object_mask))  # (H, W)
 
-def _generate_loss_mask(object_mask):
-    """Generate a binary mask that is 0 in each cell where the loss function should be ignored and 1 everywhere else
+        object_indices = np.stack(np.where(object_mask)).T  # (N_O, 2)
 
-    The loss function should be ignored when the presence of an object inside a cell in ambiguous. Whether this
-    is the case can be determined by the IoU value of the object and the cell. If the object is just a 1 dimensional point
-    (e. g. a penalty mark) the cell that contains the object coordinates is marked as one and the 8 cells surrounding it are  marked as 0 (just in case).
+        # turn the cells surrounding the index cell to 0
+        # TODO: use a more elegant way to set the surrounding cells to 0, like convolution or einsum
+        for idx in object_indices:
+            for i in range(-1, 2):
+                for j in range(-1, 2):
+                    if i == 0 and j == 0:
+                        continue
+                    # Check boundries
+                    if (0 <= idx[0] + i < inverted_obj_mask.shape[0]) and (
+                        0 <= idx[1] + j < inverted_obj_mask.shape[1]
+                    ):
+                        # Set the surrounding cells to 0
+                        inverted_obj_mask[idx[0] + i, idx[1] + j] = 0.0
 
-    Args:
-        object_mask: the object mask
+        for idx in object_indices:
+            inverted_obj_mask[idx[0]][idx[1]] = 1.0
 
-    Returns:
-        A binary mask like described above.
+        return inverted_obj_mask
 
-    """
+    @tf.function
+    def get_coords_from_offsets(self, offset_mask, image_dims=(480, 640)) -> tuple:
+        """Extract the image coordinates from the offset mask
 
-    # invert object_mask to even make cells without objects True.
-    inverted_obj_mask = np.logical_not(np.array(object_mask))  # (H, W)
+        Args:
+            mask: the offset mask [B, H, W, 2]
+            image_dims: the dimensions of the input image
 
-    object_indices = np.stack(np.where(object_mask)).T  # (N_O, 2)
+        Returns:
+            The coordinates of the object (x, y). (-1.0, -1.0) if the object is not in the image
+        """
+        # TODO: implement solution for offset_masks with multiple objects
 
-    # turn the cells surrounding the index cell to 0
-    # TODO: use a more elegant way to set the surrounding cells to 0, like convolution or einsum
-    for idx in object_indices:
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if i == 0 and j == 0:
-                    continue
-                # Check boundries
-                if (0 <= idx[0] + i < inverted_obj_mask.shape[0]) and (
-                    0 <= idx[1] + j < inverted_obj_mask.shape[1]
-                ):
-                    # Set the surrounding cells to 0
-                    inverted_obj_mask[idx[0] + i, idx[1] + j] = 0.0
+        # Take the offset from the first cell of each offset_mask
+        offset_cell = offset_mask[..., 0, 0, :]  # [B, 2]
 
-    for idx in object_indices:
-        inverted_obj_mask[idx[0]][idx[1]] = 1.0
+        # Generate mask that is False if the offset is -1.0 and True else. The offset_cell is [-1.0, -1.0] if there are no objects in the image.
+        mask = tf.cast(tf.math.not_equal(offset_cell, -1.0), dtype=tf.float32)
 
-    return inverted_obj_mask
+        # Get the output dims from the offset_mask
+        output_dims = tf.cast(tf.shape(offset_mask)[-3:-1], dtype=tf.int32)
+        scale = tf.cast(
+            keras.ops.array(output_dims) / keras.ops.array(image_dims), dtype=tf.float32
+        )
 
+        # Scale the first offset_cell up
+        coords = offset_cell / scale * mask
 
-@tf.function
-def get_coords_from_offsets(offset_mask, image_dims=(480, 640)) -> tuple:
-    """Extract the image coordinates from the offset mask
-
-    Args:
-        mask: the offset mask [B, H, W, 2]
-        image_dims: the dimensions of the input image
-
-    Returns:
-        The coordinates of the object (x, y). (-1.0, -1.0) if the object is not in the image
-    """
-    # TODO: implement solution for offset_masks with multiple objects
-
-    # Take the offset from the first cell of each offset_mask
-    offset_cell = offset_mask[..., 0, 0, :]  # [B, 2]
-
-    # Generate mask that is False if the offset is -1.0 and True else. The offset_cell is [-1.0, -1.0] if there are no objects in the image.
-    mask = tf.cast(tf.math.not_equal(offset_cell, -1.0), dtype=tf.float32)
-
-    # Get the output dims from the offset_mask
-    output_dims = tf.cast(tf.shape(offset_mask)[-3:-1], dtype=tf.int32)
-    scale = tf.cast(keras.ops.array(output_dims) / keras.ops.array(image_dims), dtype=tf.float32)
-
-    # Scale the first offset_cell up
-    coords = offset_cell / scale * mask
-
-    # set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
-    coords_masked = tf.where(tf.math.equal(coords, [0, 0]), tf.fill([2], -1.0), coords)
+        # set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
+        coords_masked = tf.where(tf.math.equal(coords, [0, 0]), tf.fill([2], -1.0), coords)
 
         return coords_masked
