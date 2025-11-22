@@ -62,12 +62,13 @@ def show_masks_on_image(
 
     if mask_name == "object":
         coords = dataset_utils.get_coords_from_offsets(masks["offsets"]).numpy()
-        # if -1.0 not in coords:
-        #     ax.plot(coords[0], coords[1], "rx")
+        for c in coords:
+            if -1.0 not in c:
+                ax.plot(c[0], c[1], "rx")
 
-        #     # Without this the plot expands in x and y axis.
-        #     ax.set_xlim(0, image.shape[1])
-        #     ax.set_ylim(image.shape[0], 0)
+                # Without this the plot expands in x and y axis.
+                ax.set_xlim(0, image.shape[1])
+                ax.set_ylim(image.shape[0], 0)
 
         object_mask = np.array(masks["object_mask"])
 
