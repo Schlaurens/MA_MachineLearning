@@ -10,6 +10,8 @@ from util import keypoint as u_keypoint
 
 from .layers import IresBlock, Normalization, PatchExtractor, PatchSampler
 
+dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
+
 
 class FullModel(tf.keras.Model):
     def __init__(
@@ -157,7 +159,7 @@ class FullModel(tf.keras.Model):
         boxes = results["boxes"]  # [B, N, 4]
         coords_pred = results["positions"]  # [B, N, 2]
         coords_true = tf.expand_dims(
-            u_dataset.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
+            dataset_utils.get_coords_from_offsets(batch_data["offset_mask"]), axis=1
         )  # [B, 1, 2] (x, y)
 
         # Theoretical maximum error, distance between (0,0) and (max, max) of patch

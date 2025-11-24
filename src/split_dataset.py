@@ -13,12 +13,12 @@ import argparse
 
 import tensorflow as tf
 
-from util import dataset as u_dataset
+from util import dataset_io as u_dataset_io
 
 
 def load_data(val_split, test_split):
-    data = u_dataset.get_data_info(directory="/data/groundtruth")
-    dataset = u_dataset.get_dataset(data["file_names"])
+    data = u_dataset_io.get_data_info(directory="/data/groundtruth")
+    dataset = u_dataset_io.get_dataset(data["file_names"])
 
     num_samples = data["num_samples"]
     train_samples = round(num_samples * (1 - val_split - test_split))
@@ -59,21 +59,21 @@ def write_file(directory, val_split=0.2, test_split=0.15):
     )
     with tf.io.TFRecordWriter(train_ds_file) as writer:
         for sample in data["train_ds"]:
-            example = u_dataset.make_example_from_sample(sample)
+            example = u_dataset_io.make_example_from_sample(sample)
             writer.write(example.SerializeToString())
 
     print("Writing Test Dataset...")
     test_ds_file = directory + f"test_ds_{data['test_samples']}({test_split}).tfrecords"
     with tf.io.TFRecordWriter(test_ds_file) as writer:
         for sample in data["test_ds"]:
-            example = u_dataset.make_example_from_sample(sample)
+            example = u_dataset_io.make_example_from_sample(sample)
             writer.write(example.SerializeToString())
 
     print("Writing Validation Dataset...")
     val_ds_file = directory + f"val_ds_{data['val_samples']}({val_split}).tfrecords"
     with tf.io.TFRecordWriter(val_ds_file) as writer:
         for sample in data["val_ds"]:
-            example = u_dataset.make_example_from_sample(sample)
+            example = u_dataset_io.make_example_from_sample(sample)
             writer.write(example.SerializeToString())
 
 

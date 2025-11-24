@@ -1,13 +1,13 @@
 import itertools
 import os
 
-from util import dataset as u_dataset
+from util import dataset_io as u_dataset_io
 from util import labels as u_labels
 
 
 def main(data_path: str):
     label_dirs = [dir[0] for dir in os.walk(data_path)][1:]
-    labels = [u_dataset.load_labels(dir) for dir in label_dirs]
+    labels = [u_dataset_io.load_labels(dir) for dir in label_dirs]
 
     log_names = [label_dir.split("/")[-1] for label_dir in label_dirs]
 

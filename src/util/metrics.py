@@ -6,6 +6,8 @@ from . import camera as u_camera
 from . import dataset as u_dataset
 from . import keypoint as u_keypoint
 
+dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
+
 
 class Error_Metric(tf.keras.metrics.Metric):
     """
@@ -120,10 +122,10 @@ class Error_Metric(tf.keras.metrics.Metric):
             dict: Contains matched points and the number of false predictions.
         """
 
-        img_coords_true = u_dataset.get_coords_from_offsets(
+        img_coords_true = dataset_utils.get_coords_from_offsets(
             y_true[self.object_name]["offset_mask"]
         )  # (x, y)
-        img_coords_pred = u_dataset.get_coords_from_offsets(
+        img_coords_pred = dataset_utils.get_coords_from_offsets(
             y_pred[self.object_name]["offset_mask"]
         )  # (x, y)
         pts = tf.expand_dims(

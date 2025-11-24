@@ -9,7 +9,7 @@ import yaml
 
 from train.models import FullModel
 from util import callbacks as u_callbacks
-from util import dataset as u_dataset
+from util import dataset_io as u_dataset_io
 
 
 def load_config(config_path):
@@ -83,8 +83,8 @@ def load_datasets(config):
     path_to_train = glob.glob(config["data"]["train_path"])
     path_to_val = glob.glob(config["data"]["val_path"])
 
-    train_ds = u_dataset.get_dataset(path_to_train)
-    val_ds = u_dataset.get_dataset(path_to_val)
+    train_ds = u_dataset_io.get_dataset(path_to_train)
+    val_ds = u_dataset_io.get_dataset(path_to_val)
 
     # Get number of train/val samples from file name of .tfrecords file.
     train_samples = int(path_to_train[0].split("_")[2].split("(")[0])
