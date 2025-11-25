@@ -97,6 +97,7 @@ class DatasetUtils:
         if coordinates is not None:
             if tf.reduce_all(tf.math.equal(coordinates, -1.0)):
                 return _empty_masks()
+            coordinate_list = coordinates
         # Case 2: Label and object_name provided
         elif label is not None and object_name is not None:
             if object_name not in label:
