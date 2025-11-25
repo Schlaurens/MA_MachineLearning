@@ -167,14 +167,46 @@ class DatasetUtils:
         Returns:
             The offset_mask
         """
+        filtered_coords = []
+
+        # TODO: remove duplicates from coords?
+
+        for coords in coordinates:
+            keep = True
+            for other_coords in coordinates:
+                if tf.reduce_all(coords == other_coords):
+                    continue
+                
+                if self.are_coords_in_same_cell(coords, other_coords) and not tf.reduce_all(coords <= other_coords):
+                    keep=False
+                # if self.are_coords_in_same_cell(coords, other_coords):
+                #     diff = coords < other_coords
+
+                #     if tf.reduce_all(diff):  # x and y of other_coords are bigger
+                #         keep = False
+                #         tf.print("coords: ", coords)
+                #         tf.print("other_coords: ", other_coords)
+                #     elif not tf.reduce_all(diff):  # x and y of other_coords are smaller
+                #         keep = True
+
+                #     elif diff[0] and not diff[1]:  # only x of other_coords is bigger
+                #         keep = True
+                #     elif not diff[0] and diff[1]:  # only y of other_coords is bigger
+                #         keep = False
+            if keep:
+                filtered_coords.append(coords)
+
+        print(len(filtered_coords))
+        print(filtered_coords)
+
         # Prepare cells for broadcast
         cells_reshaped = tf.expand_dims(self.config.cell_grid, axis=2)  # (H, W, 1, 2)
 
         distances = tf.sqrt(
-            tf.reduce_sum((coordinates - cells_reshaped) ** 2, axis=-1)
+            tf.reduce_sum((filtered_coords - cells_reshaped) ** 2, axis=-1)
         )  # (H, W, N_O)
         closest_indices = tf.argmin(distances, axis=-1)  # (H, W)
-        closest_coords = tf.gather(coordinates, closest_indices)  # (H, W)
+        closest_coords = tf.gather(filtered_coords, closest_indices)  # (H, W)
 
         offsets = closest_coords - self.config.cell_grid
 
