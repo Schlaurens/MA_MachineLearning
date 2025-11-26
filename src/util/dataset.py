@@ -167,6 +167,8 @@ class DatasetUtils:
         Returns:
             The offset_mask
         """
+
+        # Remove duplicates and handle multiple coords in one cell
         filtered_coords = self.filter_coordinates(coordinates)
 
         # Prepare cells for broadcast
@@ -179,8 +181,6 @@ class DatasetUtils:
         closest_coords = tf.gather(filtered_coords, closest_indices)  # (H, W)
 
         offsets = closest_coords - self.config.cell_grid
-
-        # TODO: if multiple intersection per cell. Take the lower one
 
         # Scale offsets to the output size
         return offsets * self.config.scale
