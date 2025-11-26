@@ -79,6 +79,7 @@ class DatasetUtils:
             The offset_mask will contains only -1.0. This is an arbitrary value, that indicates that no object is in the image.
             The object_mask will only contain False values as there are no objects any of the cells.
             The loss_mask will only contain `True` if `ignore_sample` is set to `False` and only `False` values otherwise.
+            The classification_mask will only contain -1.0
 
             Args:
                 ignore_sample: If `ignore_sample` is set to `True` the `loss_mask` consists of only `False` values so that this sample is ignored in the loss function. This is useful for the case that there are objects in the image that are not annotated. If `ignore_sample` is False the `loss_mask` consists of only `True` values.
@@ -89,8 +90,16 @@ class DatasetUtils:
             offsets = tf.cast(tf.fill((*self.config.output_dims, 2), -1), dtype=tf.float32)
             object_mask = tf.fill(self.config.output_dims, value=False)
             loss_mask = tf.fill(self.config.output_dims, value=not ignore_sample)
-            # return offsets, object_mask, loss_mask
-            return {"offsets": offsets, "object_mask": object_mask, "loss_mask": loss_mask}
+            classification_mask = tf.cast(
+                tf.fill(self.config.output_dims, value=-1), dtype=tf.float32
+            )
+
+            return {
+                "offsets": offsets,
+                "object_mask": object_mask,
+                "loss_mask": loss_mask,
+                "classification_mask": classification_mask,
+            }
 
         # Case 1: Direct coordinates provided
         # TODO: make possible with a list of cooordinates.
@@ -143,17 +152,34 @@ class DatasetUtils:
         offset_mask = self._generate_offset_mask(coordinate_list)
 
         # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
-        object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in offset_mask]
-
-        # l_offsets = _generate_offset_mask(cells, l_coords, scale)  # (H, W, 2)
-        # l_object_mask = [[all(n >= 0 and n < 1 for n in x) for x in row] for row in l_offsets]
-        # print(l_object_mask)
-
-        # classification_mask = _generate_classification_mask(
-        #     cells, object_name, coordinates, object_mask, scale
-        # )
-
+        object_mask = self.generate_object_mask(offset_mask)
         loss_mask = self._generate_loss_mask(object_mask)
+
+        if object_name == CategoryNames.INTERSECTIONS.value:
+            filtered_coords = self.filter_coordinates(coordinate_list)
+            classification_mask = tf.Variable(tf.zeros(self.config.output_dims))
+            tf.print(classification_mask[0, 0])
+            for c in filtered_coords:
+                if tf.reduce_any(c == l_coords):
+                    indices = self.get_cell_of_coordinate(c)
+                    tf.print(c)
+                    print(indices)
+                    classification_mask[indices[1], indices[0]].assign(IntersectionType.L.value)
+                elif tf.reduce_any(c == t_coords):
+                    indices = self.get_cell_of_coordinate(c)
+                    classification_mask[indices[1], indices[0]].assign(IntersectionType.T.value)
+                elif tf.reduce_any(c == x_coords):
+                    indices = self.get_cell_of_coordinate(c)
+                    classification_mask[indices[1], indices[0]].assign(IntersectionType.X.value)
+        else:
+            classification_mask = tf.fill((*self.config.output_dims, 3), -1.0)
+
+        return {
+            "offsets": offset_mask,
+            "object_mask": object_mask,
+            "loss_mask": loss_mask,
+            "classification_mask": classification_mask,
+        }
 
     def generate_object_mask(self, offset_mask: tf.Tensor) -> tf.Tensor:
         """Generate a binary object_mask that is 1.0 in every cell where there is an object. And 0.0 in all the other cells.
