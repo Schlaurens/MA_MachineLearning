@@ -357,23 +357,20 @@ class DatasetUtils:
             A `tf.Tensor` of shape (N, 2) with N := Number of objects in the sample. The `tf.Tensor` contains the coordinates (x, y) of the objects. (-1.0, -1.0) if the object is not in the image
         """
 
-        # Generate mask that is False if the offset is -1.0 and True else. The offset_cell is [-1.0, -1.0] if there are no objects in the image.
-        mask = tf.cast(tf.math.not_equal(offset_mask, -1.0), dtype=tf.float32)
+        # If all the values are -1.0 then there are no objects in mask.
+        if tf.reduce_all(offset_mask == -1.0):
+            return tf.constant([[-1, -1]], tf.float32)
 
         # Convert the offset_mask to an absolute coord_mask where all values that are [-1.0, -1.0] are set to 0.
-        coord_mask = (offset_mask / self.config.scale + self.config.cell_grid) * mask
+        coord_mask = offset_mask / self.config.scale + self.config.cell_grid
 
         flat_mask = tf.reshape(
             coord_mask, [self.config.output_dims[0] * self.config.output_dims[1], 2]
         )
 
-        # Cast the coords to float16 and back to float32 to effectively round to a precision
-        unique_coords, _ = tf.raw_ops.UniqueV2(x=(tf.cast(flat_mask, dtype=tf.float16)), axis=[0])
-        unique_coords = tf.cast(unique_coords, tf.float32)
+        rounded_coords = (
+            tf.round(flat_mask * 1e4) / 1e4
+        )  # Round to 4 decimal places due to floating point errors.
+        unique_coords, _ = tf.raw_ops.UniqueV2(x=rounded_coords, axis=[0])
 
-        # Set coords to [-1.0, -1.0] if they were set to [0, 0] by the mask. This means the coords are [-1.0, -1.0] if there are no object in the image
-        coords_masked = tf.where(
-            tf.math.equal(unique_coords, [0, 0]), tf.fill([2], -1.0), unique_coords
-        )
-
-        return coords_masked
+        return unique_coords
