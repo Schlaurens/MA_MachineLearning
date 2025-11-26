@@ -194,38 +194,28 @@ class DatasetUtils:
         Returns:
             A filtered tensor. Shape (N, 2).
         """
-        
-        # TODO: remove duplicates from coords?
+
+        unique_coords, _ = tf.raw_ops.UniqueV2(x=coordinates, axis=[0])
         filtered_coords = []
-        for coords in coordinates:
+
+        for coords in unique_coords:
             keep = True
-            for other_coords in coordinates:
+            for other_coords in unique_coords:
                 if tf.reduce_all(coords == other_coords):
                     continue
 
-                if self.are_coords_in_same_cell(coords, other_coords) and not tf.reduce_all(
-                    coords <= other_coords
-                ):
-                    keep = False
-                # if self.are_coords_in_same_cell(coords, other_coords):
-                #     diff = coords < other_coords
-
-                #     if tf.reduce_all(diff):  # x and y of other_coords are bigger
-                #         keep = False
-                #         tf.print("coords: ", coords)
-                #         tf.print("other_coords: ", other_coords)
-                #     elif not tf.reduce_all(diff):  # x and y of other_coords are smaller
-                #         keep = True
-
-                #     elif diff[0] and not diff[1]:  # only x of other_coords is bigger
-                #         keep = True
-                #     elif not diff[0] and diff[1]:  # only y of other_coords is bigger
-                #         keep = False
+                if self.are_coords_in_same_cell(coords, other_coords):
+                    diff = coords > other_coords
+                    if not diff[1]:
+                        tf.print("False")
+                        keep = False
+                    if coords[1] == other_coords[1] and diff[0] and not diff[1]:
+                        # Covers the case if the y-values are the same but coords is bigger on the x-axis.
+                        keep = True
             if keep:
                 filtered_coords.append(coords)
 
-        print(len(filtered_coords))
-        print(filtered_coords)
+        # TODO: make output a tf.Tensor
         return filtered_coords
 
     def are_coords_in_same_cell(
