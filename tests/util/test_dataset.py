@@ -15,7 +15,7 @@ class TestFilterCoordinates:
 
         # assert result.shape == expected.shape
         assert tf.reduce_all(result == expected)
-    
+
     def test_unique_coordinates(self):
         # No need for filtering.
         coordinates = tf.constant([[32, 54], [100, 102]], tf.float32)
