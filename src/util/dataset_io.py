@@ -155,6 +155,10 @@ def get_dataset(directory: str) -> tf.data.Dataset:
         "object_penaltyMark": tf.io.FixedLenFeature([], tf.string),
         "offsets_penaltyMark": tf.io.FixedLenFeature([], tf.string),
         "loss_mask_penaltyMark": tf.io.FixedLenFeature([], tf.string),
+        "object_intersections": tf.io.FixedLenFeature([], tf.string),
+        "offsets_intersections": tf.io.FixedLenFeature([], tf.string),
+        "loss_mask_intersections": tf.io.FixedLenFeature([], tf.string),
+        "classification_intersections": tf.io.FixedLenFeature([], tf.string),
     }
 
     @tf.function
@@ -213,6 +217,32 @@ def get_dataset(directory: str) -> tf.data.Dataset:
                     [15, 20],
                 ),
             },
+            "intersections": {
+                "object_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["object_intersections"], out_type=tf.float32
+                    ),
+                    [15, 20],
+                ),
+                "offset_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["offsets_intersections"], out_type=tf.float32
+                    ),
+                    [15, 20, 2],
+                ),
+                "loss_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["loss_mask_intersections"], out_type=tf.float32
+                    ),
+                    [15, 20],
+                ),
+                "classification_mask": tf.ensure_shape(
+                    tf.io.parse_tensor(
+                        serialized_tensor["classification_intersections"], out_type=tf.float32
+                    ),
+                    [15, 20],
+                ),
+            },
         }
 
     @tf.function
@@ -259,7 +289,7 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
     """Extracts the element at the given index from batched data, handling any number of object types. Leave the batch dimension intact
 
     Args:
-        batched_data: one batched of the dataset
+        batched_data: one batch of the dataset
         index: the index of the sample in the batch that is to be returned
         keep_batch: Whether the batch dimension should be preserved. Defaults to True
     """
@@ -282,6 +312,9 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
                 "object_mask": maybe_batch_dim(batched_data[category]["object_mask"]),
                 "offset_mask": maybe_batch_dim(batched_data[category]["offset_mask"]),
                 "loss_mask": maybe_batch_dim(batched_data[category]["loss_mask"]),
+                "classification_mask": maybe_batch_dim(batched_data[category]["loss_mask"])
+                if category == "intersections"
+                else None,
             }
             for category in batched_data
             if category not in ["image", "camera", "intrinsics"]  # Skip non-object fields
@@ -291,7 +324,7 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
     return result
 
 
-def make_example(directory: str, label: dict):
+def make_example(directory: str = None, label: dict = None, sample: dict = None):
     """Generate a Tensorflow example for a given data label. Tensorflow examples are used to serialize data into .tfrecords files.
 
     Args:
@@ -301,14 +334,31 @@ def make_example(directory: str, label: dict):
     Returns:
         instance of tf.Example
     """
+    # TODO: use dataset.config for tensor dimensions
+    if directory is not None and label is not None:
+        from_sample = False
 
-    # TODO: instantiate datasetUtils
+        masks_ball = dataset_utils.get_masks(label, u_dataset.CategoryNames.BALL.value)
+        masks_penaltyMark = dataset_utils.get_masks(
+            label, u_dataset.CategoryNames.PENALTYMARK.value
+        )
+        masks_intersections = dataset_utils.get_masks(
+            label, u_dataset.CategoryNames.INTERSECTIONS.value
+        )
 
-    masks_ball = dataset_utils.get_masks(label, u_dataset.CategoryNames.BALL.value)
-    masks_penaltyMark = dataset_utils.get_masks(label, u_dataset.CategoryNames.PENALTYMARK.value)
+    elif sample is not None:
+        from_sample = True
+
+    else:
+        raise ValueError("Either (directory and label) or sample must be provided.")
+
     image_feature = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["image"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(
                         tf.constant(
@@ -323,6 +373,10 @@ def make_example(directory: str, label: dict):
     camera_feature = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["camera"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.constant(camera_from_label(label), dtype=tf.float32)
                 ).numpy(),
@@ -332,6 +386,10 @@ def make_example(directory: str, label: dict):
     intrinsics_feature = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["intrinsics"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.constant(intrinsics_from_label(label), dtype=tf.float32)
                 ).numpy(),
@@ -341,6 +399,10 @@ def make_example(directory: str, label: dict):
     object_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["ball"]["object_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(tf.cast(masks_ball["object_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
@@ -350,6 +412,10 @@ def make_example(directory: str, label: dict):
     offset_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["ball"]["offset_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(tf.reshape(masks_ball["offsets"], (15, 20, 2))).numpy(),
             ]
         )
@@ -357,6 +423,10 @@ def make_example(directory: str, label: dict):
     loss_mask_feature_ball = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["ball"]["loss_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(tf.cast(masks_ball["loss_mask"], dtype=tf.float32), (15, 20))
                 ).numpy(),
@@ -366,6 +436,10 @@ def make_example(directory: str, label: dict):
     object_feature_penaltyMark = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["object_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(
                         tf.cast(masks_penaltyMark["object_mask"], dtype=tf.float32), (15, 20)
@@ -377,6 +451,10 @@ def make_example(directory: str, label: dict):
     offset_feature_penaltyMark = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["offset_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(masks_penaltyMark["offsets"], (15, 20, 2))
                 ).numpy(),
@@ -386,8 +464,73 @@ def make_example(directory: str, label: dict):
     loss_mask_feature_penaltyMark = tf.train.Feature(
         bytes_list=tf.train.BytesList(
             value=[
+                tf.io.serialize_tensor(sample["penaltyMark"]["loss_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
                 tf.io.serialize_tensor(
                     tf.reshape(tf.cast(masks_penaltyMark["loss_mask"], dtype=tf.float32), (15, 20))
+                ).numpy(),
+            ]
+        )
+    )
+    object_feature_intersections = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["intersections"]["object_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
+                tf.io.serialize_tensor(
+                    tf.reshape(
+                        tf.cast(masks_intersections["object_mask"], dtype=tf.float32), (15, 20)
+                    )
+                ).numpy(),
+            ]
+        )
+    )
+    offset_feature_intersections = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["intersections"]["offset_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
+                tf.io.serialize_tensor(
+                    tf.reshape(
+                        tf.cast(masks_intersections["offsets"], dtype=tf.float32), (15, 20, 2)
+                    )
+                ).numpy(),
+            ]
+        )
+    )
+    loss_mask_feature_intersections = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["intersections"]["loss_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
+                tf.io.serialize_tensor(
+                    tf.reshape(
+                        tf.cast(masks_intersections["loss_mask"], dtype=tf.float32), (15, 20)
+                    )
+                ).numpy(),
+            ]
+        )
+    )
+    classification_feature_intersections = tf.train.Feature(
+        bytes_list=tf.train.BytesList(
+            value=[
+                tf.io.serialize_tensor(sample["intersections"]["classification_mask"]).numpy(),
+            ]
+            if from_sample
+            else [
+                tf.io.serialize_tensor(
+                    tf.reshape(
+                        tf.cast(masks_intersections["classification_mask"], dtype=tf.float32),
+                        (15, 20),
+                    )
                 ).numpy(),
             ]
         )
@@ -399,107 +542,19 @@ def make_example(directory: str, label: dict):
             "image": image_feature,
             "camera": camera_feature,
             "intrinsics": intrinsics_feature,
+            # ball
             "object_ball": object_feature_ball,
             "offsets_ball": offset_feature_ball,
             "loss_mask_ball": loss_mask_feature_ball,
+            # penaltyMark
             "object_penaltyMark": object_feature_penaltyMark,
             "offsets_penaltyMark": offset_feature_penaltyMark,
             "loss_mask_penaltyMark": loss_mask_feature_penaltyMark,
-        }
-    )
-
-    example = tf.train.Example(features=features)
-    # print(example)
-
-    return example
-
-
-def make_example_from_sample(sample: dict):
-    """Generate a Tensorflow example for a given data sample. Tensorflow examples are used to serialize data into .tfrecords files.
-
-    Args:
-        sample: the sample that is to be serialized. The samples already contains all the data that is needed for training
-
-    Returns:
-        instance of tf.Example
-    """
-
-    image_feature = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["image"]).numpy(),
-            ]
-        )
-    )
-    camera_feature = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["camera"]).numpy(),
-            ]
-        )
-    )
-    intrinsics_feature = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["intrinsics"]).numpy(),
-            ]
-        )
-    )
-    object_feature_ball = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["ball"]["object_mask"]).numpy(),
-            ]
-        )
-    )
-    offset_feature_ball = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["ball"]["offset_mask"]).numpy(),
-            ]
-        )
-    )
-    loss_mask_feature_ball = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["ball"]["loss_mask"]).numpy(),
-            ]
-        )
-    )
-    object_feature_penaltyMark = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["penaltyMark"]["object_mask"]).numpy(),
-            ]
-        )
-    )
-    offset_feature_penaltyMark = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["penaltyMark"]["offset_mask"]).numpy(),
-            ]
-        )
-    )
-    loss_mask_feature_penaltyMark = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[
-                tf.io.serialize_tensor(sample["penaltyMark"]["loss_mask"]).numpy(),
-            ]
-        )
-    )
-
-    # Create a Features dictionary
-    features = tf.train.Features(
-        feature={
-            "image": image_feature,
-            "camera": camera_feature,
-            "intrinsics": intrinsics_feature,
-            "object_ball": object_feature_ball,
-            "offsets_ball": offset_feature_ball,
-            "loss_mask_ball": loss_mask_feature_ball,
-            "object_penaltyMark": object_feature_penaltyMark,
-            "offsets_penaltyMark": offset_feature_penaltyMark,
-            "loss_mask_penaltyMark": loss_mask_feature_penaltyMark,
+            # intersections
+            "object_intersections": object_feature_intersections,
+            "offsets_intersections": offset_feature_intersections,
+            "loss_mask_intersections": loss_mask_feature_intersections,
+            "classification_intersections": classification_feature_intersections,
         }
     )
 
