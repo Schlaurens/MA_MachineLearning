@@ -85,13 +85,13 @@ def _add_object_mask_axes(masks, ax):
 
     object_mask = np.array(masks["object_mask"])
 
-    # Get the indices with the highest/lowest values.
-    indices_object_pos = np.dstack(np.where(object_mask == True))[0]
-    indices_object_neg = np.dstack(np.where(object_mask == False))[0]
-
-    # Scale the indices to the size of the cell grid
-    scaled_object_mask_indices_pos = indices_object_pos * np.array(dataset_config.cell_dims)
-    scaled_object_mask_indices_neg = indices_object_neg * np.array(dataset_config.cell_dims)
+    # Get the indices with the highest/lowest values. Scaled to the cell_grid
+    scaled_object_mask_indices_pos = np.dstack(np.where(object_mask == True))[0] * np.array(
+        dataset_config.cell_dims
+    )
+    scaled_object_mask_indices_neg = np.dstack(np.where(object_mask == False))[0] * np.array(
+        dataset_config.cell_dims
+    )
 
     # Make sure that the indices are 2D arrays to make iteration possible in the next step.
     if len(scaled_object_mask_indices_pos.shape) == 1:
@@ -129,11 +129,12 @@ def _add_object_mask_axes(masks, ax):
 def _add_loss_mask_axes(masks, ax):
     loss_mask = np.array(masks["loss_mask"])
 
-    indices_loss_mask_pos = np.dstack(np.where(loss_mask == True))[0]
-    indices_loss_mask_neg = np.dstack(np.where(loss_mask == False))[0]
-
-    scaled_loss_mask_indices_pos = indices_loss_mask_pos * np.array(dataset_config.cell_dims)
-    scaled_loss_mask_indices_neg = indices_loss_mask_neg * np.array(dataset_config.cell_dims)
+    scaled_loss_mask_indices_pos = np.dstack(np.where(loss_mask == True))[0] * np.array(
+        dataset_config.cell_dims
+    )
+    scaled_loss_mask_indices_neg = np.dstack(np.where(loss_mask == False))[0] * np.array(
+        dataset_config.cell_dims
+    )
 
     if len(scaled_loss_mask_indices_pos.shape) == 1:
         scaled_loss_mask_indices_pos = np.expand_dims(scaled_loss_mask_indices_pos, axis=0)
@@ -169,20 +170,20 @@ def _add_loss_mask_axes(masks, ax):
 def _add_classification_mask_axes(masks, ax):
     class_mask = masks["classification_mask"]
 
-    indices_no_intersections = np.dstack(
+    scaled_indices_no_intersections = np.dstack(
         np.where(class_mask == u_dataset.IntersectionType.NONE.value)
     )[0] * np.array(dataset_config.cell_dims)
-    indices_l_intersections = np.dstack(np.where(class_mask == u_dataset.IntersectionType.L.value))[
-        0
-    ] * np.array(dataset_config.cell_dims)
-    indices_t_intersections = np.dstack(np.where(class_mask == u_dataset.IntersectionType.T.value))[
-        0
-    ] * np.array(dataset_config.cell_dims)
-    indices_x_intersections = np.dstack(np.where(class_mask == u_dataset.IntersectionType.X.value))[
-        0
-    ] * np.array(dataset_config.cell_dims)
+    scaled_indices_l_intersections = np.dstack(
+        np.where(class_mask == u_dataset.IntersectionType.L.value)
+    )[0] * np.array(dataset_config.cell_dims)
+    scaled_indices_t_intersections = np.dstack(
+        np.where(class_mask == u_dataset.IntersectionType.T.value)
+    )[0] * np.array(dataset_config.cell_dims)
+    scaled_indices_x_intersections = np.dstack(
+        np.where(class_mask == u_dataset.IntersectionType.X.value)
+    )[0] * np.array(dataset_config.cell_dims)
 
-    for i in indices_no_intersections:
+    for i in scaled_indices_no_intersections:
         rect_loss_mask = patches.Rectangle(
             i[::-1],  # Flip x and y coordinates for matplotlib
             dataset_config.cell_dims[0],
@@ -193,7 +194,7 @@ def _add_classification_mask_axes(masks, ax):
         )
         ax.add_patch(rect_loss_mask)
 
-    for i in indices_l_intersections:
+    for i in scaled_indices_l_intersections:
         rect_loss_mask = patches.Rectangle(
             i[::-1],  # Flip x and y coordinates for matplotlib
             dataset_config.cell_dims[0],
@@ -204,7 +205,7 @@ def _add_classification_mask_axes(masks, ax):
         )
         ax.add_patch(rect_loss_mask)
 
-    for i in indices_t_intersections:
+    for i in scaled_indices_t_intersections:
         rect_loss_mask = patches.Rectangle(
             i[::-1],  # Flip x and y coordinates for matplotlib
             dataset_config.cell_dims[0],
@@ -215,7 +216,7 @@ def _add_classification_mask_axes(masks, ax):
         )
         ax.add_patch(rect_loss_mask)
 
-    for i in indices_x_intersections:
+    for i in scaled_indices_x_intersections:
         rect_loss_mask = patches.Rectangle(
             i[::-1],  # Flip x and y coordinates for matplotlib
             dataset_config.cell_dims[0],
