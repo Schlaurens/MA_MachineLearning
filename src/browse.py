@@ -6,7 +6,7 @@ from matplotlib import gridspec, widgets
 
 from util import augmentation as u_augmentation
 from util import camera as u_camera
-from util import dataset as u_dataset
+from util import dataset_io as u_dataset_io
 from util import image as u_image
 from util import labels as u_labels
 
@@ -26,7 +26,7 @@ class BrowseApplication:
     def __init__(self, directory):
         self.img_dims = (480, 640)  # y, x
         self.directory = directory
-        self.labels = u_dataset.load_labels(args.directory)
+        self.labels = u_dataset_io.load_labels(args.directory)
         self.label_mode = LabelMode.BALL
         self.augmentation = False
 
@@ -70,7 +70,7 @@ class BrowseApplication:
 
     def select_image(self, index):
         label = self.labels[index]
-        image = u_dataset.load_image(self.directory, label, image_format=u_image.ImageFormat.RGB)
+        image = u_dataset_io.load_image(self.directory, label, image_format=u_image.ImageFormat.RGB)
         if self.augmentation:
             image, label = u_augmentation.apply(np.asarray(image), label)
         self.im_ax_img.set_data(image)
@@ -208,8 +208,8 @@ class BrowseApplication:
             return
         current = int(self.slider_image.val)
         if self.label_mode == LabelMode.BALL:
-            camera_intr = u_dataset.intrinsics_from_label(self.labels[current])
-            camera = u_dataset.camera_from_label(self.labels[current])
+            camera_intr = u_dataset_io.intrinsics_from_label(self.labels[current])
+            camera = u_dataset_io.camera_from_label(self.labels[current])
             ball_size = 0.1  # m
 
             # Transform camera coords to world coords
