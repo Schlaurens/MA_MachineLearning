@@ -48,7 +48,7 @@ def load_data(val_split, test_split):
 
 def write_file(directory, val_split=0.2, test_split=0.15):
     dataset_version = "2"
-    
+
     # Load the dataset
     data = load_data(val_split, test_split)
     print("Dataset loaded.")
@@ -61,21 +61,21 @@ def write_file(directory, val_split=0.2, test_split=0.15):
     )
     with tf.io.TFRecordWriter(train_ds_file) as writer:
         for sample in data["train_ds"]:
-            example = u_dataset_io.make_example_from_sample(sample)
+            example = u_dataset_io.make_example(sample=sample)
             writer.write(example.SerializeToString())
 
     print("Writing Test Dataset...")
     test_ds_file = directory + f"test_ds_v{dataset_version}_{data['test_samples']}({test_split}).tfrecords"
     with tf.io.TFRecordWriter(test_ds_file) as writer:
         for sample in data["test_ds"]:
-            example = u_dataset_io.make_example_from_sample(sample)
+            example = u_dataset_io.make_example(sample=sample)
             writer.write(example.SerializeToString())
 
     print("Writing Validation Dataset...")
     val_ds_file = directory + f"val_ds_v{dataset_version}_{data['val_samples']}({val_split}).tfrecords"
     with tf.io.TFRecordWriter(val_ds_file) as writer:
         for sample in data["val_ds"]:
-            example = u_dataset_io.make_example_from_sample(sample)
+            example = u_dataset_io.make_example(sample=sample)
             writer.write(example.SerializeToString())
 
 
