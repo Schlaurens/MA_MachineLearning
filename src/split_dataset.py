@@ -2,7 +2,7 @@
 validation and test split as well as the saving directiory can be specified when executing the script
 
 Usage:
-    python split_dataset.py --dir data/ --val 0.2 --test 0.15
+    python split_dataset.py --save-dir data/ --val 0.2 --test 0.15
 
 Dependencies:
     - tensorflow
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         description="This script takes multiple .tfrecords files and split them into train, val and test datasets"
     )
     # Directory where the .tfrecords files are saved to
-    parser.add_argument("--dir")
+    parser.add_argument("--save-dir")
     parser.add_argument("--val", type=float)
     parser.add_argument("--test", type=float)
 
