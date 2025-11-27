@@ -325,11 +325,12 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
 
 
 def make_example(directory: str = None, label: dict = None, sample: dict = None):
-    """Generate a Tensorflow example for a given data label. Tensorflow examples are used to serialize data into .tfrecords files.
+    """Generate a Tensorflow example for a given data label or sample. Tensorflow examples are used to serialize data into .tfrecords files.
 
     Args:
         directory: The directory of the data that is to be serialized.
-        label: the labels that are to be serialized (dict)
+        label: The labels that are to be serialized (dict)
+        sample: The sample that is to be serialized. The samples already contains all the data that is needed for training
 
     Returns:
         instance of tf.Example
