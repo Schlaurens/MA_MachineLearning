@@ -61,96 +61,107 @@ def show_masks_on_image(
         return
 
     if mask_name == "object":
-        coords = dataset_utils.get_coords_from_offsets(masks["offsets"]).numpy()
-        for c in coords:
-            if -1.0 not in c:
-                ax.plot(c[0], c[1], "rx")
-
-                # Without this the plot expands in x and y axis.
-                ax.set_xlim(0, image.shape[1])
-                ax.set_ylim(image.shape[0], 0)
-
-        object_mask = np.array(masks["object_mask"])
-
-        # Get the indices with the highest/lowest values.
-        indices_object_pos = np.dstack(np.where(object_mask == True))[0]
-        indices_object_neg = np.dstack(np.where(object_mask == False))[0]
-
-        # Scale the indices to the size of the cell grid
-        scaled_object_mask_indices_pos = indices_object_pos * np.array(cell_dims)
-        scaled_object_mask_indices_neg = indices_object_neg * np.array(cell_dims)
-
-        # Make sure that the indices are 2D arrays to make iteration possible in the next step.
-        if len(scaled_object_mask_indices_pos.shape) == 1:
-            scaled_object_mask_indices_pos = np.expand_dims(scaled_object_mask_indices_pos, axis=0)
-
-        if len(scaled_object_mask_indices_neg.shape) == 1:
-            scaled_object_mask_indices_neg = np.expand_dims(scaled_object_mask_indices_neg, axis=0)
-
-        # Draw a rectangle on the cells
-        for i in scaled_object_mask_indices_pos:
-            rect_pos = patches.Rectangle(
-                i[::-1],  # Flip x and y coordinates for matplotlib
-                cell_dims[0],
-                cell_dims[1],
-                linewidth=1,
-                edgecolor="black",
-                facecolor=(63 / 255, 255 / 255, 0 / 255, 75 / 255),  # lime color
-            )
-            ax.add_patch(rect_pos)
-
-        for i in scaled_object_mask_indices_neg:
-            rect_pos = patches.Rectangle(
-                i[::-1],  # Flip x and y coordinates for matplotlib
-                cell_dims[0],
-                cell_dims[1],
-                linewidth=1,
-                edgecolor="black",
-                facecolor=(255 / 255, 0 / 255, 0 / 255, 75 / 255),  # red color
-            )
-            ax.add_patch(rect_pos)
-
+        ax = _add_object_mask_axes(masks, ax)
     elif mask_name == "loss":
-        loss_mask = np.array(masks["loss_mask"])
-
-        indices_loss_mask_pos = np.dstack(np.where(loss_mask == True))[0]
-        indices_loss_mask_neg = np.dstack(np.where(loss_mask == False))[0]
-
-        scaled_loss_mask_indices_pos = indices_loss_mask_pos * np.array(cell_dims)
-        scaled_loss_mask_indices_neg = indices_loss_mask_neg * np.array(cell_dims)
-
-        if len(scaled_loss_mask_indices_pos.shape) == 1:
-            scaled_loss_mask_indices_pos = np.expand_dims(scaled_loss_mask_indices_pos, axis=0)
-
-        if len(scaled_loss_mask_indices_neg.shape) == 1:
-            scaled_loss_mask_indices_neg = np.expand_dims(scaled_loss_mask_indices_neg, axis=0)
-
-        for i in scaled_loss_mask_indices_pos:
-            rect_loss_mask = patches.Rectangle(
-                i[::-1],  # Flip x and y coordinates for matplotlib
-                cell_dims[0],
-                cell_dims[1],
-                linewidth=1,
-                edgecolor="black",
-                facecolor=(63 / 255, 255 / 255, 0 / 255, 75 / 255),  # lime color
-            )
-            ax.add_patch(rect_loss_mask)
-
-        for i in scaled_loss_mask_indices_neg:
-            rect_loss_mask = patches.Rectangle(
-                i[::-1],  # Flip x and y coordinates for matplotlib
-                cell_dims[0],
-                cell_dims[1],
-                linewidth=1,
-                edgecolor="black",
-                facecolor=(255 / 255, 0 / 255, 0 / 255, 75 / 255),  # red color
-            )
-            ax.add_patch(rect_loss_mask)
+        ax = _add_loss_mask_axes(masks, ax)
     else:
         print("Error: Unknown Mask requested.")
         return
 
     plt.show()
+
+
+def _add_object_mask_axes(masks, ax):
+    coords = dataset_utils.get_coords_from_offsets(masks["offsets"]).numpy()
+    for c in coords:
+        if -1.0 not in c:
+            ax.plot(c[0], c[1], "rx")
+
+            # Without this the plot expands in x and y axis.
+            ax.set_xlim(0, dataset_config.input_dims[1])
+            ax.set_ylim(dataset_config.input_dims[0], 0)
+
+    object_mask = np.array(masks["object_mask"])
+
+    # Get the indices with the highest/lowest values.
+    indices_object_pos = np.dstack(np.where(object_mask == True))[0]
+    indices_object_neg = np.dstack(np.where(object_mask == False))[0]
+
+    # Scale the indices to the size of the cell grid
+    scaled_object_mask_indices_pos = indices_object_pos * np.array(dataset_config.cell_dims)
+    scaled_object_mask_indices_neg = indices_object_neg * np.array(dataset_config.cell_dims)
+
+    # Make sure that the indices are 2D arrays to make iteration possible in the next step.
+    if len(scaled_object_mask_indices_pos.shape) == 1:
+        scaled_object_mask_indices_pos = np.expand_dims(scaled_object_mask_indices_pos, axis=0)
+
+    if len(scaled_object_mask_indices_neg.shape) == 1:
+        scaled_object_mask_indices_neg = np.expand_dims(scaled_object_mask_indices_neg, axis=0)
+
+    # Draw a rectangle on the cells
+    for i in scaled_object_mask_indices_pos:
+        rect_pos = patches.Rectangle(
+            i[::-1],  # Flip x and y coordinates for matplotlib
+            dataset_config.cell_dims[0],
+            dataset_config.cell_dims[1],
+            linewidth=1,
+            edgecolor="black",
+            facecolor=(63 / 255, 255 / 255, 0 / 255, 75 / 255),  # lime color
+        )
+        ax.add_patch(rect_pos)
+
+    for i in scaled_object_mask_indices_neg:
+        rect_pos = patches.Rectangle(
+            i[::-1],  # Flip x and y coordinates for matplotlib
+            dataset_config.cell_dims[0],
+            dataset_config.cell_dims[1],
+            linewidth=1,
+            edgecolor="black",
+            facecolor=(255 / 255, 0 / 255, 0 / 255, 75 / 255),  # red color
+        )
+        ax.add_patch(rect_pos)
+
+    return ax
+
+
+def _add_loss_mask_axes(masks, ax):
+    loss_mask = np.array(masks["loss_mask"])
+
+    indices_loss_mask_pos = np.dstack(np.where(loss_mask == True))[0]
+    indices_loss_mask_neg = np.dstack(np.where(loss_mask == False))[0]
+
+    scaled_loss_mask_indices_pos = indices_loss_mask_pos * np.array(dataset_config.cell_dims)
+    scaled_loss_mask_indices_neg = indices_loss_mask_neg * np.array(dataset_config.cell_dims)
+
+    if len(scaled_loss_mask_indices_pos.shape) == 1:
+        scaled_loss_mask_indices_pos = np.expand_dims(scaled_loss_mask_indices_pos, axis=0)
+
+    if len(scaled_loss_mask_indices_neg.shape) == 1:
+        scaled_loss_mask_indices_neg = np.expand_dims(scaled_loss_mask_indices_neg, axis=0)
+
+    for i in scaled_loss_mask_indices_pos:
+        rect_loss_mask = patches.Rectangle(
+            i[::-1],  # Flip x and y coordinates for matplotlib
+            dataset_config.cell_dims[0],
+            dataset_config.cell_dims[1],
+            linewidth=1,
+            edgecolor="black",
+            facecolor=(63 / 255, 255 / 255, 0 / 255, 75 / 255),  # lime color
+        )
+        ax.add_patch(rect_loss_mask)
+
+    for i in scaled_loss_mask_indices_neg:
+        rect_loss_mask = patches.Rectangle(
+            i[::-1],  # Flip x and y coordinates for matplotlib
+            dataset_config.cell_dims[0],
+            dataset_config.cell_dims[1],
+            linewidth=1,
+            edgecolor="black",
+            facecolor=(255 / 255, 0 / 255, 0 / 255, 75 / 255),  # red color
+        )
+        ax.add_patch(rect_loss_mask)
+
+    return ax
 
 
 def show_patches_on_image(image, label, results):
