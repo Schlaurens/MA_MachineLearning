@@ -4,6 +4,8 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
+from pathlib import Path
+
 import tensorflow as tf
 
 from util import dataset_io as u_dataset_io
@@ -14,7 +16,7 @@ def write_file(directory):
     labels = u_dataset_io.load_labels(directory)
     print("Dataset loaded.")
 
-    record_file = directory + ".tfrecords"
+    record_file = Path(directory).with_suffix(".tfrecords")
     print("Writing file...")
     with tf.io.TFRecordWriter(record_file) as writer:
         for label in labels:
