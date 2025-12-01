@@ -390,23 +390,40 @@ class DatasetUtils:
             mask: the offset mask [B, H, W, 2]
 
         Returns:
-            A `tf.Tensor` of shape (N, 2) with N := Number of objects in the sample. The `tf.Tensor` contains the coordinates (x, y) of the objects. (-1.0, -1.0) if the object is not in the image
+            A `tf.Tensor` of shape (B, N, 2) with N := Number of objects in the sample. The `tf.Tensor` contains the coordinates (x, y) of the objects. (-1.0, -1.0) if the object is not in the image
         """
 
-        # If all the values are -1.0 then there are no objects in mask.
-        if tf.reduce_all(offset_mask == -1.0):
-            return tf.constant([[-1, -1]], tf.float32)
+        # Add batch dimension if not there
+        if len(offset_mask.shape) < 4:
+            offset_mask = tf.expand_dims(offset_mask, 0)
+
+        emptiness_mask = tf.reduce_all(offset_mask == -1.0, axis=[1, 2, 3])  # (B, )
+
+        # Expand emptiness_mask to (B, H*W, 1)
+        expanded_emptiness_mask = tf.tile(
+            emptiness_mask[..., tf.newaxis, tf.newaxis],  # Shape (B, 1, 1)
+            [1, self.config.output_dims[0] * self.config.output_dims[1], 1],  # Repeat for H*W
+        )
 
         # Convert the offset_mask to an absolute coord_mask where all values that are [-1.0, -1.0] are set to 0.
-        coord_mask = offset_mask / self.config.scale + self.config.cell_grid
+        coord_mask = offset_mask / self.config.scale + self.config.cell_grid  # (B, H, W, 2)
 
+        print("Coord_mask: ", coord_mask.shape)
         flat_mask = tf.reshape(
-            coord_mask, [self.config.output_dims[0] * self.config.output_dims[1], 2]
+            coord_mask, [-1, self.config.output_dims[0] * self.config.output_dims[1], 2]
+        )  # (H * W, 2) should be (B, H * W, 2)
+        print("Flat mask: ", flat_mask.shape)
+
+        flat_mask_masked = tf.where(
+            expanded_emptiness_mask,
+            tf.constant([[[-1, -1]]], tf.float32),
+            flat_mask,
         )
 
         rounded_coords = (
-            tf.round(flat_mask * 1e4) / 1e4
+            tf.round(flat_mask_masked * 1e4) / 1e4
         )  # Round to 4 decimal places due to floating point errors.
-        unique_coords, _ = tf.raw_ops.UniqueV2(x=rounded_coords, axis=[0])
+
+        unique_coords, _ = tf.raw_ops.UniqueV2(x=rounded_coords, axis=[1])  # (B, N, 2)
 
         return unique_coords
