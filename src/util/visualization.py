@@ -75,7 +75,7 @@ def show_masks_on_image(
 
 def _add_object_mask_axes(masks, ax):
     coords = dataset_utils.get_coords_from_offsets(masks["offsets"]).numpy()
-    for c in coords:
+    for c in coords[0]:
         if -1.0 not in c:
             ax.plot(c[0], c[1], "rx")
 
