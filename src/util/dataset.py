@@ -10,12 +10,15 @@ class DatasetConfig:
     input_dims: tuple = (480, 640)
     output_dims: tuple = (15, 20)
     cell_dims: np.ndarray = None
+    cell_center: float = None
     scale: float = None
     cell_grid: tf.Tensor = None
 
     def __post_init__(self):
         self.scale = np.array(self.output_dims) / np.array(self.input_dims)
         self.cell_dims = np.array(self.input_dims) // np.array(self.output_dims)
+        # The center of a cell (starts at 0).
+        self.cell_center = self.cell_dims / 2 - 1
 
         # Generate the cell grid in the full image scale
         # (values point to upper left corner of each cell)
@@ -209,17 +212,20 @@ class DatasetUtils:
 
         # Remove duplicates and handle multiple coords in one cell
         filtered_coords = self.filter_coordinates(coordinates)
-
+        
         # Prepare cells for broadcast
-        cells_reshaped = tf.expand_dims(self.config.cell_grid, axis=2)  # (H, W, 1, 2)
+        cells_reshaped = (
+            tf.expand_dims(self.config.cell_grid, axis=2) + self.config.cell_center
+        )  # (H, W, 1, 2)
 
         distances = tf.sqrt(
             tf.reduce_sum((filtered_coords - cells_reshaped) ** 2, axis=-1)
         )  # (H, W, N_O)
+
         closest_indices = tf.argmin(distances, axis=-1)  # (H, W)
         closest_coords = tf.cast(tf.gather(filtered_coords, closest_indices), tf.float32)  # (H, W)
 
-        offsets = closest_coords - self.config.cell_grid
+        offsets = closest_coords - (self.config.cell_grid + self.config.cell_center)
 
         # Scale offsets to the output size
         return offsets * self.config.scale
@@ -404,13 +410,13 @@ class DatasetUtils:
         )
 
         # Convert the offset_mask to an absolute coord_mask where all values that are [-1.0, -1.0] are set to 0.
-        coord_mask = offset_mask / self.config.scale + self.config.cell_grid  # (B, H, W, 2)
+        coord_mask = offset_mask / self.config.scale + (
+            self.config.cell_grid + self.config.cell_center
+        )  # (B, H, W, 2)
 
-        print("Coord_mask: ", coord_mask.shape)
         flat_mask = tf.reshape(
             coord_mask, [-1, self.config.output_dims[0] * self.config.output_dims[1], 2]
         )  # (H * W, 2) should be (B, H * W, 2)
-        print("Flat mask: ", flat_mask.shape)
 
         flat_mask_masked = tf.where(
             expanded_emptiness_mask,
