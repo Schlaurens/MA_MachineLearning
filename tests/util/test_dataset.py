@@ -226,9 +226,7 @@ class TestGetCoordsFromOffset:
             tf.float32,
         )
         offset_mask = dataset_utils._generate_offset_mask(coordinates)
-
         result = dataset_utils.get_coords_from_offsets(offset_mask)
-
         assert tf.reduce_all(
             tf.keras.ops.isclose(
                 tf.sort(result, axis=1), tf.sort(tf.expand_dims(expected, axis=0), axis=1)
