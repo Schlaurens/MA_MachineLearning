@@ -276,7 +276,7 @@ class DatasetUtils:
         """Returns the index of the cell in the cell_grid of the given coordinate pair.
 
         Args:
-            coordinate: The coordinate pair
+            coordinate: The absolute coordinate pair
 
         Returns:
             the index tuple in the cell_grid where the coordinate points to.
