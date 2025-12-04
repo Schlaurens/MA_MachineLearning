@@ -87,8 +87,8 @@ def load_datasets(config):
     val_ds = u_dataset_io.get_dataset(path_to_val)
 
     # Get number of train/val samples from file name of .tfrecords file.
-    train_samples = int(path_to_train[0].split("_")[2].split("(")[0])
-    val_samples = int(path_to_val[0].split("_")[2].split("(")[0])
+    train_samples = int(path_to_train[0].split("_")[3].split("(")[0])
+    val_samples = int(path_to_val[0].split("_")[3].split("(")[0])
 
     print("Number of samples: ", train_samples + val_samples)
     print("Train Size: ", train_samples)
