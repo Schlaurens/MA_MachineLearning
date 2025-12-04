@@ -94,5 +94,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    write_file(args.dir, args.val, args.test)
+    write_file(args.save_dir, args.val, args.test)
     print("Done!")
