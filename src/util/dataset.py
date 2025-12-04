@@ -82,7 +82,7 @@ class DatasetUtils:
             The offset_mask will contains only -1.0. This is an arbitrary value, that indicates that no object is in the image.
             The object_mask will only contain False values as there are no objects any of the cells.
             The loss_mask will only contain `True` if `ignore_sample` is set to `False` and only `False` values otherwise.
-            The classification_mask will only contain -1.0
+            The classification_mask will only contain the background (NONE) class, which is always 0.
 
             Args:
                 ignore_sample: If `ignore_sample` is set to `True` the `loss_mask` consists of only `False` values so that this sample is ignored in the loss function. This is useful for the case that there are objects in the image that are not annotated. If `ignore_sample` is False the `loss_mask` consists of only `True` values.
@@ -94,7 +94,7 @@ class DatasetUtils:
             object_mask = tf.fill(self.config.output_dims, value=False)
             loss_mask = tf.fill(self.config.output_dims, value=not ignore_sample)
             classification_mask = tf.cast(
-                tf.fill(self.config.output_dims, value=-1), dtype=tf.float32
+                tf.fill(self.config.output_dims, value=0), dtype=tf.float32
             )
 
             return {
