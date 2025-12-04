@@ -247,7 +247,7 @@ class FullModel(tf.keras.Model):
         loss = cross_entropy + mse  # Shape: ()
         rmse = tf.math.sqrt(mse)  # Shape: ()
 
-        return {"loss": loss, "mse": mse, "rmse": rmse, "bce": cross_entropy}
+        return {"loss": loss, "mse": mse, "rmse": rmse, "ce": cross_entropy}
 
     def _calculate_losses(self, batch_data, results, maps):
         encoder_losses = {
@@ -256,7 +256,7 @@ class FullModel(tf.keras.Model):
         classifier_losses = {
             key: self.classifier_loss(batch_data[key], results=value, object_name=key)
             for key, value in results.items()
-        }  # (loss, mse, rmse, bce) for each category
+        }  # (loss, mse, rmse, ce) for each category
         result = {}
         result["encoder_loss"] = tf.reduce_sum([value["loss"] for value in encoder_losses.values()])
         result["classifier_loss"] = tf.reduce_sum(
@@ -267,7 +267,7 @@ class FullModel(tf.keras.Model):
             result[f"encoder_bce_{key}"] = encoder_losses[key]["bce"]
             result[f"encoder_mse_{key}"] = encoder_losses[key]["mse"]
             result[f"encoder_rmse_{key}"] = encoder_losses[key]["rmse"]
-            result[f"classifier_bce_{key}"] = classifier_losses[key]["bce"]
+            result[f"classifier_ce_{key}"] = classifier_losses[key]["ce"]
             result[f"classifier_mse_{key}"] = classifier_losses[key]["mse"]
             result[f"classifier_rmse_{key}"] = classifier_losses[key]["rmse"]
 
