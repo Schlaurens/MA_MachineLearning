@@ -18,7 +18,7 @@ def write_file(directory):
 
     record_file = Path(directory).with_suffix(".tfrecords")
     print("Writing file...")
-    with tf.io.TFRecordWriter(record_file) as writer:
+    with tf.io.TFRecordWriter(str(record_file)) as writer:
         for label in labels:
             example = u_dataset_io.make_example(directory, label)
             writer.write(example.SerializeToString())
