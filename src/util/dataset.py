@@ -440,3 +440,22 @@ class DatasetUtils:
             The absolute coordinate mask (B, H, W, 2)
         """
         return offset_mask / self.config.scale + self.config.cell_grid + self.config.cell_center
+
+    def classification_mask_to_one_hot(
+        self, classification_mask: tf.Tensor, object_name: str
+    ) -> tf.Tensor:
+        """Converts the classification_mask (B, H, W) into a one hot encoding (B, H, W, N_C).
+
+        Args:
+            classification_mask: The classification_mask (B, H, W)
+            object_name: Name of the category class. Used to determine the number of classes.
+
+        Returns:
+            The classficiation mask in a one-hot encoding (B, H, W, N_C)
+        """
+        if object_name == CategoryNames.INTERSECTIONS.value:
+            n_classes = len(IntersectionType)
+        else:
+            raise ValueError("Invalid object_name")
+
+        return tf.one_hot(indices=tf.cast(classification_mask, tf.int32), depth=n_classes, axis=-1)
