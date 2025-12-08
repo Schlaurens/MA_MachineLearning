@@ -48,7 +48,7 @@ class EvaluateApplication:
         config = self.load_config(f"logs/fit/{model_timestamp}/config.yaml")
         self.data = list(u_dataset_io.get_dataset(data_path).as_numpy_iterator())
         self.model = self.load_model(config, path_to_model, model_name)
-
+        self.categories = config["categories"]
         assert len(self.model.encoder.input_shape) == 4
         self.image_format = (
             u_image.ImageFormat.GRAYSCALE
@@ -65,10 +65,12 @@ class EvaluateApplication:
             "encoder": {
                 "ball": 0.8,
                 "penaltyMark": 0.8,
+                "intersections": 0.1,
             },
             "classifier": {
                 "ball": 0.6,
                 "penaltyMark": 0.6,
+                "intersections": 0.1,
             },
         }
 
@@ -83,12 +85,11 @@ class EvaluateApplication:
         plt.show()
 
     def select_image(self):
-        self.im_ax_ball_patches.set_data(
-            u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])
-        )
-        self.im_ax_penalty_mark_patches.set_data(
-            u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])
-        )
+        for category in self.categories:
+            self.images[f"im_ax_{category}_patches"] = self.axes[f"ax_{category}_patches"].imshow(
+                u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])
+            )
+
         self.update_predictions()
         self.fig.canvas.draw()
 
@@ -105,27 +106,22 @@ class EvaluateApplication:
             ),
             training=False,
         )
-        output_ball = output["results"]["ball"]["logits"][0].numpy()
-        output_penaltyMark = output["results"]["penaltyMark"]["logits"][0].numpy()
 
         # Set prediction figures
-        self.im_ax_ball.set_data(np.reshape(output_ball, (15, 20)))
-        self.im_ax_penalty_mark.set_data(np.reshape(output_penaltyMark, (15, 20)))
+        for category in self.categories:
+            output_logits = output["results"][category]["logits"][0].numpy()
+            self.images[f"im_ax_{category}"].set_data(np.reshape(output_logits, (15, 20)))
+            # self.images[f"im_ax_{category}_result"] = self.get_best_patch(
+            #     self.images[f"im_ax_{category}_result"], output, category
+            # )
+            self.images[f"im_ax_{category}_gt"].set_data(
+                self.data[self.index][category]["object_mask"]
+            )
+            self.images[f"im_ax_{category}_patches"].set_data(image_rgb)
 
-        # Set best patches
-        self.im_ax_ball_result = self.get_best_patch(self.ax_ball_result, output, "ball")
-        self.im_ax_penalty_mark_result = self.get_best_patch(
-            self.ax_penalty_mark_result, output, "penaltyMark"
-        )
-
-        # Set groundtruth figures
-        self.im_ax_ball_gt.set_data(self.data[self.index]["ball"]["object_mask"])
-        self.im_ax_penalty_mark_gt.set_data(self.data[self.index]["penaltyMark"]["object_mask"])
-        self.im_ax_ball_patches.set_data(image_rgb)
-        self.im_ax_penalty_mark_patches.set_data(image_rgb)
-        # Set patch figures
-        self.draw_patch_candidates(image_rgb, self.ax_ball_patches, output, "ball")
-        self.draw_patch_candidates(image_rgb, self.ax_penalty_mark_patches, output, "penaltyMark")
+            self.draw_patch_candidates(
+                image_rgb, self.axes[f"ax_{category}_patches"], output, category
+            )
 
     def get_best_patch(self, axes, output, object_name):
         """Find the best candidate and draw the patch with the predicted object position in the gives pyplot axes.
@@ -141,7 +137,7 @@ class EvaluateApplication:
         patch_indices = output["results"][object_name]["patch_indices"][0]
         best_logits = [output["results"][object_name]["logits"][0][i] for i in patch_indices]
         # The sum of the encoder's and classifier's prediction values
-        combined_predictions = best_logits + output["results"][object_name]["classification"][0]
+        combined_predictions = output["results"][object_name]["classification"][0]
 
         best_score_index = np.argmax(combined_predictions)
         # Get the offset predicted by the classifier. This works because (position = coords + classifier_offset).
@@ -179,14 +175,7 @@ class EvaluateApplication:
 
     def remove_artists(self):
         """Remove all the Artists (texts, patches and lines) for all the axes."""
-        axes_to_clear = [
-            self.ax_ball_patches,
-            self.ax_ball_result,
-            self.ax_penalty_mark_patches,
-            self.ax_penalty_mark_result,
-        ]
-
-        for ax in axes_to_clear:
+        for ax in self.axes.values():
             for artist_type in ["lines", "texts", "patches"]:
                 artists = getattr(ax, artist_type, [])
                 for artist in artists:
@@ -201,7 +190,7 @@ class EvaluateApplication:
             coords_pred = output["results"][object_name]["coords"][0][i]
             coords_true = dataset_utils.get_coords_from_offsets(
                 self.data[self.index][object_name]["offset_mask"]
-            )
+            )[0]
             position_pred = output["results"][object_name]["positions"][0][i]
 
             # dont draw patch if its prediction is under the threshold
@@ -229,6 +218,8 @@ class EvaluateApplication:
             axes.plot(coords_pred[0], coords_pred[1], "rx")
             axes.plot(position_pred[0], position_pred[1], "bx")
             for c_true in coords_true:
+                if tf.reduce_all(c_true == -1.0):
+                    continue
                 axes.plot(c_true[0], c_true[1], "gx")
 
     def image_slider_changed(self, val):
@@ -269,79 +260,92 @@ class EvaluateApplication:
 
     def initialize_figures(self):
         self.fig = plt.figure(figsize=(15, 8))
-        self.gs = GridSpec(11, 18, figure=self.fig)
+        self.gs = GridSpec(16, 18, figure=self.fig)
 
-        self.ax_ball_patches = self.fig.add_subplot(self.gs[0:4, 0:5])
-        self.ax_ball_patches.axis("off")
-        self.ax_ball_patches.set_title("Ball Patches")
+        # Define subplot configurations
+        subplot_configs = [
+            {"name": "ball", "rows": [0, 4], "cols": [[0, 5], [5, 10], [10, 15], [15, 18]]},
+            {"name": "penaltyMark", "rows": [5, 9], "cols": [[0, 5], [5, 10], [10, 15], [15, 18]]},
+            {
+                "name": "intersections",
+                "rows": [10, 14],
+                "cols": [[0, 5], [5, 10], [10, 15], [15, 18]],
+            },
+        ]
+        self.axes = {}
+        for config in subplot_configs:
+            name = config["name"]
+            rows = config["rows"]
+            for i, cols in enumerate(config["cols"]):
+                ax_name = f"ax_{name}{['_patches', '', '_gt', '_result'][i]}"
+                self.axes[ax_name] = self.fig.add_subplot(
+                    self.gs[rows[0] : rows[1], cols[0] : cols[1]]
+                )
+                self.axes[ax_name].axis("off")
+                self.axes[ax_name].set_title(
+                    f"{name.replace('_', ' ').title()} {['Patches', '', 'Groundtruth', 'Result'][i]}"
+                )
 
-        self.ax_ball = self.fig.add_subplot(self.gs[0:4, 5:10])
-        self.ax_ball.axis("off")
-        self.ax_ball.set_title("Ball")
+        # Initialize sliders
+        slider_configs = [
+            {
+                "type": "encoder",
+                "name": "ball",
+                "pos": [0.1, 0.71, 0.0225, 0.16],
+                "label": "enc",
+            },
+            {
+                "type": "encoder",
+                "name": "penaltyMark",
+                "pos": [0.1, 0.4, 0.0225, 0.16],
+                "label": "enc",
+            },
+            {
+                "type": "encoder",
+                "name": "intersections",
+                "pos": [0.1, 0.22, 0.0225, 0.16],
+                "label": "enc",
+            },
+            {
+                "type": "classifier",
+                "name": "ball",
+                "pos": [0.075, 0.71, 0.0225, 0.16],
+                "label": "cla",
+            },
+            {
+                "type": "classifier",
+                "name": "penaltyMark",
+                "pos": [0.075, 0.4, 0.0225, 0.16],
+                "label": "cla",
+            },
+            {
+                "type": "classifier",
+                "name": "intersections",
+                "pos": [0.075, 0.22, 0.0225, 0.16],
+                "label": "cla",
+            },
+        ]
 
-        self.ax_ball_gt = self.fig.add_subplot(self.gs[0:4, 10:15])
-        self.ax_ball_gt.axis("off")
-        self.ax_ball_gt.set_title("Ball Groundtruth")
+        self.sliders = {}
+        for config in slider_configs:
+            name = config["name"]
+            slider_type = config["type"]
+            pos = config["pos"]
+            label = config["label"]
 
-        self.ax_ball_result = self.fig.add_subplot(self.gs[0:4, 15:18])
-        self.ax_ball_result.axis("off")
-        self.ax_ball_result.set_title("Ball Result")
+            ax_name = f"ax_{name}_{slider_type}_slider"
+            self.axes[ax_name] = self.fig.add_axes(pos)
+            self.sliders[f"{name}_{slider_type}_slider"] = Slider(
+                ax=self.axes[ax_name],
+                label=label,
+                valmin=0,
+                valmax=1,
+                valinit=self.thresholds[slider_type][name],
+                orientation="vertical",
+            )
 
-        self.ax_penalty_mark_patches = self.fig.add_subplot(self.gs[5:9, 0:5])
-        self.ax_penalty_mark_patches.axis("off")
-        self.ax_penalty_mark_patches.set_title("PenaltyMark Patches")
-
-        self.ax_penalty_mark = self.fig.add_subplot(self.gs[5:9, 5:10])
-        self.ax_penalty_mark.axis("off")
-        self.ax_penalty_mark.set_title("PenaltyMark")
-
-        self.ax_penalty_mark_gt = self.fig.add_subplot(self.gs[5:9, 10:15])
-        self.ax_penalty_mark_gt.axis("off")
-        self.ax_penalty_mark_gt.set_title("PenaltyMark Groundtruth")
-
-        self.ax_penalty_mark_result = self.fig.add_subplot(self.gs[5:9, 15:18])
-        self.ax_penalty_mark_result.axis("off")
-        self.ax_penalty_mark_result.set_title("Ball Result")
-
-        self.ax_penalty_mark_encoder_slider = self.fig.add_axes([0.1, 0.25, 0.0225, 0.2725])
-        self.penalty_mark_encoder_slider = Slider(
-            ax=self.ax_penalty_mark_encoder_slider,
-            label="enc",
-            valmin=0,
-            valmax=1,
-            valinit=self.thresholds["encoder"]["penaltyMark"],
-            orientation="vertical",
-        )
-        self.ax_ball_encoder_slider = self.fig.add_axes([0.1, 0.61, 0.0225, 0.2725])
-        self.ball_encoder_slider = Slider(
-            ax=self.ax_ball_encoder_slider,
-            label="enc",
-            valmin=0,
-            valmax=1,
-            valinit=self.thresholds["encoder"]["ball"],
-            orientation="vertical",
-        )
-
-        self.ax_penalty_mark_classifier_slider = self.fig.add_axes([0.075, 0.25, 0.0225, 0.2725])
-        self.penalty_mark_classifier_slider = Slider(
-            ax=self.ax_penalty_mark_classifier_slider,
-            label="cla",
-            valmin=0,
-            valmax=1,
-            valinit=self.thresholds["classifier"]["penaltyMark"],
-            orientation="vertical",
-        )
-        self.ax_ball_classifier_slider = self.fig.add_axes([0.075, 0.61, 0.0225, 0.2725])
-        self.ball_classifier_slider = Slider(
-            ax=self.ax_ball_classifier_slider,
-            label="cla",
-            valmin=0,
-            valmax=1,
-            valinit=self.thresholds["classifier"]["ball"],
-            orientation="vertical",
-        )
-
-        self.ax_slider_image = self.fig.add_subplot(self.gs[10, :])
+        # Image slider
+        self.ax_slider_image = self.fig.add_subplot(self.gs[15, :])
         self.slider_image = Slider(
             self.ax_slider_image,
             "Index",
@@ -351,35 +355,51 @@ class EvaluateApplication:
             valfmt="%i",
         )
 
-        self.im_ax_ball_patches = self.ax_ball_patches.imshow(
-            u_image.convert_yuyv_to_rgb(self.data[0]["image"])
-        )
-        self.im_ax_penalty_mark_patches = self.ax_penalty_mark_patches.imshow(
-            u_image.convert_yuyv_to_rgb(self.data[0]["image"])
-        )
+        # Initialize images
         stuff = np.zeros((15, 20))
         stuff[0][0] = 1
         stuff_patch = np.zeros((32, 32))
+        stuff_patch[0][0] = 1
 
-        self.im_ax_ball = self.ax_ball.imshow(stuff)
-        self.im_ax_ball_gt = self.ax_ball_gt.imshow(stuff)
-        self.im_ax_ball_result = self.ax_ball_result.imshow(stuff_patch)
-        self.im_ax_penalty_mark = self.ax_penalty_mark.imshow(stuff)
-        self.im_ax_penalty_mark_gt = self.ax_penalty_mark_gt.imshow(stuff)
-        self.im_ax_penalty_mark_result = self.ax_penalty_mark_result.imshow(stuff_patch)
+        self.images = {}
+        for subplot in subplot_configs:
+            name = subplot["name"]
+            self.images[f"im_ax_{name}_patches"] = self.axes[f"ax_{name}_patches"].imshow(
+                u_image.convert_yuyv_to_rgb(self.data[0]["image"])
+            )
+            self.images[f"im_ax_{name}"] = self.axes[f"ax_{name}"].imshow(stuff)
+            self.images[f"im_ax_{name}_gt"] = self.axes[f"ax_{name}_gt"].imshow(stuff)
+            self.images[f"im_ax_{name}_result"] = self.axes[f"ax_{name}_result"].imshow(stuff_patch)
 
-        self.ball_encoder_slider.on_changed(lambda val: self.update_threshold(True, "ball", val))
-        self.penalty_mark_encoder_slider.on_changed(
-            lambda val: self.update_threshold(True, "penaltyMark", val)
-        )
-        self.ball_classifier_slider.on_changed(
-            lambda val: self.update_threshold(False, "ball", val)
-        )
-        self.penalty_mark_classifier_slider.on_changed(
-            lambda val: self.update_threshold(False, "penaltyMark", val)
-        )
+        # Connect slider events
+        for category in self.categories:
+            self.sliders[f"{category}_encoder_slider"].on_changed(
+                lambda val: self.update_threshold(True, category, val)
+            )
+            self.sliders[f"{category}_classifier_slider"].on_changed(
+                lambda val: self.update_threshold(True, category, val)
+            )
 
+        # self.sliders["ball_encoder_slider"].on_changed(
+        #     lambda val: self.update_threshold(True, "ball", val)
+        # )
+        # self.sliders["penaltyMark_encoder_slider"].on_changed(
+        #     lambda val: self.update_threshold(True, "penaltyMark", val)
+        # )
+        # self.sliders["intersections_encoder_slider"].on_changed(
+        #     lambda val: self.update_threshold(True, "intersections", val)
+        # )
+        # self.sliders["ball_classifier_slider"].on_changed(
+        #     lambda val: self.update_threshold(False, "ball", val)
+        # )
+        # self.sliders["penaltyMark_classifier_slider"].on_changed(
+        #     lambda val: self.update_threshold(False, "penaltyMark", val)
+        # )
+        # self.sliders["intersections_classifier_slider"].on_changed(
+        #     lambda val: self.update_threshold(False, "intersections", val)
+        # )
         self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
+
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
         self.fig.canvas.mpl_connect("key_release_event", lambda event: self.key_released(event))
 
