@@ -527,8 +527,8 @@ class FullModel(tf.keras.Model):
         )
 
         coords = tf.reshape(
-            (offsets + pixels) * scale, (-1, res_out[0] * res_out[1], 2)
-        )  # Per cell one coordinate pair
+            (offsets + pixels + 0.5) * scale, (-1, res_out[0] * res_out[1], 2)
+        )  # Per cell one coordinate pair. Coordinates from middle of cell, so add 0.5
         logits = tf.reshape(logits, (-1, tf.reduce_prod(res_out)))
 
         # Gather n_candidates coordinates from the coordinate list
