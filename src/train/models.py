@@ -180,7 +180,7 @@ class FullModel(tf.keras.Model):
             coords_true_of_patches / self.full_image_size[::-1][tf.newaxis, :]
         )  # (B, N, 2)
 
-        # Check whether the object coordinates in inside their respective patches.
+        # Check whether the object coordinates are inside their respective patches.
         are_coords_true_inside_patch = u_keypoint.are_coords_in_patch(
             coords_true_normalized, boxes
         )  # (B, N)
