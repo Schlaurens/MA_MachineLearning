@@ -216,12 +216,27 @@ class FullModel(tf.keras.Model):
                 tf.ones_like(tf.reduce_sum(one_hot_mask, axis=-1)),
                 message="Invalid one-hot classification mask.",
             )
-            # tf.reduce_all(tf.reduce_sum(one_hot_mask, axis=-1) == tf.ones(one_hot_mask.shape[0:-1])))
 
             y_true = tf.gather(one_hot_mask, results["patch_indices"], batch_dims=1)  # (B, N, N_O)
-            cross_entropy = tf.keras.losses.CategoricalCrossentropy(
-                from_logits=False, name="classifier_cce"
-            )(y_true, y_pred)  # Shape: ()
+
+            cross_entropy_batched = tf.keras.losses.CategoricalCrossentropy(
+                from_logits=False, reduction=None, name="classifier_cce"
+            )(y_true, y_pred)  # (B, N)
+
+            # Binary mask that is True at every sample index that should NOT be ignored. A sample should be ignored if every cell in their loss_mask is set to 0.
+            use_sample = tf.expand_dims(
+                tf.cast(
+                    tf.reduce_any(tf.cast(batch_data["loss_mask"], tf.bool), axis=[1, 2]),
+                    tf.float32,
+                ),
+                axis=-1,
+            )  # (B, 1)
+
+            # If a sample should be ignored the cross_entropy of that sample is set to a constant 0 which is not differentiable.
+            cross_entropy_multiplied = cross_entropy_batched * use_sample  # (B, N)
+            cross_entropy = tf.reduce_mean(
+                tf.reduce_sum(cross_entropy_multiplied, axis=-1)
+            )  # Shape: ()
 
             error_factor = tf.reduce_sum(error_factor, axis=-1)  # (B, N)
         elif object_name in [
