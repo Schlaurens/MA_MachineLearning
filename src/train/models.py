@@ -186,12 +186,11 @@ class FullModel(tf.keras.Model):
             coords_true_normalized, boxes
         )  # (B, N)
 
+        # If coords_true are inside the patch always calculate the MSE. Else the classifier's offset predictions are useless and should be ignored. Assign a constant max error that has gradient of zero. Also if there are no coords_true because the sample was ignored, the results have no impact on the loss.
         squared_error = tf.where(
             are_coords_true_inside_patch,
-            tf.reduce_mean(tf.square(coords_pred - coords_true_normalized), axis=-1),
-            tf.square(
-                max_error
-            ),  # If coords_true are inside the patch always calculate the MSE. Else the classifier's offset predictions are useless and should be ignored. Assign a constant max error that has gradient of zero.
+            tf.square(tf.norm(coords_pred - coords_true_of_patches, axis=-1)),
+            tf.square(max_error),
         )  # (B, N)
 
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
