@@ -377,30 +377,11 @@ class EvaluateApplication:
         # Connect slider events
         for category in self.categories:
             self.sliders[f"{category}_encoder_slider"].on_changed(
-                lambda val: self.update_threshold(True, category, val)
+                lambda val, category=category: self.update_threshold(True, category, val)
             )
             self.sliders[f"{category}_classifier_slider"].on_changed(
-                lambda val: self.update_threshold(True, category, val)
+                lambda val, category=category: self.update_threshold(True, category, val)
             )
-
-        # self.sliders["ball_encoder_slider"].on_changed(
-        #     lambda val: self.update_threshold(True, "ball", val)
-        # )
-        # self.sliders["penaltyMark_encoder_slider"].on_changed(
-        #     lambda val: self.update_threshold(True, "penaltyMark", val)
-        # )
-        # self.sliders["intersections_encoder_slider"].on_changed(
-        #     lambda val: self.update_threshold(True, "intersections", val)
-        # )
-        # self.sliders["ball_classifier_slider"].on_changed(
-        #     lambda val: self.update_threshold(False, "ball", val)
-        # )
-        # self.sliders["penaltyMark_classifier_slider"].on_changed(
-        #     lambda val: self.update_threshold(False, "penaltyMark", val)
-        # )
-        # self.sliders["intersections_classifier_slider"].on_changed(
-        #     lambda val: self.update_threshold(False, "intersections", val)
-        # )
         self.slider_image.on_changed(lambda val: self.image_slider_changed(val))
 
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
