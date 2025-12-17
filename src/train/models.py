@@ -134,8 +134,8 @@ class FullModel(tf.keras.Model):
         bce_batched = tf.reduce_sum(element_wise_bce_multiplied, axis=[1, 2])  # (B, )
 
         # Compute MSE
-        squared_error = tf.keras.losses.MeanSquaredError(reduction="none")(
-            y_true=batch_data["offset_mask"], y_pred=maps[..., :2]
+        squared_error = tf.square(
+            tf.norm(batch_data["offset_mask"] - maps[..., :2], axis=-1)
         )  # (B, 15, 20)
         squared_error_multiplied = tf.multiply(
             squared_error, batch_data["object_mask"]
