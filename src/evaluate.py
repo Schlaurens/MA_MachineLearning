@@ -301,7 +301,7 @@ class EvaluateApplication:
             {
                 "type": "encoder",
                 "name": "penaltyMark",
-                "pos": [0.1, 0.4, 0.0225, 0.16],
+                "pos": [0.1, 0.465, 0.0225, 0.16],
                 "label": "enc",
             },
             {
@@ -319,7 +319,7 @@ class EvaluateApplication:
             {
                 "type": "classifier",
                 "name": "penaltyMark",
-                "pos": [0.075, 0.4, 0.0225, 0.16],
+                "pos": [0.075, 0.465, 0.0225, 0.16],
                 "label": "cla",
             },
             {
