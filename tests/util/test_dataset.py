@@ -360,3 +360,50 @@ class TestGetCellOfCoordinates:
 
         results = dataset_utils.get_cell_of_coordinate(coords)
         assert tf.reduce_all(expected == results)
+
+    def test_coords_at_grid_edge(self):
+        coords = tf.constant([[31, 639]], tf.float32)
+
+        expected = tf.constant([[0, 19]], tf.int32)
+
+        results = dataset_utils.get_cell_of_coordinate(coords)
+        assert tf.reduce_all(expected == results)
+
+
+class TestFlattenCellIndices:
+    # These tests are done with the default cell_grid size.
+
+    def test_index_in_first_row(self):
+        indices = tf.constant([0, 5], tf.int32)
+        expected = tf.constant([5], tf.int32)
+        result = dataset_utils.flatten_cell_indices(indices)
+
+        assert tf.reduce_all(expected == result)
+
+    def test_index_in_second_row(self):
+        indices = tf.constant([2, 0], tf.int32)
+        expected = tf.constant([40], tf.int32)
+        result = dataset_utils.flatten_cell_indices(indices)
+
+        assert tf.reduce_all(expected == result)
+
+    def test_index_in_lower_right_corner_of_grid(self):
+        indices = tf.constant([14, 19], tf.int32)
+        expected = tf.constant([299], tf.int32)
+        result = dataset_utils.flatten_cell_indices(indices)
+
+        assert tf.reduce_all(expected == result)
+
+    def test_batched_index(self):
+        indices = tf.constant([[[14, 19], [0, 0]], [[14, 19], [0, 0]]], tf.int32)  # (B, N, 2)
+        expected = tf.constant([[299, 0], [299, 0]], tf.int32)  # (B, N)
+        result = dataset_utils.flatten_cell_indices(indices)
+
+        assert tf.reduce_all(expected == result)
+
+    def test_negative_index(self):
+        indices = tf.constant([[[-1, -1], [0, -4]]], tf.int32)  # (B, N, 2)
+        expected = tf.constant([[-21, -4]], tf.int32)  # (B, N)
+        result = dataset_utils.flatten_cell_indices(indices)
+
+        assert tf.reduce_all(expected == result)
