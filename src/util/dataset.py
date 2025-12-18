@@ -303,6 +303,18 @@ class DatasetUtils:
         """
         return tf.cast(tf.math.floordiv(coordinate, self.config.cell_dims), tf.int32)  # (..., 2)
 
+    def flatten_cell_indices(self, cell_indices: tf.Tensor) -> tf.Tensor:
+        """Flatten 2-dimensional cell_indices into 1-dimension cell indices of a flattend cell_grid.
+
+        Args:
+            cell_indices: The 2-dimensional cell_indices (..., 2)
+
+        Returns:
+            The flattend 1-dimensional cell_indices (..., )
+        """
+        width = self.config.output_dims[1]
+        return cell_indices[..., 0] * width + cell_indices[..., 1]
+
     # def _generate_object_mask(self, object_name, label, cells):
     #     """Generate the binary object_mask using the cell coverage values for each object_category.
 
