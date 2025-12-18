@@ -213,7 +213,7 @@ def calculate_binary_metrics(
         groundtruth: The corresponding groundtruth data.
         encoder_threshold: The threshold of the encoder.
         classifier_threshold: The threshold of the classifier.
-        include_encoder_logits: Whether the predicted probably of the encoder should be considered when getting the patch with the highest probility. Defaults to False
+        include_encoder_logits: Whether the predicted probability of the encoder should be considered when getting the patch with the highest probility. Defaults to False
 
     Returns:
         dict() containing confusion matrix, precision, recall, indices of false_positives and false_negatives, false_positive rate and false_negative rate
