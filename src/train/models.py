@@ -217,7 +217,13 @@ class FullModel(tf.keras.Model):
                 message="Invalid one-hot classification mask.",
             )
 
-            y_true = tf.gather(one_hot_mask, results["patch_indices"], batch_dims=1)  # (B, N, N_O)
+            # Get the indices of the cell_grid where the cell of the chosen patches point to.
+            indices_of_true_patch_coords = dataset_utils.flatten_cell_indices(
+                dataset_utils.get_cell_of_coordinate(coords_true_of_patches)
+            )  # (B, N)
+            y_true = tf.gather(
+                one_hot_mask, indices_of_true_patch_coords, batch_dims=1
+            )  # (B, N, N_O)
 
             cross_entropy_batched = tf.keras.losses.CategoricalCrossentropy(
                 from_logits=False, reduction=None, name="classifier_cce"
