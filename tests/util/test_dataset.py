@@ -369,6 +369,31 @@ class TestGetCellOfCoordinates:
         results = dataset_utils.get_cell_of_coordinate(coords)
         assert tf.reduce_all(expected == results)
 
+    def test_coords_at_grid_edge_with_clip(self):
+        coords = tf.constant([[31, 639]], tf.float32)
+
+        expected = tf.constant([[0, 19]], tf.int32)
+
+        results = dataset_utils.get_cell_of_coordinate(coords, clip=True)
+        assert tf.reduce_all(expected == results)
+
+    def test_negative_coords_with_clip(self):
+        coords = tf.constant([[-1, 40], [3, -50], [-1, -1]], tf.float32)
+
+        expected = tf.constant([[0, 1], [0, 0], [0, 0]], tf.int32)
+
+        results = dataset_utils.get_cell_of_coordinate(coords, clip=True)
+        assert tf.reduce_all(expected == results)
+
+    def test_too_large_coords_with_clip(self):
+        coords = tf.constant([[480, 40], [3, 640], [700, 1000]], tf.float32)
+
+        expected = tf.constant([[14, 1], [0, 19], [14, 19]], tf.int32)
+
+        results = dataset_utils.get_cell_of_coordinate(coords, clip=True)
+        tf.print(results)
+        assert tf.reduce_all(expected == results)
+
 
 class TestFlattenCellIndices:
     # These tests are done with the default cell_grid size.
