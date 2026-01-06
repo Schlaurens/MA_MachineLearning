@@ -311,6 +311,13 @@ def calculate_multiclass_metrics(
     Returns:
         dict() containing per-class confusion matrices, precision, recall, and error indices.
     """
+    # True for every sample that should be used. False else.
+    use_sample = tf.cast(
+        tf.reduce_any(tf.cast(groundtruth["loss_mask"], tf.bool), axis=[1, 2]),
+        tf.float32,
+    )
+    # (B, )
+
     output_dims = tf.shape(groundtruth["offset_mask"])[-3:-1]
     groundtruth_one_hot_mask = dataset_utils.classification_mask_to_one_hot(
         groundtruth["classification_mask"], object_name
@@ -344,8 +351,15 @@ def calculate_multiclass_metrics(
     # tf.assert_equal(tf.shape(predicted_positions), tf.shape(groundtruth_positions))
     tf.assert_equal(tf.shape(predicted_probabilities), tf.shape(groundtruth_probabilities))
 
-    y_pred_flat = tf.reshape(predicted_probabilities, (-1, num_classes))  # (B * N, num_classes)
-    y_true_flat = tf.reshape(groundtruth_probabilities, (-1, num_classes))  # (B * N, num_classes)
+    y_pred_filtered = tf.boolean_mask(
+        predicted_probabilities, use_sample
+    )  # (#use_samples, N, num_classes)
+    y_true_filtered = tf.boolean_mask(
+        groundtruth_probabilities, use_sample
+    )  # (#use_samples, N, num_classes)
+
+    y_pred_flat = tf.reshape(y_pred_filtered, (-1, num_classes))  # (B * N, num_classes)
+    y_true_flat = tf.reshape(y_true_filtered, (-1, num_classes))  # (B * N, num_classes)
 
     y_pred_labels = tf.argmax(y_pred_flat, axis=-1)  # (B * N, )
     y_true_labels = tf.argmax(y_true_flat, axis=-1)  # (B * N, )
