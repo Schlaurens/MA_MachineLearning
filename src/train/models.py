@@ -238,8 +238,16 @@ class FullModel(tf.keras.Model):
                 axis=-1,
             )  # (B, 1)
 
+            # The Encoder predictions for each of the patches
+            encoder_predictions = tf.gather(
+                results["logits"], results["patch_indices"], batch_dims=1
+            )  # (B, N)
+
             # If a sample should be ignored the cross_entropy of that sample is set to a constant 0 which is not differentiable.
-            cross_entropy_multiplied = cross_entropy_batched * use_sample  # (B, N)
+            # Also multiply the cross_entropy with the output of the encoder to weed out patches the encoder is not confident in.
+            cross_entropy_multiplied = (
+                cross_entropy_batched * use_sample * tf.stop_gradient(encoder_predictions)
+            )  # (B, N)
             cross_entropy = tf.reduce_mean(cross_entropy_multiplied)  # Shape: ()
 
             # Get probability of the predicted class for each candidate.
