@@ -207,6 +207,13 @@ class EvaluateApplication:
             width = (box[3] - box[1]) * (image.shape[1] - 1)
             height = (box[2] - box[0]) * (image.shape[0] - 1)
 
+            gt_patch_class = dataset_utils.get_groundtruth_class_of_patches(
+                output["results"][object_name],
+                self.data[self.index][object_name],
+                padding=0.2,
+                batch_dims=1,
+            )  # (B, N)
+
             rect = patches.Rectangle(
                 box_coords,
                 width,
@@ -217,7 +224,13 @@ class EvaluateApplication:
             )
 
             # Each patch has a number to identify the ordering
-            axes.text(x=(box_coords[0] + 4.0), y=box_coords[1] + 17.0, s=i + 1, color="lime")
+            # axes.text(x=(box_coords[0] + 4.0), y=box_coords[1] + 17.0, s=i + 1, color="lime")
+            axes.text(
+                x=(box_coords[0] + 4.0),
+                y=box_coords[1] + 17.0,
+                s=int(gt_patch_class[0][i].numpy()),
+                color="lime",
+            )
             axes.add_patch(rect)
             axes.plot(coords_pred[0], coords_pred[1], "rx")
             axes.plot(position_pred[0], position_pred[1], "bx")
