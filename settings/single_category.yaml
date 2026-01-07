@@ -49,10 +49,11 @@ categories:
   #   object_size: 0.5
   #   n_classes: 1
   intersections:
+    object_size: 0.2
     padding: 0.2 # padding to avoid intersections being cut off by the patch edge
     object_height: 0.0
     n_classes: 4 # types + background class
-    n_candidates: 10
+    n_candidates: 6
 
 callbacks:
   reduce_lr:
