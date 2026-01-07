@@ -192,6 +192,10 @@ class EvaluateApplication:
             logit = output["results"][object_name]["logits"][0][patch_index]
             coords_pred = output["results"][object_name]["coords"][0][i]
             position_pred = output["results"][object_name]["positions"][0][i]
+            sample_ignored = tf.reduce_any(self.data[self.index][object_name]["loss_mask"])
+
+            if not sample_ignored:
+                continue
 
             # dont draw patch if its prediction is under the threshold
             if logit < self.thresholds["encoder"][object_name]:
