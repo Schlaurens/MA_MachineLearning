@@ -4,6 +4,8 @@ from enum import Enum
 import numpy as np
 import tensorflow as tf
 
+from util import keypoint as u_keypoint
+
 
 @dataclass
 class DatasetConfig:
@@ -491,3 +493,78 @@ class DatasetUtils:
             raise ValueError("Invalid object_name")
 
         return tf.one_hot(indices=tf.cast(classification_mask, tf.int32), depth=n_classes, axis=-1)
+
+    def get_groundtruth_class_of_patches(
+        self,
+        model_results: dict,
+        batch_data: dict,
+        padding: float,
+        batch_dims: int = 1,
+    ) -> tf.Tensor:
+        """Gets the object class of the coordinates that are inside the extracted patches.
+
+
+        Args:
+            model_results: The output of all the model layers
+            batch_data: The groundtruth batch data for a given object.
+            object_name: The name of the object that is to be detected
+            padding: The padding inside the patch. If the coordinates of the object are inside the padding, it is counted as "outside of the patch". This prevents the objects being cut off by the patch border.
+            batch_dims: The number of batch dimensions.
+
+        Returns:
+            A tf.Tensor that contains the groundtruth classes of the objects in the extracted patches. Shape: (B, N)
+        """
+
+        classification_mask_flat = tf.reshape(
+            batch_data["classification_mask"],
+            (-1, self.config.output_dims[0] * self.config.output_dims[1]),
+        )  # (B, H_o * W_o)
+
+        coordinate_mask_flat = tf.reshape(
+            self.get_coordinate_mask(batch_data["offset_mask"]),
+            (-1, self.config.output_dims[0] * self.config.output_dims[1], 2),
+        )  # (B, H_o * W_o, 2)
+
+        # The groundtruth coord the cell of the patch is pointing to.
+        groundtruth_coords = tf.gather(
+            coordinate_mask_flat, model_results["patch_indices"], batch_dims=batch_dims
+        )  # (B, N, 2)
+
+        # The flat cell index of these groundtruth coords
+        cell_index_of_coords = self.flatten_cell_indices(
+            self.get_cell_of_coordinate(groundtruth_coords, clip=True)
+        )  # (B, N)
+
+        groundtruth_patch_class = tf.gather(
+            classification_mask_flat, cell_index_of_coords, batch_dims=batch_dims
+        )  # (B, N)
+
+        groundtruth_coords_normed = groundtruth_coords / self.config.input_dims[::-1]  # (B, N, 2)
+
+        tf.print("classification_mask_flat: ", tf.shape(classification_mask_flat))
+        tf.print("coordinate_mask_flat: ", tf.shape(coordinate_mask_flat))
+        tf.print("groundtruth_coords", tf.shape(groundtruth_coords))
+        tf.print("cell_index_of_coords:", tf.shape(cell_index_of_coords))
+        tf.print("groundtruth_patch_class", tf.shape(groundtruth_patch_class))
+        tf.print("groundtruth_coords_normed: ", tf.shape(groundtruth_coords_normed))
+
+        tf.print(
+            "Condition: ",
+            tf.shape(
+                u_keypoint.are_coords_in_patch(
+                    groundtruth_coords_normed, model_results["boxes"], padding
+                )
+            ),
+        )
+
+        groundtruth_patch_class_filtered = tf.where(
+            tf.logical_not(
+                u_keypoint.are_coords_in_patch(
+                    groundtruth_coords_normed, model_results["boxes"], padding
+                )
+            ),
+            0.0,
+            groundtruth_patch_class,
+        )
+        
+        return groundtruth_patch_class_filtered
