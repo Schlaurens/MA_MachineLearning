@@ -307,7 +307,7 @@ class DatasetUtils:
         )  # (..., 2)
         return (
             tf.clip_by_value(
-                cell_indices, clip_value_min=0, clip_value_max=self.config.output_dims - 1
+                cell_indices, clip_value_min=0, clip_value_max=self.config.output_dims[::-1] - 1
             )
             if clip
             else cell_indices
