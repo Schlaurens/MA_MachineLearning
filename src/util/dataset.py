@@ -323,7 +323,7 @@ class DatasetUtils:
             The flattend 1-dimensional cell_indices (..., )
         """
         width = self.config.output_dims[1]
-        return cell_indices[..., 0] * width + cell_indices[..., 1]
+        return cell_indices[..., 1] * width + cell_indices[..., 0]
 
     # def _generate_object_mask(self, object_name, label, cells):
     #     """Generate the binary object_mask using the cell coverage values for each object_category.
