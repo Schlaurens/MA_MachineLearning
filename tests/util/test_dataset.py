@@ -440,3 +440,29 @@ class TestFlattenCellIndices:
         result = dataset_utils.flatten_cell_indices(indices)
 
         assert tf.reduce_all(expected == result)
+
+
+class TestGetDistanceMaskFromOffsets:
+    camera = tf.constant(
+        [[-0.0220113918, 0.0786367953, 0.493571222], [0.0550611168, 0.298894078, 0.481570929]],
+        tf.float32,
+    )  # (B, 3)
+    camera_intr = tf.constant(
+        [[320, 240, 618.663391, 617.159], [320, 240, 618.663391, 617.159]], tf.float32
+    )  # (B, 4)
+
+    empty_offset_mask = tf.expand_dims(tf.fill((*dataset_config.output_dims, 2), -1.0), axis=0)  #
+    non_empty_offset_mask = tf.expand_dims(
+        dataset_utils._generate_offset_mask(tf.constant([[100, 400]], tf.float32)), axis=0
+    )
+
+    offset_mask_batch = tf.concat([empty_offset_mask, non_empty_offset_mask], axis=0)
+    tf.print("offset_masks: ", tf.shape(offset_mask_batch))
+
+    # def test_shape(self):
+    #     distance_mask = dataset_utils.get_distance_mask_from_offsets(
+    #         self.offset_mask_batch, self.camera, self.camera_intr, object_size = 0.0
+    #     )
+    #     tf.print(tf.unique(tf.reshape(distance_mask[1], [-1])))
+    #     assert tf.reduce_all(tf.shape(distance_mask) == tf.constant([2, *dataset_config.output_dims, 1]))
+    #     assert tf.reduce_all(distance_mask[0] == 0)
