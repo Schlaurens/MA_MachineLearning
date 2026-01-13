@@ -567,14 +567,14 @@ class DatasetUtils:
         return groundtruth_patch_class_filtered
 
     def get_distance_mask_from_offsets(
-        self, offset_mask: tf.Tensor, camera: tf.Tensor, camera_intr: tf.Tensor, object_size: float
+        self,
+        offset_mask: tf.Tensor,
+        camera: tf.Tensor,
+        camera_intr: tf.Tensor,
+        object_height: float,
     ):
         coordinate_mask = self.get_coordinate_mask(offset_mask)  # (B, H_o, W_o, 2)
-        tf.print("Offsets: ", tf.shape(offset_mask))
-
         ccoordinate_mask_flat = tf.reshape(coordinate_mask, [-1, 2])  # (B * H_o * W_o, 2)
-
-        tf.print("flat coords: ", tf.shape(ccoordinate_mask_flat))
 
         # Tile camera and camera_intr to match the number of coordinates
         camera_tiled = tf.tile(
@@ -588,15 +588,15 @@ class DatasetUtils:
         camera_intr_tiled = tf.reshape(camera_intr_tiled, (-1, 4))  # Shape: (B * H_o * W_o, 4)
 
         image_to_wrld = u_camera.image_to_world(
-            camera_tiled, camera_intr_tiled, ccoordinate_mask_flat, object_size
+            camera_tiled, camera_intr_tiled, ccoordinate_mask_flat, object_height
         )  # (B * H_o * W_o, 3)
 
         image_to_wrld_reshaped = tf.reshape(
             image_to_wrld, (-1, *self.config.output_dims, 3)
         )  # (B, H_o, W_o, 3)
 
-        # TODO: handle case: coords are [-1, -1, -1] <- could not be projected on ground
+        mask_of_invalids = tf.reduce_all(image_to_wrld_reshaped == -1.0, axis=-1)  # (B, H_o, W_o)
 
         distances = tf.linalg.norm(image_to_wrld_reshaped, axis=-1, keepdims=True)  # (B, H_o, W_o)
 
-        return distances
+        return tf.where(tf.expand_dims(mask_of_invalids, axis=-1), -1.0, distances)
