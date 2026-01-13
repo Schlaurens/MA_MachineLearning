@@ -66,18 +66,18 @@ def image_to_world(
     camera: tf.Tensor | tuple[float],
     camera_intr: tf.Tensor | tuple[float],
     point_in_image: tf.Tensor | tuple[float],
-    object_size: float = 0,
+    object_height: float = 0.0,
 ) -> tf.Tensor:
     """Transforms image coordinates in to world coodinates using the camera parameters
 
     Args:
-        camera: A tuple of camera roll, pitch and height
-        camera_intr: the intrinsic camera parameters (cx, cy, fx, fy)
-        point_in_image: A tuple of the image coordinates (x, y)
-        object_size: The size of the object that the image coordinates point to (in m). Defaults to 0.
+        camera: A tuple of camera roll, pitch and height (B, 3)
+        camera_intr: the intrinsic camera parameters (cx, cy, fx, fy) (B, 4)
+        point_in_image: A tuple of the image coordinates (x, y) (B, 2)
+        object_size: The size of the object that the image coordinates point to (in m). Defaults to 0.0.
 
     Returns:
-        A vector in world coordinates of the given point
+        A vector in world coordinates of the given point. If a coordinate pair is invalid (is [-1, -1]) then the result is a 3d-Vector of [-1, -1, -1].  (B, 3)
     """
 
     # Ensure point_in_image, camera inputs and camera intrinsics are batched
@@ -94,17 +94,10 @@ def image_to_world(
         if len(keras.ops.shape(camera_intr)) == 1:
             camera_intr = keras.ops.expand_dims(camera_intr, axis=0)
 
-    #  TODO: Do for batched point_in_image
-    if keras.ops.all(point_in_image == -1.0):
-        return keras.ops.zeros((3,))
+    invalid_mask = tf.reduce_all(point_in_image == -1.0, axis=-1)  # Shape: (B,)
 
     camera_height = camera[..., 2]  # [B, ]
-    object_height = 0.5 * object_size
-
-    # Camera ray to object in camera coordinates
-    # dir_in_camera = keras.ops.array(
-    #     [1, (cx - point_in_image[0]) / fx, (cy - point_in_image[1]) / fy]
-    # )
+    object_height = 0.5 * object_height
 
     dir_in_camera = tf.concat(
         [
@@ -129,7 +122,12 @@ def image_to_world(
     # If the point cannot be projected on the plane the position is [-1.0, -1.0, -1.0]
     position_in_world = keras.ops.where(factor > 0, factor * dir_in_world, tf.fill([3], -1.0))
 
-    return position_in_world
+    # Set batch elements to [-1, -1, -1] where coordinates are invalid (are [-1, -1]).
+    position_in_world_filtered = tf.where(
+        tf.expand_dims(invalid_mask, axis=-1), tf.fill([3], -1.0), position_in_world
+    )
+
+    return position_in_world_filtered
 
 
 def rot_camera_in_world(camera):
