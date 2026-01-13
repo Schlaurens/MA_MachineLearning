@@ -74,7 +74,8 @@ class FullModel(tf.keras.Model):
         )
         for _, value in self.categories.items():
             value["sampler"] = PatchSampler(
-                value["n_candidates"]
+                value["n_candidates"],
+                value["max_distance"],
             )  # The patch sampler for the category with a fixed number of candidates
             value["extractor"] = PatchExtractor(
                 self.patch_size,
@@ -509,6 +510,7 @@ class FullModel(tf.keras.Model):
                 image_yuv,
                 camera,
                 intrinsics,
+                value["object_height"],
                 maps[key][..., 2],
                 maps[key][..., :2],
                 value["n_classes"],
@@ -529,6 +531,7 @@ class FullModel(tf.keras.Model):
         image,
         camera,
         intrinsics,
+        object_height,
         logits,
         offsets,
         n_classes,
@@ -574,9 +577,17 @@ class FullModel(tf.keras.Model):
         )  # Per cell one coordinate pair. Coordinates from middle of cell, so add 0.5
         logits = tf.reshape(logits, (-1, tf.reduce_prod(res_out)))
 
+        distance_mask = tf.reshape(
+            dataset_utils.get_distance_mask_from_offsets(
+                offsets, camera, intrinsics, object_height=object_height
+            ),
+            (-1, tf.reduce_prod(res_out)),
+        )  # (B, H_out, W_out)
+
         # Gather n_candidates coordinates from the coordinate list
-        patch_indices = sampler(logits, training=training)  # [B, N_out]
+        patch_indices = sampler(logits, distance_mask, training=training)  # [B, N_out]
         coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2]
+
         (patches, masks, boxes, intrinsics, distances_in_camera) = extractor(
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]

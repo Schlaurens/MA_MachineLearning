@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 
@@ -296,6 +297,7 @@ class PatchSampler(tf.keras.layers.Layer):
     def __init__(
         self,
         n_sample: int,
+        max_distance: float = 5,
         temperature: int = 1,
         generator=tf.random.get_global_generator(),  # noqa: B008
         name: str = "patch_sampler",
@@ -314,10 +316,12 @@ class PatchSampler(tf.keras.layers.Layer):
         """
         super().__init__(name=name, **kwargs)
         self.n_sample = n_sample
+        self.max_distance = max_distance
         self.temperature = temperature
         self.generator = generator
 
-    def call(self, logits, training=None):
+    @tf.function
+    def call(self, logits, distances, training=None):
         """Samples indices from a given distribution.
 
         :param logits: A vector of logits.
@@ -326,7 +330,13 @@ class PatchSampler(tf.keras.layers.Layer):
         :return: The indices that were sampled.
             [B, N_out]
         """
-        if training and self.temperature > 0:
+        # All cells that point to an object that is too far away is marked as invalid by assigning it the value -inf.
+        valid_cells_mask = tf.logical_and(
+            distances <= self.max_distance, distances >= 0
+        )  # (B, H_o, W_o)
+        masked_logits = tf.where(valid_cells_mask, logits, -np.inf)  # (B, H_o, W_o)
+
+        if training and self.temperature > 0 and False:
             # Apply the so-called Gumbel-max trick:
             # https://github.com/tensorflow/tensorflow/issues/9260
             # https://lips.cs.princeton.edu/the-gumbel-max-trick-for-discrete-distributions/
@@ -338,5 +348,5 @@ class PatchSampler(tf.keras.layers.Layer):
                 )
             )
             logits = logits / self.temperature + z
-        _, indices = tf.math.top_k(logits, self.n_sample)
+        _, indices = tf.math.top_k(masked_logits, self.n_sample)
         return indices
