@@ -474,7 +474,19 @@ class DatasetUtils:
         Returns:
             The absolute coordinate mask (B, H, W, 2)
         """
-        return offset_mask / self.config.scale + self.config.cell_grid + self.config.cell_center
+
+        # Binary mask that is False if a batch element consists only of -1.0
+        all_invalid = tf.reduce_all(tf.equal(offset_mask, -1.0), axis=[-3, -2, -1])  # Shape: (B,)
+
+        coordinate_mask = (
+            offset_mask / self.config.scale + self.config.cell_grid + self.config.cell_center
+        )
+
+        return tf.where(
+            all_invalid[..., tf.newaxis, tf.newaxis, tf.newaxis],
+            tf.fill(tf.shape(offset_mask), -1.0),
+            coordinate_mask,
+        )
 
     def classification_mask_to_one_hot(
         self, classification_mask: tf.Tensor, object_name: str
