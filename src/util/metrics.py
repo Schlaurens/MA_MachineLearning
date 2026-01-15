@@ -416,13 +416,13 @@ def get_thresholding_mask(
     """Generates a binary mask that is True everwhere the prediction is within the specified theshold. This function assumes that `classifier_preds` and `encoder_preds` are of the same shape. `encoder_preds` and `encoder_threshold` are optional.
 
     Args:
-        classifier_preds: The tf.Tensor of the classifier preditions (B, N, )
-        classifier_threshold: The classifier threshold
-        encoder_preds: The tf.Tensor containing the encoder thresholds (B, N, ). Defaults to None
-        encoder_threshold: The encoder threshold. Default to None
+        classifier_preds: The tf.Tensor of the classifier preditions.
+        classifier_threshold: The classifier threshold.
+        encoder_preds: The tf.Tensor containing the encoder thresholds. Defaults to None.
+        encoder_threshold: The encoder threshold. Default to None.
 
     Returns:
-    The flat thresholding mask (B, )
+    The thresholding mask.
     """
 
     classifier_preds_thresholded = classifier_preds >= classifier_threshold  # (...)
