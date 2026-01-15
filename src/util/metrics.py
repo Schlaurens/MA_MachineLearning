@@ -405,3 +405,35 @@ def calculate_multiclass_metrics(
         # "fp_rate": fp_rate,
         # "fn_rate": fn_rate,
     }
+
+
+def get_thresholding_mask(
+    classifier_preds: tf.Tensor,
+    classifier_threshold: float,
+    encoder_preds: tf.Tensor = None,
+    encoder_threshold: float = None,
+):
+    """Generates a binary mask that is True everwhere the prediction is within the specified theshold. This function assumes that `classifier_preds` and `encoder_preds` are of the same shape. `encoder_preds` and `encoder_threshold` are optional.
+
+    Args:
+        classifier_preds: The tf.Tensor of the classifier preditions (B, N, )
+        classifier_threshold: The classifier threshold
+        encoder_preds: The tf.Tensor containing the encoder thresholds (B, N, ). Defaults to None
+        encoder_threshold: The encoder threshold. Default to None
+
+    Returns:
+    The flat thresholding mask (B, )
+    """
+
+    classifier_preds_thresholded = classifier_preds >= classifier_threshold  # (...)
+    
+    if encoder_preds is not None and encoder_threshold is not None:
+        encoder_preds_thresholded = encoder_preds >= encoder_threshold  # (...)
+    else:
+        encoder_preds_thresholded = tf.ones_like(classifier_preds_thresholded)
+
+    tf.assert_equal(tf.shape(classifier_preds_thresholded), tf.shape(encoder_preds_thresholded))
+
+    combined_thresholds = tf.logical_and(classifier_preds_thresholded, encoder_preds_thresholded)
+
+    return combined_thresholds
