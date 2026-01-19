@@ -47,7 +47,7 @@ def load_data(val_split, test_split):
 
 
 def write_file(directory, val_split=0.2, test_split=0.15):
-    dataset_version = "2"
+    dataset_version = "3"
 
     # Load the dataset
     data = load_data(val_split, test_split)
