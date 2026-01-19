@@ -110,3 +110,5 @@ if __name__ == "__main__":
         labels.append(label)
 
     u_dataset_io.save_labels(destination, labels)
+
+    print("Done!")
