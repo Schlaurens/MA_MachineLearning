@@ -62,11 +62,13 @@ if __name__ == "__main__":
         cooldown = args.step
 
         name = f"{frame.thread}{index}"
+        frame_time = frame["FrameInfo"].time
+
         assert len(jpeg_image._data) == jpeg_image.size + 16
         with open(u_dataset_io.get_image_path(destination, name), "wb") as f:
             f.write(jpeg_image._data[16:])
 
-        label = u_labels.create_empty_label(name)
+        label = u_labels.create_empty_label(name, frame_time)
         u_labels.set_camera_pose(
             label, camera_matrix.translation.z, [_.elems[2] for _ in camera_matrix.rotation.cols]
         )  # the latter is the z-axis ("up") in camera coordinates, which fixes the attitude, but not the yaw relative to the ground. this could also be expressed with two DoF as theta=inclination=arccos(z), phi=azimuth=sgn(y)*arccos(x/sqrt(x*x+y*y))
