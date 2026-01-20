@@ -285,13 +285,11 @@ def calculate_binary_metrics(
 
 
 def calculate_multiclass_metrics(
-    predictions: tf.Tensor,
-    groundtruth: tf.Tensor,
-    encoder_threshold: float,
+    predictions: dict,
+    groundtruth: dict,
     classifier_threshold: float,
-    object_name: str,
-    include_encoder_logits: bool = False,
-    pooled: bool = False,
+    encoder_threshold: float = 0.1,
+    # pooled: bool = False,
 ):
     """
     Calculate metrics for multi-class predictions.
@@ -303,29 +301,33 @@ def calculate_multiclass_metrics(
 
     Args:
         predictions: The model predictions (logits and classification scores for each class).
-        groundtruth: The corresponding groundtruth data (classification_mask to be converted to one-hot).
-        encoder_threshold: The threshold of the encoder.
-        classifier_threshold: The threshold of the classifier.
-        include_encoder_logits: Whether to include encoder logits in combined prediction.
+        groundtruth: The corresponding groundtruth data (classification_mask to be converted to one-hot).        classifier_threshold: The threshold of the classifier.
+        encoder_threshold: The threshold of the encoder. Defaults to 0.1.
+        pooled: Whether the metrics should be calculated for each class or whether they should be pooled together. Defaults to False.
 
     Returns:
-        dict() containing per-class confusion matrices, precision, recall, and error indices.
+        dict containing per-class confusion matrices, precision, recall, and error indices or the pooled metrics.
     """
 
     # True for every sample that should be used. False else.
     use_sample = tf.cast(
         tf.reduce_any(tf.cast(groundtruth["loss_mask"], tf.bool), axis=[1, 2]),
         tf.float32,
-    )
-    # (B, )
-
-    groundtruth_one_hot_mask = dataset_utils.classification_mask_to_one_hot(
-        groundtruth["classification_mask"], object_name
-    )
-
-    num_classes = tf.shape(groundtruth_one_hot_mask)[-1]
+    )  # (B, )
 
     predicted_probabilities = predictions["classification"]  # (B, N, num_classes)
+    num_classes = tf.shape(predicted_probabilities)[-1]
+
+    best_logits = tf.gather(
+        predictions["logits"], predictions["patch_indices"], batch_dims=1
+    )  # (B, N)
+
+    combined_threshold_mask = get_thresholding_mask(
+        tf.reduce_max(predicted_probabilities, axis=-1),
+        classifier_threshold,
+        best_logits,
+        encoder_threshold,
+    )  # (B, N)
 
     groundtruth_probabilities = tf.one_hot(
         tf.cast(
@@ -337,9 +339,13 @@ def calculate_multiclass_metrics(
         num_classes,
         axis=-1,
     )  # (B, N, num_classes)
-    # tf.assert_equal(tf.shape(predicted_positions), tf.shape(groundtruth_positions))
+
     tf.assert_equal(tf.shape(predicted_probabilities), tf.shape(groundtruth_probabilities))
 
+    # Filter out the ignored samples.
+    combined_threshold_mask_filtered = tf.boolean_mask(
+        combined_threshold_mask, use_sample
+    )  # (#use_sample, N)
     y_pred_filtered = tf.boolean_mask(
         predicted_probabilities, use_sample
     )  # (#use_samples, N, num_classes)
@@ -347,63 +353,91 @@ def calculate_multiclass_metrics(
         groundtruth_probabilities, use_sample
     )  # (#use_samples, N, num_classes)
 
+    tf.assert_equal(tf.shape(y_pred_filtered), tf.shape(y_true_filtered))
+    tf.assert_equal(tf.shape(combined_threshold_mask_filtered), tf.shape(y_true_filtered)[:-1])
+
+    combined_threshold_mask_flat = tf.reshape(combined_threshold_mask_filtered, [-1])
     y_pred_flat = tf.reshape(y_pred_filtered, (-1, num_classes))  # (B * N, num_classes)
     y_true_flat = tf.reshape(y_true_filtered, (-1, num_classes))  # (B * N, num_classes)
 
-    # Thresholding
-    y_pred_thresholded = tf.where(
-        tf.reduce_max(y_pred_flat, axis=-1) < classifier_threshold,
-        0,
-        tf.argmax(y_pred_flat, axis=-1),
-    )  # (B * N, )
-    # y_pred_labels = tf.argmax(y_pred_flat, axis=-1)  # (B * N, )
-
+    y_pred_labels = tf.argmax(y_pred_flat, axis=-1)  # (B * N, )
     y_true_labels = tf.argmax(y_true_flat, axis=-1)  # (B * N, )
+
+    # Throw away all samples that are under the threshold.
+    # y_pred_thresholded = tf.boolean_mask(y_pred_labels, combined_threshold_mask_flat)
+    y_pred_thresholded = tf.where(combined_threshold_mask_flat, y_pred_labels, 0)
+    # y_true_labels = tf.boolean_mask(y_true_labels, combined_threshold_mask_flat)
+
     tf.assert_equal(tf.shape(y_pred_thresholded), tf.shape(y_true_labels))
+
+    # ===== Evaluation Metrics ======
 
     # The (num_classes, num_classes) confusion matrix
     confusion_matrix = tf.math.confusion_matrix(y_true_labels, y_pred_thresholded, num_classes)
 
     # Calculate precision and recall for every class.
     precisions = tf.linalg.diag_part(confusion_matrix) / tf.reduce_sum(
-        confusion_matrix, axis=1
+        confusion_matrix, axis=0
     )  # (num_classes, )
     recalls = tf.linalg.diag_part(confusion_matrix) / tf.reduce_sum(
-        confusion_matrix, axis=0
+        confusion_matrix, axis=1
     )  # (num_classes, )
 
     total_samples = tf.reduce_sum(confusion_matrix)
+
     # Calculate fp, tp, fn, fp for every class.
-    true_positives = tf.linalg.diag_part(confusion_matrix)
-    false_positives = tf.reduce_sum(confusion_matrix, axis=0) - true_positives  # (num_classes, )
-    false_negatives = tf.reduce_sum(confusion_matrix, axis=1) - true_positives  # (num_classes, )
-    true_negatives = total_samples - (
-        true_positives + false_positives + false_negatives
-    )  # (num_classes, )
+
+    # tp_count = tf.linalg.diag_part(confusion_matrix)
+    # fp_count = tf.reduce_sum(confusion_matrix, axis=0) - tp_count  # (num_classes, )
+    # fn_count = tf.reduce_sum(confusion_matrix, axis=1) - fp_count  # (num_classes, )
+    # true_negatives = total_samples - (
+    #     true_positives + false_positives + false_negatives
+    # )  # (num_classes, )
+
+    # fp_rate = fp_count / total_samples
+    # fn_rate = fn_count / total_samples
 
     # The (2, 2, num_classes) confusion matrix
-    confusion_matrices = tf.reshape(
-        tf.stack([true_positives, false_negatives, false_positives, true_negatives], -1),
-        (4, num_classes),
-    )
+    # confusion_matrices = tf.reshape(
+    #     tf.stack([true_positives, false_negatives, false_positives, true_negatives], -1),
+    #     (4, num_classes),
+    # )
+
+    tp_count_pooled = tf.reduce_sum(tf.linalg.diag_part(confusion_matrix)[1:])
+    tn_count_pooled = confusion_matrix[0, 0]
+    fn_count_pooled = tf.reduce_sum(tf.experimental.numpy.tril(confusion_matrix, k=-1))
+    fp_count_pooled = tf.reduce_sum(tf.experimental.numpy.triu(confusion_matrix, k=1))
+
+    fp_rate_pooled = fp_count_pooled / total_samples
+    fn_rate_pooled = fn_count_pooled / total_samples
 
     # Pooled metrics
-    pooled_confusion_matrix = tf.reshape(tf.reduce_sum(confusion_matrices, axis=0), (2, 2))
+    # pooled_confusion_matrix = tf.reshape(tf.reduce_sum(confusion_matrices, axis=0), (2, 2))
+    pooled_confusion_matrix = np.array(
+        [
+            [tp_count_pooled, fn_count_pooled],
+            [fp_count_pooled, tn_count_pooled],
+        ]
+    )
+
+    # Precision = TP / TP + FP
     pooled_precision = pooled_confusion_matrix[0][0] / (
         pooled_confusion_matrix[0][0] + pooled_confusion_matrix[1][0]
     )
+    # Recall = TP / TP + FN
     pooled_recall = pooled_confusion_matrix[0][0] / (
         pooled_confusion_matrix[0][0] + pooled_confusion_matrix[0][1]
     )
 
     return {
-        "confusion_matrix": pooled_confusion_matrix.numpy() if pooled else confusion_matrix.numpy(),
-        "precision": pooled_precision if pooled else precisions,
-        "recall": pooled_recall if pooled else recalls,
-        # "fp_indices": fp_indices,
-        # "fn_indices": fn_indices,
-        # "fp_rate": fp_rate,
-        # "fn_rate": fn_rate,
+        "confusion_matrix": confusion_matrix.numpy(),
+        "precisions": precisions,
+        "recalls": recalls,
+        "confusion_matrix_pooled": pooled_confusion_matrix,
+        "precision_pooled": pooled_precision,
+        "recall_pooled": pooled_recall,
+        "fp_rate": fp_rate_pooled,
+        "fn_rate": fn_rate_pooled,
     }
 
 
