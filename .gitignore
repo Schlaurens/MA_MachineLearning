@@ -8,3 +8,4 @@ uv.lock
 *.keras
 data/gamelogs/
 .coverage
+.vscode
