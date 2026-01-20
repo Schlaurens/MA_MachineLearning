@@ -168,9 +168,6 @@ class FullModel(tf.keras.Model):
             (-1, dataset_config.output_dims[0] * dataset_config.output_dims[1], 2),
         )  # (B, 15 * 20, 2)
 
-        # Theoretical maximum error, distance between (0,0) and (max, max) of patch
-        max_error = tf.norm(tf.cast(self.patch_size, dtype=tf.float32))  # Shape: ()
-
         # Get the coords of the cells of which patches were extracted.
         coords_true_of_patches = tf.gather(
             coord_mask, results["patch_indices"], batch_dims=1
@@ -191,7 +188,7 @@ class FullModel(tf.keras.Model):
         squared_error = tf.where(
             are_coords_true_inside_patch,
             tf.square(tf.norm(coords_pred - coords_true_of_patches, axis=-1)),
-            tf.square(max_error),
+            0.0,
         )  # (B, N)
 
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
