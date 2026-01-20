@@ -218,14 +218,6 @@ class FullModel(tf.keras.Model):
                 message="Invalid one-hot classification mask.",
             )
 
-            # Get the indices of the cell_grid where the cell of the chosen patches point to.
-            # indices_of_true_patch_coords = dataset_utils.flatten_cell_indices(
-            #     dataset_utils.get_cell_of_coordinate(coords_true_of_patches)
-            # )  # (B, N)
-            # y_true = tf.gather(
-            #     one_hot_mask, indices_of_true_patch_coords, batch_dims=1
-            # )  # (B, N, N_O)
-
             y_true = tf.one_hot(
                 tf.cast(
                     dataset_utils.get_groundtruth_class_of_patches(
@@ -291,7 +283,12 @@ class FullModel(tf.keras.Model):
         loss = cross_entropy + mse  # Shape: ()
         rmse = tf.math.sqrt(mse)  # Shape: ()
 
-        return {"loss": loss, "mse": mse, "rmse": rmse, "ce": cross_entropy}
+        return {
+            "loss": loss,
+            "mse": mse,
+            "rmse": rmse,
+            "ce": cross_entropy,
+        }
 
     def _calculate_losses(self, batch_data, results, maps):
         encoder_losses = {
