@@ -437,3 +437,67 @@ def get_thresholding_mask(
     combined_thresholds = tf.logical_and(classifier_preds_thresholded, encoder_preds_thresholded)
 
     return combined_thresholds
+
+
+def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1):
+    """
+    Matches predicted and labeled points optimally. Points are only matched as
+    long as their distance is below or equal to threshold. It does not match two
+    points from kps to the same point in pts or vice versa. Correspondingly it can
+    happen that some points remain unmatched.
+
+    A matrix is constructed that contains a score for each pair of detected and
+    labeled point. The score is 0 for pairs that are at least threshold pixels apart
+    and 1 for points with distance 0.
+
+    Then scipy.optimize.linear_sum_assignment calculates the assignment that maximizes
+    the overall score. Dummy assignments (with score 0) are filtered out before the
+    matched points are stacked together to obtain the result.
+
+    Args:
+        y_pred (dict): Predicted values. Used to calculate predicted world coordinates of object.
+        y_true (dict): Groundtruth values. Used to calculate groundtruth world coordinates of object.
+        threshold (float): Max distance (in m) to consider a pair a match.
+
+    Returns:
+        dict: Contains matched points and the number of false predictions.
+    """
+
+    if batch_dims == 0:
+        pts = tf.expand_dims(y_true, axis=0)
+        kps = tf.expand_dims(y_pred, axis=0)
+    else:
+        pts = y_true
+        kps = y_pred
+
+    number_of_pts = tf.shape(pts)[-2] if len(tf.shape(pts)) > 1 else 0
+    number_of_kps = tf.shape(kps)[-2] if len(tf.shape(kps)) > 1 else 0
+
+    if number_of_pts == 0 or number_of_kps == 0:
+        return {
+            "matches": tf.constant([], shape=(0, 2, 2), dtype=kps.dtype),
+            "true_positives": 0,
+            "false_negatives": 0,
+            "false_positives": 0,
+        }
+
+    diffs = kps[:, tf.newaxis] - pts[tf.newaxis]
+    score_matrix = tf.linalg.norm(diffs, axis=-1) <= threshold
+
+    row_ind, col_ind = scipy.optimize.linear_sum_assignment(score_matrix.numpy(), maximize=True)
+    assigned = score_matrix.numpy()[row_ind, col_ind] > 0
+    matches = tf.stack(
+        [tf.gather(kps, row_ind[assigned]), tf.gather(pts, col_ind[assigned])], axis=1
+    )
+
+    num_assigned = tf.reduce_sum(tf.cast(assigned, tf.int32))
+    true_positives = num_assigned
+    false_positives = number_of_kps - num_assigned
+    false_negatives = number_of_pts - num_assigned
+
+    return {
+        "matches": matches,
+        "true_positives": true_positives,
+        "false_negatives": false_negatives,
+        "false_positives": false_positives,
+    }
