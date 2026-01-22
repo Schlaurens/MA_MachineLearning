@@ -87,10 +87,12 @@ def main(args):
     assert len(test_sample_identifiers) == len(selected_predictions)
 
     print("Writing JSONs...")
-    with open(args.destination + args.prediction_source.split("/")[-1] + ".json", "w") as f:
+    with open(
+        args.destination + "test_" + args.prediction_source.split("/")[-1] + ".json", "w"
+    ) as f:
         json.dump(selected_predictions, f, indent=4)
 
-    with open(args.destination + "groundtruth" + ".json", "w") as f:
+    with open(args.destination + "test_groundtruth" + ".json", "w") as f:
         json.dump(selected_groundtruth, f, indent=4)
 
 
