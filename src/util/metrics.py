@@ -460,7 +460,7 @@ def get_thresholding_mask(
     """
 
     classifier_preds_thresholded = classifier_preds >= classifier_threshold  # (...)
-    
+
     if encoder_preds is not None and encoder_threshold is not None:
         encoder_preds_thresholded = encoder_preds >= encoder_threshold  # (...)
     else:
