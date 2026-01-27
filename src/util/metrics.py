@@ -511,8 +511,8 @@ def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1)
         return {
             "matches": tf.constant([], shape=(0, 2, 2), dtype=kps.dtype),
             "true_positives": 0,
-            "false_negatives": 0,
-            "false_positives": 0,
+            "false_negatives": number_of_pts,
+            "false_positives": number_of_kps,
         }
 
     diffs = kps[:, tf.newaxis] - pts[tf.newaxis]
