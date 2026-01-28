@@ -173,19 +173,14 @@ def _get_classifier_inverted_residual_single_category(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     # x = tf.keras.layers.Flatten()(image)
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False)(x)
     x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
-    if n_context > 0:
-        x = tf.keras.layers.Concatenate()([image, context])
     x = tf.keras.layers.Conv2D(32, 3, padding="same", use_bias=False)(x)
     x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
@@ -199,6 +194,12 @@ def _get_classifier_inverted_residual_single_category(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     return _get_common_classifier_output(x, n_classes, with_offset, inputs)
 
@@ -221,18 +222,21 @@ def _get_classifier_inverted_residual_single_category_v2(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = IresBlock(8, use_batch_norm, stride=1, expansion=4)(x)
     x = IresBlock(16, use_batch_norm, stride=1, expansion=4)(x)
     x = IresBlock(32, use_batch_norm, stride=1, expansion=4)(x)
     x = IresBlock(64, use_batch_norm, stride=1, expansion=4)(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     return _get_common_classifier_output(x, n_classes, with_offset, inputs)
 
@@ -255,12 +259,9 @@ def _get_classifier_single_category(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False)(x)
     x = Normalization(batch_norm=True, scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
@@ -302,6 +303,12 @@ def _get_classifier_single_category(
     x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), padding="same")(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     x = tf.keras.layers.Dense(64)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
@@ -333,12 +340,9 @@ def _get_classifier_single_category_v2(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False)(x)
     x = Normalization(batch_norm=True, scale=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
@@ -364,6 +368,13 @@ def _get_classifier_single_category_v2(
     x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), padding="same")(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
+
     x = tf.keras.layers.Dense(32)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
@@ -391,12 +402,9 @@ def _get_classifier_ires_single_category(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = IresBlock(16, use_batch_norm, stride=1, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(32, use_batch_norm, stride=1, expansion=6)(x)
@@ -404,6 +412,13 @@ def _get_classifier_ires_single_category(
     x = IresBlock(64, use_batch_norm, stride=1, expansion=6)(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
+
     x = tf.keras.layers.Dense(64)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
@@ -434,13 +449,12 @@ def _get_classifier_ires_single_category_v2(
         inputs += [context]
 
     x = image
-
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(32, use_batch_norm, stride=2, expansion=6)(x)
 
     x = tf.keras.layers.Flatten()(x)
-    
+
     if n_meta > 0:
         x = tf.keras.layers.Concatenate()([x, meta])
 
@@ -471,17 +485,20 @@ def _get_classifier_ires_single_category_v3(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
     x = IresBlock(24, use_batch_norm, stride=2, expansion=4)(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     x = tf.keras.layers.Dense(24)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
@@ -507,22 +524,26 @@ def _get_classifier_ires_single_category_v4(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
 
     x = tf.keras.layers.Flatten()(x)
 
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
+
     x = tf.keras.layers.Dense(24)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     return _get_common_classifier_output(x, n_classes, with_offset, inputs)
+
 
 def _get_classifier_ires_single_category_v5(
     patch_size: list[int],
@@ -542,17 +563,20 @@ def _get_classifier_ires_single_category_v5(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
-
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(8, use_batch_norm, stride=1, expansion=6)(x)
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
 
     x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     x = tf.keras.layers.Dense(8)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
