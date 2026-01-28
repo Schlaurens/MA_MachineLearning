@@ -499,6 +499,10 @@ class FullModel(tf.keras.Model):
 
         image_yuv = u_image.convert_yuyv_to_yuv(image)
 
+        context = None
+        if "context" in maps:
+            context = maps["context"]  # (B, H_out, W_out, n_context)
+
         results = {
             key: self._handle_category(
                 image_yuv,
@@ -507,6 +511,7 @@ class FullModel(tf.keras.Model):
                 value["object_height"],
                 maps[key][..., 2],
                 maps[key][..., :2],
+                context,
                 value["n_classes"],
                 value["sampler"],
                 value["extractor"],
@@ -528,6 +533,7 @@ class FullModel(tf.keras.Model):
         object_height,
         logits,
         offsets,
+        context,
         n_classes,
         sampler,
         extractor,
@@ -542,6 +548,7 @@ class FullModel(tf.keras.Model):
             intrinsics: The intrisics of the camera, represented as (cx, cy, fx, fy) [B, 4]
             logits: The logits for the category. [B, H_out, W_out]
             offsets: The offsets for the category. Relative to the upper left corner of the patch. [B, H_out, W_out, 2]
+            context: The context vector which is part of the encoder output. It encodes information about the whole image that might help the classifier.
             sampler: The patch sampler for the category with a fixed number of candidates
             extractor: The patch extractor for the category with the fixed object parameters
             classifier: The patch classifier for the category with the fixed number of classes
@@ -586,16 +593,33 @@ class FullModel(tf.keras.Model):
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
 
-        classification, offsets = classifier(
-            tf.reshape(
-                tf.stop_gradient(patches),
-                (
-                    tf.shape(intrinsics)[0] * sampler.n_sample,
-                    *self.patch_size,
-                    self.patch_channels,
-                ),
-            )
-        )  # + meta + context
+        patches_reshaped = tf.reshape(
+            tf.stop_gradient(patches),
+            (
+                tf.shape(intrinsics)[0] * sampler.n_sample,
+                *self.patch_size,
+                self.patch_channels,
+            ),
+        )  # (B * N_out, patch_size, patch_size, n_channels)
+
+        classifier_inputs = [patches_reshaped]
+
+        if context is not None:
+            context_flat = tf.reshape(
+                context, (-1, tf.reduce_prod(res_out), self.n_context)
+            )  # (B, H_out * W_out, n_context)
+
+            context_of_chosen_cells = tf.gather(
+                context_flat, patch_indices, batch_dims=1
+            )  # (B, N, n_context)
+
+            context_reshaped = tf.reshape(
+                tf.stop_gradient(context_of_chosen_cells),
+                (tf.shape(intrinsics)[0] * sampler.n_sample, self.n_context),
+            )  # (B * N, n_context)
+            classifier_inputs += [context_reshaped]
+
+        classification, offsets = classifier(classifier_inputs)  # + meta + context
 
         classification = tf.reshape(
             classification, (tf.shape(intrinsics)[0], sampler.n_sample, n_classes)

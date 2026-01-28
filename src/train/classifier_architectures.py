@@ -431,17 +431,21 @@ def _get_classifier_ires_single_category_v2(
 
     if n_context > 0:
         context = tf.keras.layers.Input((n_context,))
-        inputs += [n_context]
+        inputs += [context]
 
     x = image
-    if n_meta > 0:
-        x = tf.keras.layers.Concatenate()([image, meta])
 
     x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(16, use_batch_norm, stride=2, expansion=6)(x)
     x = IresBlock(32, use_batch_norm, stride=2, expansion=6)(x)
 
     x = tf.keras.layers.Flatten()(x)
+    
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
 
     x = tf.keras.layers.Dense(32)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
