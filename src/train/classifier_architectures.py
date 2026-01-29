@@ -72,6 +72,16 @@ def get_classifier(
             with_offset,
             use_batch_norm,
         )
+    if classifier_architecture == "classifier_single_category_v3":
+        return _get_classifier_single_category_v3(
+            patch_size,
+            channels_in,
+            n_meta,
+            n_context,
+            n_classes,
+            with_offset,
+            use_batch_norm,
+        )
     if classifier_architecture == "classifier_ires_single_category":
         return _get_classifier_ires_single_category(
             patch_size,
@@ -382,6 +392,62 @@ def _get_classifier_single_category_v2(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     return _get_common_classifier_output(x, n_classes, with_offset, inputs)
+
+def _get_classifier_single_category_v3(patch_size: list[int],
+    channels_in: int,
+    n_meta: int,
+    n_context: int,
+    n_classes: int,
+    with_offset: bool,
+    use_batch_norm: bool,):
+    
+    image = tf.keras.layers.Input((*patch_size, channels_in))
+    inputs = [image]
+
+    if n_meta > 0:
+        meta = tf.keras.layers.Input((n_meta,))
+        inputs += [meta]
+
+    if n_context > 0:
+        context = tf.keras.layers.Input((n_context,))
+        inputs += [context]
+    
+    x = image
+    x = tf.keras.layers.Conv2D(8, (3, 3))(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    
+    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    
+    x = tf.keras.layers.Conv2D(16, (3, 3))(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    
+    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    
+    x = tf.keras.layers.Conv2D(32, (3, 3))(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    
+    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = tf.keras.layers.Dropout(0.20)(x)
+    
+    x = tf.keras.layers.Flatten()(x)
+
+    if n_meta > 0:
+        x = tf.keras.layers.Concatenate()([x, meta])
+
+    if n_context > 0:
+        x = tf.keras.layers.Concatenate()([x, context])
+
+    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.ReLU(6.0)(x)
+
+    return _get_common_classifier_output(x, n_classes, with_offset, inputs)
+
 
 
 def _get_classifier_ires_single_category(
