@@ -252,7 +252,8 @@ class FullModel(tf.keras.Model):
             cross_entropy_multiplied = (
                 cross_entropy_batched * use_sample * tf.stop_gradient(encoder_predictions)
             )  # (B, N)
-            cross_entropy = tf.reduce_mean(cross_entropy_multiplied)  # Shape: ()
+            cross_entropy = tf.reduce_sum(tf.reduce_mean(cross_entropy_multiplied, axis=-1))  # Shape: ()
+            
 
             # Get probability of the predicted class for each candidate.
             error_factor = tf.math.reduce_max(y_pred, axis=-1)  # (B, N)
