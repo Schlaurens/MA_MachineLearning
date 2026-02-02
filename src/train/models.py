@@ -198,23 +198,6 @@ class FullModel(tf.keras.Model):
 
         # Categories with more than two classes use CCE
         if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
-            one_hot_mask = tf.reshape(
-                dataset_utils.classification_mask_to_one_hot(
-                    batch_data["classification_mask"], u_dataset.CategoryNames.INTERSECTIONS.value
-                ),
-                (
-                    -1,
-                    dataset_config.output_dims[0] * dataset_config.output_dims[1],
-                    len(u_dataset.IntersectionType),
-                ),
-            )  # (B, H * W, N_O)
-
-            tf.debugging.assert_equal(
-                tf.reduce_sum(one_hot_mask, axis=-1),
-                tf.ones_like(tf.reduce_sum(one_hot_mask, axis=-1)),
-                message="Invalid one-hot classification mask.",
-            )
-
             y_true = tf.one_hot(
                 tf.cast(
                     dataset_utils.get_groundtruth_class_of_patches(
