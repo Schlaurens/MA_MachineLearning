@@ -165,6 +165,8 @@ def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = Fals
                 for label in labels_concat
             ]
         )
+        np.save("data/distances_ball.npy", np.array(distances_ball))
+
         print("Calulcating Distances for PenaltyMarks...")
         distances_penaltyMark = _clean_up_list(
             [
@@ -176,6 +178,7 @@ def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = Fals
                 for label in labels_concat
             ]
         )
+        np.save("data/distances_penaltyMark.npy", np.array(distances_penaltyMark))
         print("Calulcating Distances for L-Intersections...")
         distances_l_intersections = _clean_up_list(
             [
@@ -188,6 +191,7 @@ def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = Fals
                 for label in labels_concat
             ]
         )
+        np.save("data/distances_l_intersections.npy", np.array(distances_l_intersections))
         print("Calulcating Distances for T-Intersections...")
         distances_t_intersections = _clean_up_list(
             [
@@ -200,6 +204,7 @@ def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = Fals
                 for label in labels_concat
             ]
         )
+        np.save("data/distances_t_intersections.npy", np.array(distances_t_intersections))
         print("Calulcating Distances for X-Intersections...")
         distances_x_intersections = _clean_up_list(
             [
@@ -212,6 +217,8 @@ def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = Fals
                 for label in labels_concat
             ]
         )
+        np.save("data/distances_x_intersections.npy", np.array(distances_x_intersections))
+
         mean_ball_distance = float(np.mean(distances_ball))
         var_ball_distance = float(np.var(distances_ball))
 
