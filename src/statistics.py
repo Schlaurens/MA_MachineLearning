@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import tensorflow as tf
+import yaml
 
 from util import camera as u_camera
 from util import dataset as u_dataset
@@ -69,7 +70,7 @@ def get_distance_from_label(
     return tf.reshape(distance, [-1]).numpy()
 
 
-def main(data_path: str, calculate_distances: bool = False):
+def main(data_path: str, calculate_distances: bool = False, to_yaml: bool = False):
     label_dirs = [dir[0] for dir in os.walk(data_path)][1:]
     labels = [u_dataset_io.load_labels(dir) for dir in label_dirs]
 
@@ -146,11 +147,13 @@ def main(data_path: str, calculate_distances: bool = False):
     number_of_x_intersection_samples = sum(number_of_x_intersections_for_each_log)
 
     # ===== Cross-Entropy baselines ======
-    ball_bce_baseline = get_bce_baseline(number_of_ball_samples, number_of_samples)
-    penalty_mark_bce_baseline = get_bce_baseline(number_of_penalty_mark_samples, number_of_samples)
+    ball_bce_baseline = float(get_bce_baseline(number_of_ball_samples, number_of_samples))
+    penalty_mark_bce_baseline = float(
+        get_bce_baseline(number_of_penalty_mark_samples, number_of_samples)
+    )
 
     # ===== Calculate Distances ======
-    if calculate_distances:
+    if calculate_distances or to_yaml:
         print("Calulcating Distances for Balls...")
         distances_ball = _clean_up_list(
             [
@@ -209,47 +212,86 @@ def main(data_path: str, calculate_distances: bool = False):
                 for label in labels_concat
             ]
         )
+        mean_ball_distance = float(np.mean(distances_ball))
+        var_ball_distance = float(np.var(distances_ball))
 
-        print(
-            "Mean ball distances: ", np.mean(distances_ball) if len(distances_ball) > 0 else "NaN"
-        )
-        print(
-            "Variance ball distances: ",
-            np.var(distances_ball) if len(distances_ball) > 0 else "NaN",
-        )
-        print(
-            "Mean penaltyMark distances: ",
-            np.mean(distances_penaltyMark) if len(distances_penaltyMark) > 0 else "NaN",
-        )
-        print(
-            "Variance penaltyMark distances: ",
-            np.var(distances_penaltyMark) if len(distances_penaltyMark) > 0 else "NaN",
-        )
-        print(
-            "Mean L-Intersection distances: ",
-            np.mean(distances_l_intersections) if len(distances_l_intersections) > 0 else "NaN",
-        )
-        print(
-            "Variance L-Intersection distances: ",
-            np.var(distances_l_intersections) if len(distances_l_intersections) > 0 else "NaN",
-        )
-        print(
-            "Mean T-Intersection distances: ",
-            np.mean(distances_t_intersections) if len(distances_t_intersections) > 0 else "NaN",
-        )
-        print(
-            "Variance T-Intersection distances: ",
-            np.var(distances_t_intersections) if len(distances_t_intersections) > 0 else "NaN",
-        )
-        print(
-            "Mean X-Intersection distances: ",
-            np.mean(distances_x_intersections) if len(distances_x_intersections) > 0 else "NaN",
-        )
-        print(
-            "Variance X-Intersection distances: ",
-            np.var(distances_x_intersections) if len(distances_x_intersections) > 0 else "NaN",
-        )
+        mean_penaltyMark_distance = float(np.mean(distances_penaltyMark))
+        var_penaltyMark_distance = float(np.var(distances_penaltyMark))
 
+        mean_l_intersection_distance = float(np.mean(distances_l_intersections))
+        var_l_intersection_distance = float(np.var(distances_l_intersections))
+
+        mean_t_intersection_distance = float(np.mean(distances_t_intersections))
+        var_t_intersection_distance = float(np.var(distances_t_intersections))
+
+        mean_x_intersection_distance = float(np.mean(distances_x_intersections))
+        var_x_intersection_distance = float(np.var(distances_x_intersections))
+
+        print("Mean ball distance: ", mean_ball_distance)
+        print("Variance ball distances: ", var_ball_distance)
+        print("Mean penaltyMark distances: ", mean_penaltyMark_distance)
+        print("Variance penaltyMark distances: ", var_penaltyMark_distance)
+        print("Mean L-Intersection distances: ", mean_l_intersection_distance)
+        print("Variance L-Intersection distances: ", var_l_intersection_distance)
+        print("Mean T-Intersection distances: ", mean_t_intersection_distance)
+        print("Variance T-Intersection distances: ", var_t_intersection_distance)
+        print("Mean X-Intersection distances: ", mean_x_intersection_distance)
+        print("Variance X-Intersection distances: ", var_x_intersection_distance)
+
+    if to_yaml:
+        stats = {
+            "number_of_logs": len(labels),
+            "number_of_samples": number_of_samples,
+            "number_of_intersection_samples": number_of_intersection_samples,
+            "number_of_non_empty_samples": number_of_non_empty_samples,
+            "number_of_ball_samples": number_of_ball_samples,
+            "number_of_penalty_mark_samples": number_of_penalty_mark_samples,
+            "number_of_l_intersection_samples": number_of_l_intersection_samples,
+            "number_of_t_intersection_samples": number_of_t_intersection_samples,
+            "number_of_x_intersection_samples": number_of_x_intersection_samples,
+            "number_of_ignored_intersection_samples_for_each_log": number_of_ignored_intersection_samples_for_each_log,
+            "number_of_l_intersections_for_each_log": number_of_l_intersections_for_each_log,
+            "number_of_t_intersections_for_each_log": number_of_t_intersections_for_each_log,
+            "number_of_x_intersections_for_each_log": number_of_x_intersections_for_each_log,
+            "distances": {
+                "mean_ball_distance": mean_ball_distance,
+                "var_ball_distance": var_ball_distance,
+                "mean_penaltyMark_distance": mean_penaltyMark_distance,
+                "var_penaltyMark_distance": var_penaltyMark_distance,
+                "mean_l_intersection_distance": mean_l_intersection_distance,
+                "var_l_intersection_distance": var_l_intersection_distance,
+                "mean_t_intersection_distance": mean_t_intersection_distance,
+                "var_t_intersection_distance": var_t_intersection_distance,
+                "mean_x_intersection_distance": mean_x_intersection_distance,
+                "var_x_intersection_distance": var_x_intersection_distance,
+            },
+            "percentages": {
+                "percent_ball_samples": round(
+                    (number_of_ball_samples / number_of_samples) * 100, 2
+                ),
+                "percent_penalty_mark_samples": round(
+                    (number_of_penalty_mark_samples / number_of_samples) * 100, 2
+                ),
+                "percent_l_intersection_samples": round(
+                    (number_of_l_intersection_samples / number_of_intersection_samples) * 100, 2
+                ),
+                "percent_t_intersection_samples": round(
+                    (number_of_t_intersection_samples / number_of_intersection_samples) * 100, 2
+                ),
+                "percent_x_intersection_samples": round(
+                    (number_of_x_intersection_samples / number_of_intersection_samples) * 100, 2
+                ),
+            },
+            "baselines": {
+                "ball_bce_baseline": round(ball_bce_baseline, 5),
+                "penalty_mark_bce_baseline": round(penalty_mark_bce_baseline, 5),
+            },
+        }
+
+        with open("data/statistics.yaml", "w") as yaml_file:
+            yaml.dump(stats, yaml_file, default_flow_style=False, sort_keys=False)
+
+    # ===== Printing ======
     print("Number of logs: ", len(labels))
     print("Number of samples: ", number_of_samples)
     print("Number of intersection samples: ", number_of_intersection_samples)
@@ -292,6 +334,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="This script shows statistics about the dataset.")
     parser.add_argument("data_path")
     parser.add_argument("--calculate_distances", default=False)
+    parser.add_argument("--to_yaml", default=False)
     args = parser.parse_args()
 
-    main(args.data_path, args.calculate_distances)
+    main(args.data_path, args.calculate_distances, args.to_yaml)
