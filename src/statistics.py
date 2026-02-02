@@ -2,7 +2,10 @@ import itertools
 import os
 
 import numpy as np
+import tensorflow as tf
 
+from util import camera as u_camera
+from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 from util import labels as u_labels
 
@@ -23,7 +26,47 @@ def get_bce_baseline(p: int, n: int):
     )
 
 
-def main(data_path: str):
+def _clean_up_list(input):
+    filtered = [x for x in input if x is not None]
+    flattened = [
+        item for d in filtered for item in (d if isinstance(d, (list | np.ndarray)) else [d])
+    ]
+
+    return flattened
+
+
+def get_distance_from_label(
+    label: dict, object_name: str, object_height: float, intersection_type: str = None
+):
+    if object_name not in label:
+        return None
+    if len(label[object_name]) == 0:
+        return None
+
+    camera = u_dataset_io.camera_from_label(label)
+    intrinsics = u_dataset_io.intrinsics_from_label(label)
+
+    if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
+        if intersection_type is None:
+            raise ValueError("The intersection type is not specified.")
+
+        image_coords = [[coord["x"], coord["y"]] for coord in label[object_name][intersection_type]]
+        if label[object_name]["ignore_sample"]:
+            return None
+
+        if len(image_coords) == 0:
+            return None
+
+    else:
+        image_coords = (label[object_name]["x"], label[object_name]["y"])
+
+    world_coords = u_camera.image_to_world(camera, intrinsics, image_coords, object_height)
+
+    if tf.reduce_all(world_coords == -1.0):
+        return None
+    distance = tf.linalg.norm(world_coords, axis=-1, keepdims=True)
+
+    return tf.reshape(distance, [-1]).numpy()
     label_dirs = [dir[0] for dir in os.walk(data_path)][1:]
     labels = [u_dataset_io.load_labels(dir) for dir in label_dirs]
 
