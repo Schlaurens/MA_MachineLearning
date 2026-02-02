@@ -142,6 +142,107 @@ def get_distance_from_label(
     number_of_t_intersection_samples = sum(number_of_t_intersections_for_each_log)
     number_of_x_intersection_samples = sum(number_of_x_intersections_for_each_log)
 
+    # ===== Calculate Distances ======
+    if calculate_distances:
+        print("Calulcating Distances for Balls...")
+        distances_ball = _clean_up_list(
+            [
+                get_distance_from_label(
+                    label,
+                    u_dataset.CategoryNames.BALL.value,
+                    0,
+                )
+                for label in labels_concat
+            ]
+        )
+        print("Calulcating Distances for PenaltyMarks...")
+        distances_penaltyMark = _clean_up_list(
+            [
+                get_distance_from_label(
+                    label,
+                    u_dataset.CategoryNames.PENALTYMARK.value,
+                    0,
+                )
+                for label in labels_concat
+            ]
+        )
+        print("Calulcating Distances for L-Intersections...")
+        distances_l_intersections = _clean_up_list(
+            [
+                get_distance_from_label(
+                    label,
+                    u_dataset.CategoryNames.INTERSECTIONS.value,
+                    0,
+                    u_dataset.IntersectionType.L.name,
+                )
+                for label in labels_concat
+            ]
+        )
+        print("Calulcating Distances for T-Intersections...")
+        distances_t_intersections = _clean_up_list(
+            [
+                get_distance_from_label(
+                    label,
+                    u_dataset.CategoryNames.INTERSECTIONS.value,
+                    0,
+                    u_dataset.IntersectionType.T.name,
+                )
+                for label in labels_concat
+            ]
+        )
+        print("Calulcating Distances for X-Intersections...")
+        distances_x_intersections = _clean_up_list(
+            [
+                get_distance_from_label(
+                    label,
+                    u_dataset.CategoryNames.INTERSECTIONS.value,
+                    0,
+                    u_dataset.IntersectionType.X.name,
+                )
+                for label in labels_concat
+            ]
+        )
+
+        print(
+            "Mean ball distances: ", np.mean(distances_ball) if len(distances_ball) > 0 else "NaN"
+        )
+        print(
+            "Variance ball distances: ",
+            np.var(distances_ball) if len(distances_ball) > 0 else "NaN",
+        )
+        print(
+            "Mean penaltyMark distances: ",
+            np.mean(distances_penaltyMark) if len(distances_penaltyMark) > 0 else "NaN",
+        )
+        print(
+            "Variance penaltyMark distances: ",
+            np.var(distances_penaltyMark) if len(distances_penaltyMark) > 0 else "NaN",
+        )
+        print(
+            "Mean L-Intersection distances: ",
+            np.mean(distances_l_intersections) if len(distances_l_intersections) > 0 else "NaN",
+        )
+        print(
+            "Variance L-Intersection distances: ",
+            np.var(distances_l_intersections) if len(distances_l_intersections) > 0 else "NaN",
+        )
+        print(
+            "Mean T-Intersection distances: ",
+            np.mean(distances_t_intersections) if len(distances_t_intersections) > 0 else "NaN",
+        )
+        print(
+            "Variance T-Intersection distances: ",
+            np.var(distances_t_intersections) if len(distances_t_intersections) > 0 else "NaN",
+        )
+        print(
+            "Mean X-Intersection distances: ",
+            np.mean(distances_x_intersections) if len(distances_x_intersections) > 0 else "NaN",
+        )
+        print(
+            "Variance X-Intersection distances: ",
+            np.var(distances_x_intersections) if len(distances_x_intersections) > 0 else "NaN",
+        )
+
     # ===== Cross-Entropy baselines ======
     ball_bce_baseline = get_bce_baseline(number_of_ball_samples, number_of_samples)
     penalty_mark_bce_baseline = get_bce_baseline(number_of_penalty_mark_samples, number_of_samples)
