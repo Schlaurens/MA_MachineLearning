@@ -538,6 +538,42 @@ def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1)
         "false_negatives": false_negatives,
         "false_positives": false_positives,
     }
+
+
+def batch_nms(
+    boxes, scores, max_output_size_per_class=7, iou_threshold=0.35, score_threshold=float("-inf")
+):
+    """
+    Apply NMS to each batch element.
+
+    Args:
+        boxes: Tensor of shape (B, N, 4)
+        scores: Tensor of shape (B, N)
+        max_output_size_per_class: Maximum number of boxes to keep per batch element
+        iou_threshold: IoU threshold for NMS
+        score_threshold: Minimum score threshold for keeping a box
+
+    Returns:
+        selected_indices: List of tensors, each containing the indices of selected boxes for a batch element
+    """
+    selected_indices = []
+    for i in range(boxes.shape[0]):
+        # Extract boxes and scores for the i-th batch element
+        boxes_i = boxes[i]
+        scores_i = scores[i]
+
+        # Apply NMS
+        selected = tf.image.non_max_suppression(
+            boxes_i,
+            scores_i,
+            max_output_size_per_class,
+            iou_threshold=iou_threshold,
+            score_threshold=score_threshold,
+        )
+        selected_indices.append(selected)
+    return selected_indices
+
+
 def save_predictions(
     predictions: dict[tf.Tensor],
     groundtruth: dict[tf.Tensor],
