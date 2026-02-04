@@ -541,7 +541,11 @@ def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1)
 
 
 def batch_nms(
-    boxes, scores, max_output_size_per_class=7, iou_threshold=0.35, score_threshold=float("-inf")
+    boxes: tf.Tensor,
+    scores: tf.Tensor,
+    max_output_size_per_class: int = 7,
+    iou_threshold: float = 0.35,
+    score_threshold: float = float("-inf"),
 ):
     """
     Apply NMS to each batch element.
