@@ -366,15 +366,12 @@ def calculate_multiclass_metrics(
     y_pred_labels = tf.argmax(y_pred_flat, axis=-1)  # (B * N, )
     y_true_labels = tf.argmax(y_true_flat, axis=-1)  # (B * N, )
 
-    # Throw away all samples that are under the threshold.
-    # y_pred_thresholded = tf.boolean_mask(y_pred_labels, combined_threshold_mask_flat)
+    # Classify all samples that are under the threshold as 0 (negative class).
     y_pred_thresholded = tf.where(combined_threshold_mask_flat, y_pred_labels, 0)
-    # y_true_labels = tf.boolean_mask(y_true_labels, combined_threshold_mask_flat)
 
     tf.assert_equal(tf.shape(y_pred_thresholded), tf.shape(y_true_labels))
 
     # ===== Evaluation Metrics ======
-
     # The (num_classes, num_classes) confusion matrix
     confusion_matrix = tf.math.confusion_matrix(y_true_labels, y_pred_thresholded, num_classes)
 
@@ -387,25 +384,6 @@ def calculate_multiclass_metrics(
     )  # (num_classes, )
 
     total_samples = tf.reduce_sum(confusion_matrix)
-
-    # Calculate fp, tp, fn, fp for every class.
-
-    # tp_count = tf.linalg.diag_part(confusion_matrix)
-    # fp_count = tf.reduce_sum(confusion_matrix, axis=0) - tp_count  # (num_classes, )
-    # fn_count = tf.reduce_sum(confusion_matrix, axis=1) - fp_count  # (num_classes, )
-    # true_negatives = total_samples - (
-    #     true_positives + false_positives + false_negatives
-    # )  # (num_classes, )
-
-    # fp_rate = fp_count / total_samples
-    # fn_rate = fn_count / total_samples
-
-    # The (2, 2, num_classes) confusion matrix
-    # confusion_matrices = tf.reshape(
-    #     tf.stack([true_positives, false_negatives, false_positives, true_negatives], -1),
-    #     (4, num_classes),
-    # )
-
     tp_count_pooled = tf.reduce_sum(tf.linalg.diag_part(confusion_matrix)[1:])
     tn_count_pooled = confusion_matrix[0, 0]
     fn_count_pooled = tf.reduce_sum(tf.experimental.numpy.tril(confusion_matrix, k=-1))
@@ -415,7 +393,6 @@ def calculate_multiclass_metrics(
     fn_rate_pooled = fn_count_pooled / total_samples
 
     # Pooled metrics
-    # pooled_confusion_matrix = tf.reshape(tf.reduce_sum(confusion_matrices, axis=0), (2, 2))
     pooled_confusion_matrix = np.array(
         [
             [tp_count_pooled, fn_count_pooled],
