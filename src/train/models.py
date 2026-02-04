@@ -249,8 +249,8 @@ class FullModel(tf.keras.Model):
             cross_entropy = tf.keras.losses.BinaryCrossentropy(
                 from_logits=False, name="classifier_bce"
             )(y_true, y_pred)  # Shape: ()
-            
-            error_factor = tf.squeeze(y_pred, axis=-1) # (B, N)
+
+            error_factor = tf.squeeze(y_pred, axis=-1)  # (B, N)
         else:
             raise ValueError("Invalid object_name.")
 
