@@ -115,41 +115,7 @@ def count_intersections_per_log(labels: dict, intersection_type: str):
             if u_labels.has_ball(_) or u_labels.has_penalty_mark(_) or u_labels.has_intersections(_)
         ]
     )
-    number_of_ball_samples = len([_ for _ in labels_concat if u_labels.has_ball(_)])
-    number_of_penalty_mark_samples = len([_ for _ in labels_concat if u_labels.has_penalty_mark(_)])
-
-    number_of_l_intersections_for_each_log = [
-        sum(
-            [
-                len(sample["intersections"][u_labels.IntersectionType.L.value])
-                for sample in x
-                if u_labels.has_intersections(sample)
-            ]
-        )
-        for x in labels
-    ]
-    number_of_t_intersections_for_each_log = [
-        sum(
-            [
-                len(sample["intersections"][u_labels.IntersectionType.T.value])
-                for sample in x
-                if u_labels.has_intersections(sample)
-            ]
-        )
-        for x in labels
-    ]
-    number_of_x_intersections_for_each_log = [
-        sum(
-            [
-                len(sample["intersections"][u_labels.IntersectionType.X.value])
-                for sample in x
-                if u_labels.has_intersections(sample)
-            ]
-        )
-        for x in labels
-    ]
-
-    number_of_ignored_intersection_samples_for_each_log = [
+    number_of_ignored_intersection_samples_per_log = [
         sum(
             [
                 int(sample["intersections"]["ignore_sample"])
@@ -160,13 +126,23 @@ def count_intersections_per_log(labels: dict, intersection_type: str):
         for x in labels
     ]
 
-    log_zip_l_intersections = zip(log_names, number_of_l_intersections_for_each_log, strict=True)
-    log_zip_t_intersections = zip(log_names, number_of_t_intersections_for_each_log, strict=True)
-    log_zip_x_intersections = zip(log_names, number_of_x_intersections_for_each_log, strict=True)
+    number_of_ball_samples = len([_ for _ in labels_concat if u_labels.has_ball(_)])
+    number_of_penalty_mark_samples = len([_ for _ in labels_concat if u_labels.has_penalty_mark(_)])
 
-    number_of_l_intersection_samples = sum(number_of_l_intersections_for_each_log)
-    number_of_t_intersection_samples = sum(number_of_t_intersections_for_each_log)
-    number_of_x_intersection_samples = sum(number_of_x_intersections_for_each_log)
+    number_of_l_intersections_per_log = count_intersections_per_log(
+        labels, u_dataset.IntersectionType.L.name
+    )
+    number_of_t_intersections_per_log = count_intersections_per_log(
+        labels, u_dataset.IntersectionType.T.name
+    )
+    number_of_x_intersections_per_log = count_intersections_per_log(
+        labels, u_dataset.IntersectionType.X.name
+    )
+
+    number_of_l_intersection_samples = sum(number_of_l_intersections_per_log)
+    number_of_t_intersection_samples = sum(number_of_t_intersections_per_log)
+    number_of_x_intersection_samples = sum(number_of_x_intersections_per_log)
+    number_of_ignored_intersection_samples = sum(number_of_ignored_intersection_samples_per_log)
 
     # ===== Cross-Entropy baselines ======
     ball_bce_baseline = float(get_bce_baseline(number_of_ball_samples, number_of_samples))
@@ -175,99 +151,57 @@ def count_intersections_per_log(labels: dict, intersection_type: str):
     )
 
     # ===== Calculate Distances ======
-    if calculate_distances or to_yaml:
-        print("Calulcating Distances for Balls...")
-        distances_ball = _clean_up_list(
-            [
-                get_distance_from_label(
-                    label,
-                    u_dataset.CategoryNames.BALL.value,
-                    0,
-                )
-                for label in labels_concat
-            ]
-        )
-        np.save("data/distances_ball.npy", np.array(distances_ball))
+    moments = {}
+    if calculate_distances:
+        object_types = {
+            "ball": {
+                "name": u_dataset.CategoryNames.BALL.value,
+                "height": 0,
+            },
+            "penalty_mark": {
+                "name": u_dataset.CategoryNames.PENALTYMARK.value,
+                "height": 0,
+            },
+            "l_intersection": {
+                "name": u_dataset.CategoryNames.INTERSECTIONS.value,
+                "height": 0,
+                "intersection_type": u_dataset.IntersectionType.L.name,
+            },
+            "t_intersection": {
+                "name": u_dataset.CategoryNames.INTERSECTIONS.value,
+                "height": 0,
+                "intersection_type": u_dataset.IntersectionType.T.name,
+            },
+            "x_intersection": {
+                "name": u_dataset.CategoryNames.INTERSECTIONS.value,
+                "height": 0,
+                "intersection_type": u_dataset.IntersectionType.X.name,
+            },
+        }
 
-        print("Calulcating Distances for PenaltyMarks...")
-        distances_penaltyMark = _clean_up_list(
-            [
-                get_distance_from_label(
-                    label,
-                    u_dataset.CategoryNames.PENALTYMARK.value,
-                    0,
-                )
-                for label in labels_concat
-            ]
-        )
-        np.save("data/distances_penaltyMark.npy", np.array(distances_penaltyMark))
-        print("Calulcating Distances for L-Intersections...")
-        distances_l_intersections = _clean_up_list(
-            [
-                get_distance_from_label(
-                    label,
-                    u_dataset.CategoryNames.INTERSECTIONS.value,
-                    0,
-                    u_dataset.IntersectionType.L.name,
-                )
-                for label in labels_concat
-            ]
-        )
-        np.save("data/distances_l_intersections.npy", np.array(distances_l_intersections))
-        print("Calulcating Distances for T-Intersections...")
-        distances_t_intersections = _clean_up_list(
-            [
-                get_distance_from_label(
-                    label,
-                    u_dataset.CategoryNames.INTERSECTIONS.value,
-                    0,
-                    u_dataset.IntersectionType.T.name,
-                )
-                for label in labels_concat
-            ]
-        )
-        np.save("data/distances_t_intersections.npy", np.array(distances_t_intersections))
-        print("Calulcating Distances for X-Intersections...")
-        distances_x_intersections = _clean_up_list(
-            [
-                get_distance_from_label(
-                    label,
-                    u_dataset.CategoryNames.INTERSECTIONS.value,
-                    0,
-                    u_dataset.IntersectionType.X.name,
-                )
-                for label in labels_concat
-            ]
-        )
-        np.save("data/distances_x_intersections.npy", np.array(distances_x_intersections))
+        distances = {}
+        for obj_key, obj_config in object_types.items():
+            print(f"Calculating Distances for {obj_key}...")
+            distances[obj_key] = compute_distances(
+                labels_concat,
+                obj_config["name"],
+                obj_config["height"],
+                obj_config.get("intersection_type"),
+            )
+            if not no_filesave:
+                os.makedirs("data/distances/", exist_ok=True)
+                np.save(f"data/distances/distances_{obj_key}.npy", np.array(distances[obj_key]))
 
-        mean_ball_distance = float(np.mean(distances_ball))
-        var_ball_distance = float(np.var(distances_ball))
+        # Calculate mean and variance for each object type
+        for obj_key in distances:
+            mean_distance = float(np.mean(distances[obj_key]))
+            var_distance = float(np.var(distances[obj_key]))
+            moments[f"mean_{obj_key}_distance"] = mean_distance
+            moments[f"var_{obj_key}_distance"] = var_distance
+            print(f"Mean {obj_key} distance: ", mean_distance)
+            print(f"Variance {obj_key} distances: ", var_distance)
 
-        mean_penaltyMark_distance = float(np.mean(distances_penaltyMark))
-        var_penaltyMark_distance = float(np.var(distances_penaltyMark))
-
-        mean_l_intersection_distance = float(np.mean(distances_l_intersections))
-        var_l_intersection_distance = float(np.var(distances_l_intersections))
-
-        mean_t_intersection_distance = float(np.mean(distances_t_intersections))
-        var_t_intersection_distance = float(np.var(distances_t_intersections))
-
-        mean_x_intersection_distance = float(np.mean(distances_x_intersections))
-        var_x_intersection_distance = float(np.var(distances_x_intersections))
-
-        print("Mean ball distance: ", mean_ball_distance)
-        print("Variance ball distances: ", var_ball_distance)
-        print("Mean penaltyMark distances: ", mean_penaltyMark_distance)
-        print("Variance penaltyMark distances: ", var_penaltyMark_distance)
-        print("Mean L-Intersection distances: ", mean_l_intersection_distance)
-        print("Variance L-Intersection distances: ", var_l_intersection_distance)
-        print("Mean T-Intersection distances: ", mean_t_intersection_distance)
-        print("Variance T-Intersection distances: ", var_t_intersection_distance)
-        print("Mean X-Intersection distances: ", mean_x_intersection_distance)
-        print("Variance X-Intersection distances: ", var_x_intersection_distance)
-
-    if to_yaml:
+    if not no_filesave:
         stats = {
             "number_of_logs": len(labels),
             "number_of_samples": number_of_samples,
@@ -275,25 +209,15 @@ def count_intersections_per_log(labels: dict, intersection_type: str):
             "number_of_non_empty_samples": number_of_non_empty_samples,
             "number_of_ball_samples": number_of_ball_samples,
             "number_of_penalty_mark_samples": number_of_penalty_mark_samples,
+            "number_of_ignored_intersection_samples": number_of_ignored_intersection_samples,
             "number_of_l_intersection_samples": number_of_l_intersection_samples,
             "number_of_t_intersection_samples": number_of_t_intersection_samples,
             "number_of_x_intersection_samples": number_of_x_intersection_samples,
-            "number_of_ignored_intersection_samples_for_each_log": number_of_ignored_intersection_samples_for_each_log,
-            "number_of_l_intersections_for_each_log": number_of_l_intersections_for_each_log,
-            "number_of_t_intersections_for_each_log": number_of_t_intersections_for_each_log,
-            "number_of_x_intersections_for_each_log": number_of_x_intersections_for_each_log,
-            "distances": {
-                "mean_ball_distance": mean_ball_distance,
-                "var_ball_distance": var_ball_distance,
-                "mean_penaltyMark_distance": mean_penaltyMark_distance,
-                "var_penaltyMark_distance": var_penaltyMark_distance,
-                "mean_l_intersection_distance": mean_l_intersection_distance,
-                "var_l_intersection_distance": var_l_intersection_distance,
-                "mean_t_intersection_distance": mean_t_intersection_distance,
-                "var_t_intersection_distance": var_t_intersection_distance,
-                "mean_x_intersection_distance": mean_x_intersection_distance,
-                "var_x_intersection_distance": var_x_intersection_distance,
-            },
+            "number_of_ignored_intersection_samples_per_log": number_of_ignored_intersection_samples_per_log,
+            "number_of_l_intersections_per_log": number_of_l_intersections_per_log,
+            "number_of_t_intersections_per_log": number_of_t_intersections_per_log,
+            "number_of_x_intersections_per_log": number_of_x_intersections_per_log,
+            "distance_moments": moments,
             "percentages": {
                 "percent_ball_samples": round(
                     (number_of_ball_samples / number_of_samples) * 100, 2
@@ -321,40 +245,45 @@ def count_intersections_per_log(labels: dict, intersection_type: str):
             yaml.dump(stats, yaml_file, default_flow_style=False, sort_keys=False)
 
     # ===== Printing ======
-    print("Number of logs: ", len(labels))
-    print("Number of samples: ", number_of_samples)
-    print("Number of intersection samples: ", number_of_intersection_samples)
-    print("Number of non empty samples: ", number_of_non_empty_samples)
-    print("Number of ball samples:", number_of_ball_samples)
-    print("Number of penaltyMark samples:", number_of_penalty_mark_samples)
-    print("Number of L intersection samples:", number_of_l_intersection_samples)
-    print("Number of T intersection samples:", number_of_t_intersection_samples)
-    print("Number of X intersection samples:", number_of_x_intersection_samples)
-
-    print(
-        "Number of ignored intersections samples per log: ",
-        number_of_ignored_intersection_samples_for_each_log,
-    )
-    print("L intersections per log: ", number_of_l_intersections_for_each_log)
-    print("T intersections per log: ", number_of_t_intersections_for_each_log)
-    print("X intersections per log: ", number_of_x_intersections_for_each_log)
-    print("=========")
-    print("% of ball samples: ", round((number_of_ball_samples / number_of_samples) * 100, 2))
-    print(
-        f"% of penaltyMark samples: {((number_of_penalty_mark_samples / number_of_samples) * 100):.2f}"
-    )
-    print(
-        f"% of L intersection samples: {((number_of_l_intersection_samples / number_of_intersection_samples) * 100):.2f}"
-    )
-    print(
-        f"% of T intersection samples: {((number_of_t_intersection_samples / number_of_intersection_samples) * 100):.2f}"
-    )
-    print(
-        f"% of X intersection samples: {((number_of_x_intersection_samples / number_of_intersection_samples) * 100):.2f}"
-    )
-    print("=========")
-    print(f"Ball BCE Baseline: {ball_bce_baseline:.5f}")
-    print(f"PenaltyMark BCE Baseline: {penalty_mark_bce_baseline:.5f}")
+    if print_output:
+        print("Number of logs: ", len(labels))
+        print("Number of samples: ", number_of_samples)
+        print("Number of intersection samples: ", number_of_intersection_samples)
+        print("Number of non empty samples: ", number_of_non_empty_samples)
+        print("Number of ball samples:", number_of_ball_samples)
+        print("Number of penaltyMark samples:", number_of_penalty_mark_samples)
+        print("Number of ignored intersection samples:", number_of_ignored_intersection_samples)
+        print("Number of L intersection samples:", number_of_l_intersection_samples)
+        print("Number of T intersection samples:", number_of_t_intersection_samples)
+        print("Number of X intersection samples:", number_of_x_intersection_samples)
+        print("=========")
+        print(
+            "Number of ignored intersections samples per log: ",
+            number_of_ignored_intersection_samples_per_log,
+        )
+        print("L intersections per log: ", number_of_l_intersections_per_log)
+        print("T intersections per log: ", number_of_t_intersections_per_log)
+        print("X intersections per log: ", number_of_x_intersections_per_log)
+        print("=========")
+        print("% of ball samples: ", round((number_of_ball_samples / number_of_samples) * 100, 2))
+        print(
+            f"% of penaltyMark samples: {((number_of_penalty_mark_samples / number_of_samples) * 100):.2f}"
+        )
+        print(
+            f"% of L intersection samples: {((number_of_l_intersection_samples / number_of_intersection_samples) * 100):.2f}"
+        )
+        print(
+            f"% of T intersection samples: {((number_of_t_intersection_samples / number_of_intersection_samples) * 100):.2f}"
+        )
+        print(
+            f"% of X intersection samples: {((number_of_x_intersection_samples / number_of_intersection_samples) * 100):.2f}"
+        )
+        print("=========")
+        print(f"Ball BCE Baseline: {ball_bce_baseline:.5f}")
+        print(f"PenaltyMark BCE Baseline: {penalty_mark_bce_baseline:.5f}")
+        print("=========")
+        for key, value in moments.items():
+            print(f"{key.replace('_', ' ').capitalize()}: ", value)
 
 
 if __name__ == "__main__":
@@ -362,8 +291,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="This script shows statistics about the dataset.")
     parser.add_argument("data_path")
-    parser.add_argument("--calculate_distances", default=False)
-    parser.add_argument("--to_yaml", default=False)
+    parser.add_argument("--calculate_distances", action="store_true", default=False)
+    parser.add_argument("--no_filesave", action="store_false")
+    parser.add_argument("--print_output", action="store_true", default=False)
     args = parser.parse_args()
 
-    main(args.data_path, args.calculate_distances, args.to_yaml)
+    main(args.data_path, args.calculate_distances, args.no_filesave, args.print_output)
