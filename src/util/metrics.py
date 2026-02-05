@@ -229,7 +229,7 @@ def calculate_binary_metrics(
 
     # Add the encoder prediction and the classifier prediction to a combined prediction
     combined_predictions = (
-        best_logits + predictions["classification"]
+        best_logits + tf.squeeze(predictions["classification"], axis=-1)
         if include_encoder_logits
         else predictions["classification"]
     )  # (B, N)
