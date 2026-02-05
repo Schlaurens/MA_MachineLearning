@@ -200,8 +200,9 @@ class RMSE(Error_Metric):
 def calculate_binary_metrics(
     predictions,
     groundtruth,
-    encoder_threshold,
     classifier_threshold,
+    encoder_threshold,
+    padding,
     include_encoder_logits=False,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
@@ -250,9 +251,11 @@ def calculate_binary_metrics(
     best_boxes = tf.gather(predictions["boxes"], best_score_index, batch_dims=1)  # (B, 4)
 
     coords_true_normalized = coords_true / [640, 480]  # [B, 2]
+
     # Is True if the best predicted box is actually on the object.
-    valid_boxes = u_keypoint.are_coords_in_patch(coords_true_normalized, best_boxes)  # (B, )
-    # print(best_boxes)
+    valid_boxes = u_keypoint.are_coords_in_patch(
+        coords_true_normalized, best_boxes, padding
+    )  # (B, )
 
     # Is True if the prediction of the best patch is greater-equal the combined threshold
     over_threshold = best_predictions >= (encoder_threshold + classifier_threshold)  # (B, )
