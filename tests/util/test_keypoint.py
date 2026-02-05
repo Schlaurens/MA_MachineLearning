@@ -73,3 +73,15 @@ class TestAreCoordsInPatch:
         result = u_keypoint.are_coords_in_patch(coordinates_normalized, box, padding=0.20)
 
         assert tf.reduce_all(result == expected)
+
+    def test_single_coord_multiple_boxes(self):
+        coordinates_normalized = tf.constant([[0.75, 0.9]], tf.float32)  # (1, 2)
+        boxes = tf.constant(
+            [[[0.5, 0.5, 1.0, 1.0], [3, 3, 2.0, 2.0], [0.5, 0.5, 1.0, 1.0]]], tf.float32
+        )  # (1, 3, 4)
+
+        expected = tf.constant([True, False, True])
+
+        result = u_keypoint.are_coords_in_patch(coordinates_normalized, boxes, padding=0)
+
+        assert tf.reduce_all(result == expected)
