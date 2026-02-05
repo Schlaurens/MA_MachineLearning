@@ -418,6 +418,35 @@ def calculate_multiclass_metrics(
     }
 
 
+def calculate_metrics(
+    predictions: dict,
+    groundtruth: dict,
+    num_classes: int,
+    classifier_threshold: float,
+    encoder_threshold: float,
+    padding: float = None,
+):
+    if num_classes > 1:
+        return calculate_multiclass_metrics(
+            predictions, groundtruth, classifier_threshold, encoder_threshold
+        )
+
+    else:
+        binary_metrics = calculate_binary_metrics(
+            predictions, groundtruth, classifier_threshold, encoder_threshold, padding
+        )
+        return {
+            "confusion_matrix": binary_metrics["confusion_matrix"],
+            "precisions": np.array([binary_metrics["precision"], binary_metrics["precision"]]),
+            "recalls": np.array([binary_metrics["recall"], binary_metrics["recall"]]),
+            "confusion_matrix_pooled": binary_metrics["confusion_matrix"],
+            "precision_pooled": binary_metrics["precision"],
+            "recall_pooled": binary_metrics["recall"],
+            "fp_rate": binary_metrics["fp_rate"],
+            "fn_rate": binary_metrics["fn_rate"],
+        }
+
+
 def get_thresholding_mask(
     classifier_preds: tf.Tensor,
     classifier_threshold: float,
