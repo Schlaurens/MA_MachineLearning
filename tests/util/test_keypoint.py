@@ -85,3 +85,13 @@ class TestAreCoordsInPatch:
         result = u_keypoint.are_coords_in_patch(coordinates_normalized, boxes, padding=0)
 
         assert tf.reduce_all(result == expected)
+
+    def test_negative_coords(self):
+        coordinates_normalized = tf.constant([[-0.0015625, -0.00208333]], tf.float32)
+        box = tf.constant([0.5, 0.5, 1.0, 1.0], tf.float32)
+
+        expected = tf.constant([False])
+
+        result = u_keypoint.are_coords_in_patch(coordinates_normalized, box, padding=0.20)
+
+        assert tf.reduce_all(result == expected)
