@@ -191,6 +191,11 @@ class FullModel(tf.keras.Model):
             0.0,
         )  # (B, N)
 
+        # The Encoder predictions for each of the patches
+        encoder_predictions = tf.gather(
+            results["logits"], results["patch_indices"], batch_dims=1
+        )  # (B, N)
+
         # Compute BinaryCrossEntropy / CategoricalCrossEntropy
         y_pred = results["classification"]  # (B, N) | (B, N, N_O) depending on category type
 
@@ -223,11 +228,6 @@ class FullModel(tf.keras.Model):
                 axis=-1,
             )  # (B, 1)
 
-            # The Encoder predictions for each of the patches
-            encoder_predictions = tf.gather(
-                results["logits"], results["patch_indices"], batch_dims=1
-            )  # (B, N)
-
             # If a sample should be ignored the cross_entropy of that sample is set to a constant 0 which is not differentiable.
             # Also multiply the cross_entropy with the output of the encoder to weed out patches the encoder is not confident in.
             cross_entropy_multiplied = (
@@ -246,9 +246,15 @@ class FullModel(tf.keras.Model):
         ]:  # For binary categories use BCE
             y_true = are_coords_true_inside_patch  # (B, N)
 
-            cross_entropy = tf.keras.losses.BinaryCrossentropy(
-                from_logits=False, name="classifier_bce"
-            )(y_true, y_pred)  # Shape: ()
+            cross_entropy_batched = tf.keras.losses.BinaryCrossentropy(
+                from_logits=False, reduction=None, name="classifier_bce"
+            )(y_true, y_pred)  # Shape: (B, N)
+
+            cross_entropy_multiplied = cross_entropy_batched * tf.stop_gradient(
+                tf.expand_dims(encoder_predictions, axis=-1)
+            )
+
+            cross_entropy = tf.reduce_sum(tf.reduce_mean(cross_entropy_multiplied, axis=-1))
 
             error_factor = tf.squeeze(y_pred, axis=-1)  # (B, N)
         else:
