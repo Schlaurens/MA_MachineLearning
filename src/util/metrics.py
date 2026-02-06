@@ -203,7 +203,6 @@ def calculate_binary_metrics(
     classifier_threshold,
     encoder_threshold,
     padding,
-    include_encoder_logits=False,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
 
@@ -228,42 +227,41 @@ def calculate_binary_metrics(
         predictions["logits"], predictions["patch_indices"], batch_dims=1
     )  # (B, N)
 
-    # Add the encoder prediction and the classifier prediction to a combined prediction
-    combined_predictions = (
-        best_logits + tf.squeeze(predictions["classification"], axis=-1)
-        if include_encoder_logits
-        else tf.squeeze(predictions["classification"], axis=-1)
-    )  # (B, N)
+    classification_scores = tf.squeeze(predictions["classification"], axis=-1) # (B, N)
 
-    # The groundtruth coordinates of the object
-    coords_true = u_keypoint.get_coords_from_offsets(groundtruth["offset_mask"])  # (B, 2)
+    combined_threshold_mask = get_thresholding_mask(
+        classification_scores,
+        classifier_threshold,
+        best_logits,
+        encoder_threshold,
+    )  # (B, N)
+    
+    # The groundtruth coordinates of the object. Assumes there is only ONE instance of the object in the image.
+    coords_true = dataset_utils.get_coordinate_mask(groundtruth["offset_mask"])[:, 0, 0,:]
+
     object_in_image = tf.math.reduce_any(
         tf.cast(groundtruth["object_mask"], tf.bool), axis=[1, 2]
     )  # (B, )
 
-    # The patch_indices with the best combined prediction score
-    best_score_index = tf.argmax(combined_predictions, axis=-1)  # (B, )
-
-    # The best prediction of each sample.
-    best_predictions = tf.gather(combined_predictions, best_score_index, batch_dims=1)  # (B, )
+    # The index of the candidate with the best classification score
+    best_score_index = tf.argmax(combined_threshold_mask, axis=-1)  # (B, )
+    
+    thresholding_mask_of_best_candidate = tf.gather(combined_threshold_mask, best_score_index, batch_dims=1) # (B, )
 
     # The best box of each sample
-    best_boxes = tf.gather(predictions["boxes"], best_score_index, batch_dims=1)  # (B, 4)
+    best_box = tf.gather(predictions["boxes"], best_score_index, batch_dims=1)  # (B, 4)
 
-    coords_true_normalized = coords_true / [640, 480]  # [B, 2]
+    coords_true_normalized = coords_true / [640, 480]  # (B, 2)
 
     # Is True if the best predicted box is actually on the object.
-    valid_boxes = u_keypoint.are_coords_in_patch(
-        coords_true_normalized, best_boxes, padding
+    is_box_valid = u_keypoint.are_coords_in_patch(
+        coords_true_normalized, best_box, padding
     )  # (B, )
 
-    # Is True if the prediction of the best patch is greater-equal the combined threshold
-    over_threshold = best_predictions >= (encoder_threshold + classifier_threshold)  # (B, )
-
-    fp = over_threshold & tf.math.logical_not(valid_boxes)  # (B, )
-    tp = over_threshold & valid_boxes  # (B, )
-    fn = tf.math.logical_not(over_threshold) & object_in_image  # (B, )
-    tn = tf.math.logical_not(over_threshold) & tf.logical_not(object_in_image)  # (B, )
+    fp = thresholding_mask_of_best_candidate & tf.math.logical_not(is_box_valid)  # (B, )
+    tp = thresholding_mask_of_best_candidate & is_box_valid  # (B, )
+    fn = tf.math.logical_not(thresholding_mask_of_best_candidate) & object_in_image  # (B, )
+    tn = tf.math.logical_not(thresholding_mask_of_best_candidate) & tf.logical_not(object_in_image)  # (B, )
 
     fp_count = tf.math.count_nonzero(fp).numpy()
     tp_count = tf.math.count_nonzero(tp).numpy()
