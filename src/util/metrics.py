@@ -606,7 +606,6 @@ def save_predictions(
     classifier_threshold: float,
     encoder_threshold: float,
     nms_iou_threshold: float,
-    nms_max_output_size: float,
 ) -> None:
     """Saves the predictions for each object category into a .json file.
 
@@ -627,27 +626,12 @@ def save_predictions(
             for x, y, conf in tensor.numpy()
         ]
 
-    selected_indices = batch_nms(
-        predictions["boxes"],
-        tf.reduce_max(predictions["classification"], axis=-1),
-        nms_max_output_size,
-        nms_iou_threshold,
-    )
-
-    best_logits = tf.gather(
-        predictions["logits"],
-        predictions["patch_indices"],
-        batch_dims=1,
-    )  # (B, N)
-    classifier_preds = tf.reduce_max(predictions["classification"], axis=-1)  # (B, N)
     positions = predictions["positions"]  # (B, N, 2)
+    classifier_preds = tf.reduce_max(predictions["classification"], axis=-1)  # (B, N)
 
-    thresholding_mask = get_thresholding_mask(
-        classifier_preds,
-        classifier_threshold,
-        best_logits,
-        encoder_threshold,
-    )  # (B, N)
+    processed_predictions = handle_predictions(
+        predictions, encoder_threshold, classifier_threshold, nms_iou_threshold
+    )
 
     preds = []
     for idx, name in enumerate(groundtruth["name"]):
@@ -659,32 +643,30 @@ def save_predictions(
         }
 
         if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
-            intersections_thresholded = tf.reshape(
-                tf.where(
-                    tf.reshape(thresholding_mask, [-1]),
-                    tf.reshape(tf.argmax(predictions["classification"], axis=-1), [-1]),
-                    0,
-                ),
-                tf.shape(thresholding_mask),
-            )  # (B, N)
-
-            intersections_thresholded_supressed = tf.gather(
-                intersections_thresholded[idx], selected_indices[idx]
+            nms_valid_indices = tf.slice(
+                processed_predictions["nms_selected_indices"][idx],
+                tf.constant([0]),
+                processed_predictions["nms_num_valid"][idx, tf.newaxis],
             )
-            positions_supressed = tf.gather(positions[idx], selected_indices[idx])
-            classifier_preds_supressed = tf.gather(classifier_preds[idx], selected_indices[idx])
 
-            l_intersections = intersections_thresholded_supressed == 1
+            intersections_thresholded_suppressed = tf.gather(
+                processed_predictions["classes_of_candidates"][idx],
+                nms_valid_indices,
+            )
+            positions_supressed = tf.gather(positions[idx], nms_valid_indices)
+            classifier_preds_supressed = tf.gather(classifier_preds[idx], nms_valid_indices)
+
+            l_intersections = intersections_thresholded_suppressed == 1
             l_positions = tf.boolean_mask(positions_supressed, l_intersections)
             l_confidence = tf.boolean_mask(classifier_preds_supressed, l_intersections)
             l_tensor = tf.concat([l_positions, tf.expand_dims(l_confidence, axis=-1)], axis=-1)
 
-            t_intersections = intersections_thresholded_supressed == 2
+            t_intersections = intersections_thresholded_suppressed == 2
             t_positions = tf.boolean_mask(positions_supressed, t_intersections)
             t_confidence = tf.boolean_mask(classifier_preds_supressed, t_intersections)
             t_tensor = tf.concat([t_positions, tf.expand_dims(t_confidence, axis=-1)], axis=-1)
 
-            x_intersections = intersections_thresholded_supressed == 3
+            x_intersections = intersections_thresholded_suppressed == 3
             x_positions = tf.boolean_mask(positions_supressed, x_intersections)
             x_confidence = tf.boolean_mask(classifier_preds_supressed, x_intersections)
             x_tensor = tf.concat([x_positions, tf.expand_dims(x_confidence, axis=-1)], axis=-1)
@@ -699,18 +681,23 @@ def save_predictions(
             u_dataset.CategoryNames.BALL.value,
             u_dataset.CategoryNames.PENALTYMARK.value,
         ]:
-            best_position = tf.boolean_mask(positions[idx], thresholding_mask[idx])  # (1, 2)
-            best_classifier_preds = tf.boolean_mask(
-                classifier_preds[idx], thresholding_mask[idx]
-            )  # Shape: ( )
+            if not processed_predictions["valid_samples"][idx]:
+                sample[object_name] = []
+                preds.append(sample)
+                continue
+
+            best_position = tf.gather(
+                positions[idx], processed_predictions["best_candidate_indices"][idx]
+            )  # (1, 2)
+            best_classifier_preds = processed_predictions["classifier_confidences"][
+                idx
+            ]  # Shape: ( )
 
             tensor = tf.concat(
                 [best_position, tf.expand_dims(best_classifier_preds, axis=-1)], axis=-1
             )
-            if tf.size(tensor) == 0:
-                sample[object_name] = []
-            else:
-                sample[object_name] = coords_tensor_to_dict_list(tf.expand_dims(tensor[0], 0))
+
+            sample[object_name] = coords_tensor_to_dict_list(tf.expand_dims(tensor, 0))
         else:
             raise ValueError("Invalid object_name.")
 
