@@ -735,3 +735,70 @@ def save_predictions(
     os.makedirs(save_directory, exist_ok=True)
     with open(f"{save_directory}/{object_name}.json", "w") as f:
         json.dump(preds, f, indent=4)
+def handle_predictions_multiclass(
+    predictions: dict,
+    encoder_threshold: float,
+    classifier_threshold: float,
+    iou_threshold: float = None,
+):
+    """Processes multiclass predictions by applying thresholding and non-maximum suppression to filter and classify candidates.
+
+    This function takes raw predictions from a model and applies thresholding based on classifier and encoder
+    confidence scores. If specified, it also applies non-maximum suppression to limit the number of output candidates
+    per batch based on their intersection-over-union (IoU) overlap and confidence scores.
+
+    Args:
+        predictions (dict): A dictionary containing model predictions with the following keys:
+            - "classification": Tensor of shape (B, N, num_classes) containing classification logits for each candidate.
+            - "boxes": Tensor of shape (B, N, 4) containing bounding box coordinates for each candidate.
+            - "logits": Tensor containing encoder logits for each candidate.
+            - "patch_indices": Tensor containing encoder indices of patches corresponding to each candidate.
+        encoder_threshold (float): Threshold for the encoder's confidence scores. Candidates with scores below this threshold are filtered out.
+        classifier_threshold (float): Threshold for the classifier's confidence scores. Candidates with scores below this threshold are filtered out.
+        iou_threshold (float, optional): Intersection-over-union (IoU) threshold for non-maximum suppression. Candidates with an IoU overlap greater than this threshold are suppressed. If None, non-maximum suppression is not applied.
+
+    Returns:
+        dict: A dictionary containing processed prediction information with the following keys:
+            - "classes_of_candidates": Tensor of shape (B, N) containing the predicted class labels for each candidate, with candidates below the threshold classified as 0 (negative class).
+            - "threshold_mask": Tensor of shape (B, N) indicating which candidates passed the thresholding criteria.
+            - "nms_selected_indices": Tensor of shape (B, N) containing the indices of candidates selected by non-maximum suppression, or None if non-maximum suppression was not applied.
+            - "nms_num_valid": Tensor of shape (B,) containing the number of valid candidates per batch after non-maximum suppression, or None if non-maximum suppression was not applied.
+    """
+    classification_scores = predictions["classification"]  # (B, N, num_classes)
+    num_candidates = tf.shape(classification_scores)[1]
+
+    nms_selected_indices = None
+    nms_num_valid = None
+
+    if iou_threshold is not None:
+        nms_selected_indices, nms_num_valid = tf.image.non_max_suppression_padded(
+            predictions["boxes"],  # (B, N, 4)
+            tf.reduce_max(classification_scores, axis=-1),  # (B, N)
+            num_candidates,
+            iou_threshold,
+            pad_to_max_output_size=True,
+        )  # (B, N), (B, )
+
+    best_logits = tf.gather(
+        predictions["logits"], predictions["patch_indices"], batch_dims=1
+    )  # (B, N)
+
+    # Candidates that pass the threshold(s)
+    combined_threshold_mask = get_thresholding_mask(
+        tf.reduce_max(classification_scores, axis=-1),
+        classifier_threshold,
+        best_logits,
+        encoder_threshold,
+    )  # (B, N)
+
+    y_pred_labels = tf.argmax(classification_scores, axis=-1)  # (B, N)
+
+    # Classify all samples that are under the threshold as 0 (negative class).
+    masked_scores = tf.where(combined_threshold_mask, y_pred_labels, 0)  # (B, N)
+
+    return {
+        "classes_of_candidates": masked_scores,
+        "threshold_mask": combined_threshold_mask,
+        "nms_selected_indices": nms_selected_indices,
+        "nms_num_valid": nms_num_valid,
+    }
