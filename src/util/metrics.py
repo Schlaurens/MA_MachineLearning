@@ -735,6 +735,73 @@ def save_predictions(
     os.makedirs(save_directory, exist_ok=True)
     with open(f"{save_directory}/{object_name}.json", "w") as f:
         json.dump(preds, f, indent=4)
+
+
+def handle_predictions_binary(predictions, encoder_threshold, classifier_threshold):
+    """Processes binary predictions by applying thresholding to filter and classify candidates.
+
+    This function takes raw predictions from a model and applies thresholding based on classifier and encoder
+    confidence scores. It returns information about valid samples, the indices of the best candidates, and their
+    corresponding confidence scores.
+
+    Args:
+        predictions (dict): A dictionary containing model predictions with the following keys:
+            - "classification": Tensor of shape (B, N) containing classification scores for each candidate.
+            - "logits": Tensor containing logits for each candidate.
+            - "patch_indices": Tensor containing indices of patches corresponding to each candidate.
+        encoder_threshold (float): Threshold for the encoder's confidence scores. Candidates with scores below this threshold are filtered out.
+        classifier_threshold (float): Threshold for the classifier's confidence scores. Candidates with scores below this threshold are filtered out.
+
+    Returns:
+        dict: A dictionary containing processed prediction information with the following keys:
+            - "valid_samples": Tensor of shape (B,) indicating whether each sample contains at least one valid candidate.
+            - "threshold_mask": Tensor of shape (B,) indicating whether the best candidate for each sample passed the thresholding criteria.
+            - "best_candidate_indices": Tensor of shape (B,) containing the indices of the best candidates.
+            - "encoder_confidences": Tensor of shape (B,) containing the encoder confidence scores for the best candidates.
+            - "classifier_confidences": Tensor of shape (B,) containing the classifier confidence scores for the best candidates.
+    """
+    best_logits = tf.gather(
+        predictions["logits"], predictions["patch_indices"], batch_dims=1
+    )  # (B, N)
+    classification_scores = tf.squeeze(predictions["classification"], axis=-1)  # (B, N)
+
+    # Candidates that pass the threshold(s)
+    combined_threshold_mask = get_thresholding_mask(
+        classification_scores,
+        classifier_threshold,
+        best_logits,
+        encoder_threshold,
+    )  # (B, N)
+
+    # If the classification_scores are invalid because of the threshold, they are tf.float32.min !
+    masked_scores = tf.where(
+        combined_threshold_mask, classification_scores, tf.float32.min
+    )  # (B, N)
+
+    # True if the sample contains a valid candidate, else False.
+    valid_samples = ~tf.reduce_all(masked_scores == tf.float32.min, axis=-1)  # (B, )
+
+    # The indices of the candidate with the highest confidence and where the candidate is inside the threshold.
+    best_score_index = tf.argmax(
+        masked_scores,
+        axis=-1,
+    )  # (B, )
+
+    threshold_mask = tf.gather(combined_threshold_mask, best_score_index, batch_dims=1)  # (B, )
+    encoder_confidences = tf.gather(best_logits, best_score_index, batch_dims=1)  # (B, )
+    classifier_confidences = tf.gather(
+        classification_scores, best_score_index, batch_dims=1
+    )  # (B, )
+
+    return {
+        "valid_samples": valid_samples,
+        "threshold_mask": threshold_mask,
+        "best_candidate_indices": best_score_index,
+        "encoder_confidences": encoder_confidences,
+        "classifier_confidences": classifier_confidences,
+    }
+
+
 def handle_predictions_multiclass(
     predictions: dict,
     encoder_threshold: float,
