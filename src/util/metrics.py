@@ -853,3 +853,60 @@ def handle_predictions_multiclass(
         "nms_selected_indices": nms_selected_indices,
         "nms_num_valid": nms_num_valid,
     }
+
+
+def handle_predictions(
+    predictions: dict, encoder_threshold: float, classifier_threshold: float, iou_threshold: float
+):
+    """A wrapper function that processes predictions based on the number of classes in the classification tensor.
+
+    This function acts as a dispatcher, directing the handling of predictions to either a multiclass or binary classification
+    handler based on the number of classes detected in the predictions. It ensures that the appropriate
+    processing is applied according to the model's output structure.
+
+    Args:
+        predictions (dict): A dictionary containing model predictions
+        encoder_threshold (float): Threshold for the encoder's confidence scores.
+            Candidates with scores below this threshold are filtered out.
+        classifier_threshold (float): Threshold for the classifier's confidence scores.
+            Candidates with scores below this threshold are filtered out.
+        iou_threshold (float): Intersection-over-union (IoU) threshold for non-maximum suppression.
+            Used only in multiclass predictions. Candidates with an IoU overlap greater than this
+            threshold are suppressed.
+
+    Raises:
+        ValueError: If the number of classes in the classification tensor is not 1 or greater than 1.
+            This indicates an unexpected shape of the classification tensor.
+
+    Returns:
+        dict: Processed prediction information. The structure of the returned dictionary depends on
+            whether the predictions are multiclass or binary:
+            - For multiclass predictions, refer to the return value of `handle_predictions_multiclass`.
+            - For binary predictions, refer to the return value of `handle_predictions_binary`.
+
+    Example:
+        For multiclass predictions, the returned dictionary will contain:
+            - "classes_of_candidates": Tensor of shape (B, N) containing the predicted class labels.
+            - "threshold_mask": Tensor of shape (B, N) indicating which candidates passed the thresholding criteria.
+            - "nms_selected_indices": Tensor of shape (B, N) containing the indices of candidates selected by non-maximum suppression.
+            - "nms_num_valid": Tensor of shape (B,) containing the number of valid candidates per batch after non-maximum suppression.
+
+        For binary predictions, the returned dictionary will contain:
+            - "valid_samples": Tensor indicating whether each sample contains at least one valid candidate.
+            - "threshold_mask": Tensor indicating whether the best candidate for each sample passed the thresholding criteria.
+            - "best_candidate_indices": Tensor containing the indices of the best candidates.
+            - "encoder_confidences": Tensor containing the encoder confidence scores for the best candidates.
+            - "classifier_confidences": Tensor containing the classifier confidence scores for the best candidates.
+    """
+    num_classes = tf.shape(predictions["classification"])[-1]
+
+    if num_classes > 1:
+        return handle_predictions_multiclass(
+            predictions, encoder_threshold, classifier_threshold, iou_threshold
+        )
+    elif num_classes == 1:
+        return handle_predictions_binary(predictions, encoder_threshold, classifier_threshold)
+    else:
+        raise ValueError(
+            "Unknown number of classes. Classification Tensor in predictions probably has no num_classes dimension."
+        )
