@@ -31,6 +31,7 @@ from train.models import FullModel
 from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 from util import image as u_image
+from util import metrics as u_metrics
 
 dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
 
@@ -141,23 +142,25 @@ class EvaluateApplication:
         Returns:
             The axes with the prediction. Or a zeros array if no object has been found that exceeds the combined threshold of encoder and classifier confidence.
         """
-        patch_indices = output["results"][object_name]["patch_indices"][0]
-        best_logit = tf.reduce_max(
-            tf.gather(output["results"][object_name]["logits"][0], patch_indices)
-        )  # ( )
 
-        # The sum of the encoder's and classifier's prediction values
-        predictions_scores = tf.squeeze(
-            output["results"][object_name]["classification"][0], axis=-1
+        best_prediction = u_metrics.handle_predictions(
+            output["results"][object_name],
+            self.thresholds["encoder"][object_name],
+            self.thresholds["classifier"][object_name],
+            0.35,
         )
-        best_score_index = np.argmax(predictions_scores)
+
+        if not best_prediction["valid_samples"]:
+            return axes.imshow(np.zeros((32, 32)))
+
+        best_score_index = best_prediction["best_candidate_indices"][0]
+        best_box = output["results"][object_name]["boxes"][0][best_score_index]
 
         # Get the offset predicted by the classifier. This works because (position = coords + classifier_offset).
         best_classifier_offset = (
             output["results"][object_name]["positions"][0][best_score_index]
             - output["results"][object_name]["coords"][0][best_score_index]
         )
-        best_box = output["results"][object_name]["boxes"][0][best_score_index]
 
         # We only need the width because the patch is a square.
         best_width = (best_box[3] - best_box[1]) * (640 - 1)
@@ -168,22 +171,18 @@ class EvaluateApplication:
         # The classifier_offset need to be added the center coordinates of the patch.
         best_position = (best_width / 2 + best_classifier_offset) * patch_to_box_ratio
 
-        if (
-            predictions_scores[best_score_index] >= self.thresholds["classifier"][object_name]
-            and best_logit >= self.thresholds["encoder"][object_name]
-        ):
-            best_classification = tf.squeeze(
-                output["results"][object_name]["classification"][0], axis=-1
-            )[best_score_index].numpy()
-            axes.plot(*best_position, "bx")
-            axes.text(0, 2, f"cand.: {best_score_index + 1}", color="lime")
-            axes.text(0, 4, f"enc.: {best_logit.numpy():.3f}", color="lime")
-            axes.text(0, 6, f"cla.: {best_classification:.3f}", color="lime")
-            return axes.imshow(
-                output["results"][object_name]["patches"][0][best_score_index][..., 0], cmap="gray"
-            )
-        else:
-            return axes.imshow(np.zeros((32, 32)))
+        axes.plot(*best_position, "bx")
+        axes.plot()
+        axes.text(0, 2, f"cand.: {best_score_index + 1}", color="lime")
+        axes.text(
+            0, 4, f"enc.: {best_prediction['encoder_confidences'][0].numpy():.3f}", color="lime"
+        )
+        axes.text(
+            0, 6, f"cla.: {best_prediction['classifier_confidences'][0].numpy():.3f}", color="lime"
+        )
+        return axes.imshow(
+            output["results"][object_name]["patches"][0][best_score_index][..., 0], cmap="gray"
+        )
 
     def remove_artists(self):
         """Remove all the Artists (texts, patches and lines) for all the axes."""
