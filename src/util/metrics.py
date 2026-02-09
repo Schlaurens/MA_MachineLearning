@@ -203,6 +203,9 @@ def calculate_binary_metrics(
     classifier_threshold,
     encoder_threshold,
     padding,
+    camera,
+    intrinsics,
+    max_distance,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
 
@@ -223,12 +226,23 @@ def calculate_binary_metrics(
     """
 
     # The groundtruth coordinates of the object. Assumes there is only ONE instance of the object in the image.
-    coords_true = dataset_utils.get_coordinate_mask(groundtruth["offset_mask"])[:, 0, 0, :]
+    coords_true = dataset_utils.get_coordinate_mask(groundtruth["offset_mask"])[
+        :, 0, 0, :
+    ]  # (B, 2)
     coords_true_normalized = coords_true / dataset_utils.config.input_dims[::-1]  # (B, 2)
 
-    object_in_image = tf.math.reduce_any(
-        tf.cast(groundtruth["object_mask"], tf.bool), axis=[1, 2]
-    )  # (B, )
+    # coords_true that are not (-1.0, -1.0)
+    valid_coords = ~tf.reduce_all(coords_true == -1.0, axis=-1)
+
+    coords_true_distances = tf.linalg.norm(
+        u_camera.image_to_world(camera, intrinsics, coords_true), axis=-1, keepdims=True
+    )
+    # The distances of the coords_true that are not (-1.0, -1.0)
+    coords_true_distances_valid = tf.where(
+        valid_coords, tf.squeeze(coords_true_distances, axis=-1), np.inf
+    )
+    # Binary mask of the coords_true that are valid and inside the max_distance threshold.
+    coords_true_distance_mask = coords_true_distances_valid <= max_distance
 
     best_predictions = handle_predictions_binary(
         predictions, encoder_threshold, classifier_threshold
@@ -244,11 +258,15 @@ def calculate_binary_metrics(
         coords_true_normalized, best_box, padding
     )  # (B, )
 
-    fp = best_predictions["valid_samples"] & tf.math.logical_not(is_best_box_valid)  # (B, )
-    tp = best_predictions["valid_samples"] & is_best_box_valid  # (B, )
-    fn = tf.math.logical_not(best_predictions["valid_samples"]) & object_in_image  # (B, )
+    fp = (
+        best_predictions["valid_samples"]
+        & tf.math.logical_not(is_best_box_valid)
+        & coords_true_distance_mask
+    )  # (B, )
+    tp = best_predictions["valid_samples"] & is_best_box_valid & coords_true_distance_mask  # (B, )
+    fn = tf.math.logical_not(best_predictions["valid_samples"]) & coords_true_distance_mask  # (B, )
     tn = tf.math.logical_not(best_predictions["valid_samples"]) & tf.logical_not(
-        object_in_image
+        coords_true_distance_mask
     )  # (B, )
 
     fp_count = tf.math.count_nonzero(fp).numpy()
@@ -412,6 +430,9 @@ def calculate_metrics(
     num_classes: int,
     classifier_threshold: float,
     encoder_threshold: float,
+    camera,
+    intrinsics,
+    max_distance,
     padding: float = None,
     iou_threshold: float = None,
 ):
@@ -422,7 +443,14 @@ def calculate_metrics(
 
     else:
         binary_metrics = calculate_binary_metrics(
-            predictions, groundtruth, classifier_threshold, encoder_threshold, padding
+            predictions,
+            groundtruth,
+            classifier_threshold,
+            encoder_threshold,
+            padding,
+            camera,
+            intrinsics,
+            max_distance,
         )
         return {
             "confusion_matrix": binary_metrics["confusion_matrix"],
