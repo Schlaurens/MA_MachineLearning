@@ -167,12 +167,6 @@ class EvaluateApplication:
         abs_error = np.linalg.norm(coords_true - position_pred)
         best_box = output["results"][object_name]["boxes"][0][best_score_index]
 
-        # Get the offset predicted by the classifier. This works because (position = coords + classifier_offset).
-        best_classifier_offset = (
-            output["results"][object_name]["positions"][0][best_score_index]
-            - output["results"][object_name]["coords"][0][best_score_index]
-        )
-
         # We only need the width because the patch is a square.
         best_width = (best_box[3] - best_box[1]) * (640 - 1)
 
@@ -219,9 +213,6 @@ class EvaluateApplication:
 
         suppressed_indices = []
         if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
-            tf.print("sel_ind: ", processed_predictions["nms_selected_indices"])
-            tf.print("num_v: ", processed_predictions["nms_num_valid"])
-
             suppressed_indices = tf.slice(
                 processed_predictions["nms_selected_indices"][0],
                 tf.constant([0]),
