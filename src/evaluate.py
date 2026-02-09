@@ -63,14 +63,14 @@ class EvaluateApplication:
         self.index = 0
         self.thresholds = {
             "encoder": {
-                "ball": 0.8,
-                "penaltyMark": 0.8,
-                "intersections": 0.8,
+                "ball": 0.1,
+                "penaltyMark": 0.1,
+                "intersections": 0.1,
             },
             "classifier": {
-                "ball": 0.6,
-                "penaltyMark": 0.6,
-                "intersections": 0.6,
+                "ball": 0.9,
+                "penaltyMark": 0.9,
+                "intersections": 0.9,
             },
         }
 
