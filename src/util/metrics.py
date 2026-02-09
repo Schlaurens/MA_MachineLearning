@@ -300,7 +300,10 @@ def calculate_multiclass_metrics(
     predictions: dict,
     groundtruth: dict,
     classifier_threshold: float,
-    encoder_threshold: float = 0.1,
+    encoder_threshold: float,
+    camera,
+    intrinsics,
+    max_distance,
     iou_threshold: float = None,
 ):
     """
@@ -320,17 +323,22 @@ def calculate_multiclass_metrics(
     Returns:
         dict containing per-class confusion matrices, precision, recall, and error indices or the pooled metrics.
     """
-
-    # True for every sample that should be used. False else.
-    use_sample = tf.cast(
-        tf.reduce_any(tf.cast(groundtruth["loss_mask"], tf.bool), axis=[1, 2]),
-        tf.float32,
-    )  # (B, )
-
     predicted_probabilities = predictions["classification"]  # (B, N, num_classes)
 
     num_classes = tf.shape(predicted_probabilities)[-1]
     num_candidates = tf.shape(predicted_probabilities)[1]
+
+    # True for every sample that should be used. False else.
+    use_sample = tf.reduce_any(tf.cast(groundtruth["loss_mask"], tf.bool), axis=[1, 2])  # (B, )
+    use_sample_tiled = tf.reshape(
+        tf.tile(use_sample[:, None], [1, num_candidates]), [-1]
+    )  # (B * N)
+
+    coord_mask = tf.reshape(
+        dataset_utils.get_coordinate_mask(groundtruth["offset_mask"]),
+        (-1, tf.reduce_prod(dataset_utils.config.output_dims), 2),
+    )  # (B, 15 * 20, 2)
+    coords_true = tf.gather(coord_mask, predictions["patch_indices"], batch_dims=1)  # (B, N, 2)
 
     processed_predictions = handle_predictions_multiclass(
         predictions, encoder_threshold, classifier_threshold, iou_threshold
@@ -342,40 +350,67 @@ def calculate_multiclass_metrics(
         ),
         tf.int32,
     )  # (B, N)
-
-    y_true_labels_filtered = tf.boolean_mask(y_true_labels, use_sample)  # (#use_samples, N)
-    y_pred_labels_filtered = tf.boolean_mask(
-        processed_predictions["classes_of_candidates"], use_sample
-    )  # (#use_samples, N)
+    y_pred_labels = processed_predictions["classes_of_candidates"]  # (B, N)
 
     # ==== Handle Non-Maximum-Suppression ====
     if iou_threshold is not None:
-        suppressed_indices_filtered = tf.boolean_mask(
-            processed_predictions["nms_selected_indices"], use_sample
-        )  # (#use_samples * N)
-        nms_num_valid_filtered = tf.boolean_mask(
-            processed_predictions["nms_num_valid"], use_sample
-        )  # (#use_samples)
-
         # Binary mask that is True where the selected indices by the nms are NOT padded.
         nms_sequence_mask = tf.reshape(
-            tf.sequence_mask(nms_num_valid_filtered, maxlen=num_candidates), [-1]
-        )  # (#numsamples * N)
+            tf.sequence_mask(processed_predictions["nms_num_valid"], maxlen=num_candidates), [-1]
+        )  # (B * N)
 
         y_true_suppressed = tf.reshape(
-            tf.gather(y_true_labels_filtered, suppressed_indices_filtered, batch_dims=1), [-1]
+            tf.gather(y_true_labels, processed_predictions["nms_selected_indices"], batch_dims=1),
+            [-1],
         )  # (B * N)
         y_pred_suppressed = tf.reshape(
-            tf.gather(y_pred_labels_filtered, suppressed_indices_filtered, batch_dims=1), [-1]
+            tf.gather(
+                y_pred_labels,
+                processed_predictions["nms_selected_indices"],
+                batch_dims=1,
+            ),
+            [-1],
         )  # (B * N)
+        coords_true_suppressed = tf.reshape(
+            tf.gather(coords_true, processed_predictions["nms_selected_indices"], batch_dims=1),
+            (-1, 2),
+        )  # (B * N, 2)
 
-        y_true_labels_filtered = tf.boolean_mask(y_true_suppressed, nms_sequence_mask)  # (B, )
-        y_pred_labels_filtered = tf.boolean_mask(y_pred_suppressed, nms_sequence_mask)  # (B, )
     else:
-        y_true_labels_filtered = tf.reshape(y_true_labels_filtered, [-1])
-        y_pred_labels_filtered = tf.reshape(y_pred_labels_filtered, [-1])
+        y_true_labels = tf.reshape(y_true_labels, [-1])  # (B * N)
+        y_pred_labels = tf.reshape(y_pred_labels, [-1])  # (B * N)
 
-    tf.assert_equal(tf.shape(y_true_labels_filtered), tf.shape(y_pred_labels_filtered))
+    tf.assert_equal(tf.shape(y_true_labels), tf.shape(y_pred_labels))
+
+    # ==== Handle Distance Filtering ====
+    camera_tiled = tf.tile(camera[:, None, :], [1, num_candidates, 1])
+    intrinsics_tiled = tf.tile(intrinsics[:, None, :], [1, num_candidates, 1])
+
+    valid_coords_true = ~tf.reduce_all(coords_true_suppressed == -1.0, axis=-1)  # (B, )
+    coords_true_distances = tf.linalg.norm(
+        u_camera.image_to_world(
+            tf.reshape(camera_tiled, (-1, 3)),
+            tf.reshape(intrinsics_tiled, (-1, 4)),
+            coords_true_suppressed,
+        ),
+        axis=-1,
+        keepdims=True,
+    )  # (B, N)
+    coords_true_distances_valid = tf.where(
+        valid_coords_true, tf.squeeze(coords_true_distances, axis=-1), np.inf
+    )  # (B, N)
+
+    coords_true_distance_mask = tf.reshape(
+        coords_true_distances_valid <= max_distance, [-1]
+    )  # (B * N)
+
+    y_true_labels_filtered = tf.boolean_mask(
+        y_true_suppressed,
+        use_sample_tiled & nms_sequence_mask & coords_true_distance_mask,
+    )
+    y_pred_labels_filtered = tf.boolean_mask(
+        y_pred_suppressed, use_sample_tiled & nms_sequence_mask & coords_true_distance_mask
+    )
 
     # ===== Evaluation Metrics ======
     # The (num_classes, num_classes) confusion matrix
