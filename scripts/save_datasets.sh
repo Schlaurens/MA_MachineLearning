@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Suppress TensorFlow warnings and messages
+export TF_CPP_MIN_LOG_LEVEL=3  # Suppress TensorFlow logs (0 = all, 1 = info, 2 = warnings, 3 = errors)
+
 # Check if the parent directory is provided
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <parent_directory>"
