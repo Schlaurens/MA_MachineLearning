@@ -88,7 +88,7 @@ def main(args):
 
     print("Writing JSONs...")
     with open(
-        args.destination + "test_" + args.prediction_source.split("/")[-1] + ".json", "w"
+        args.destination + "test_" + args.prediction_source.split("/")[1] + ".json", "w"
     ) as f:
         json.dump(selected_predictions, f, indent=4)
 
