@@ -97,7 +97,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="This script shows statistics about the dataset.")
+    parser = argparse.ArgumentParser(description="This script takes the samples from the test dataset and writes the corresponding samples from gives predictions into separate .json files.")
     parser.add_argument("--test_dataset", default="data/tfrecords/test_ds_v3_1840(0.15).tfrecords")
     parser.add_argument("--groundtruth_source", default="data/groundtruth/")
     parser.add_argument("--prediction_source")
