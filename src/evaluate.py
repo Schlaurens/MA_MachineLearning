@@ -115,7 +115,9 @@ class EvaluateApplication:
         # Set prediction figures
         for category in self.categories:
             output_logits = output["results"][category]["logits"][0].numpy()
-            self.images[f"im_ax_{category}"].set_data(np.reshape(output_logits, dataset_utils.config.output_dims))
+            self.images[f"im_ax_{category}"].set_data(
+                np.reshape(output_logits, dataset_utils.config.output_dims)
+            )
 
             processed_predictions = u_metrics.handle_predictions(
                 output["results"][category],
@@ -228,7 +230,6 @@ class EvaluateApplication:
             logit = output["logits"][0][patch_index]
             coords_pred = output["coords"][0][i]
             position_pred = output["positions"][0][i]
-            # sample_ignored = tf.reduce_any(self.data[self.index][object_name]["loss_mask"])
 
             # dont draw patch if its prediction is under the threshold
             if (
