@@ -71,14 +71,14 @@ fi
 
 # Step 2: Split the dataset
 echo "Splitting dataset..."
-uv run src/split_dataset.py \
+uv run src/dataset/split_dataset.py \
     --save-dir "$SAVE_DIR_TFRECORDS" \
     --val "$VAL_SPLIT" \
     --test "$TEST_SPLIT"
 
 # Step 3: Generate JSON files from selection
 echo "Generating JSON files from selection..."
-uv run src/dataset_from_selection.py \
+uv run src/dataset/from_selection.py \
     --test_dataset "${SAVE_DIR_TFRECORDS}${TEST_DATASET}" \
     --groundtruth_source "$GROUNDTRUTH_SOURCE" \
     --prediction_source "$BHUMAN_PREDICTION_SOURCE" \
@@ -93,7 +93,7 @@ if [ "$PRINT_OUTPUT" = true ]; then
     PRINT_OUTPUT_FLAG="--print_output"
 fi
 
-uv run src/statistics.py \
+uv run src/dataset/statistics.py \
     "$GROUNDTRUTH_SOURCE" \
     $CALCULATE_DISTANCES_FLAG \
     $PRINT_OUTPUT_FLAG

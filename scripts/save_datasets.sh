@@ -22,7 +22,7 @@ for dir in "$parent_dir"/*/; do
     if [ -d "$dir" ]; then
         echo "Generating .tfrecords file for directory: $dir"
         start_time=$(date +%s)
-        uv run src/save_dataset.py "$dir"
+        uv run src/dataset/save_dataset.py "$dir"
         end_time=$(date +%s)
         elapsed=$((end_time - start_time))
         echo "Time taken: $elapsed seconds"
