@@ -1,24 +1,20 @@
-if __name__ == "__main__":
-    import argparse
-    import math
-    import os
+import argparse
+import math
+import os
+import sys
 
-    import pybh.logs as bhlogs
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-    from util import dataset_io as u_dataset_io
-    from util import labels as u_labels
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--thread-filter", default=["Upper"], nargs="+")
-    parser.add_argument("--import-labels", default=True, action="store_true")
-    parser.add_argument(
-        "--destination",
-        default=os.path.join(os.path.dirname(__file__), "../data"),
-    )
-    parser.add_argument("--step", default=30, type=int)
-    parser.add_argument("path")
-    args = parser.parse_args()
+import pybh.logs as bhlogs
 
+from util import dataset_io as u_dataset_io
+from util import labels as u_labels
+
+
+def main(args):
+    print("Extracting Labels...")
     log = bhlogs.Log(args.path)
     destination = os.path.join(args.destination, os.path.basename(args.path)[:-4])
     os.makedirs(destination)
@@ -112,3 +108,18 @@ if __name__ == "__main__":
     u_dataset_io.save_labels(destination, labels)
 
     print("Done!")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--thread-filter", default=["Upper"], nargs="+")
+    parser.add_argument("--import-labels", default=True, action="store_true")
+    parser.add_argument(
+        "--destination",
+        default=os.path.join(os.path.dirname(__file__), "../data"),
+    )
+    parser.add_argument("--step", default=30, type=int)
+    parser.add_argument("path")
+    args = parser.parse_args()
+
+    main(args)
