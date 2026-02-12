@@ -24,7 +24,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -302,11 +301,13 @@ class EvaluateApplication:
             self.slider_image.set_val(max(0, min(current, len(self.data) - 1)))
 
     def load_config(self, config_path):
+        print("Loading Config File...")
         with open(config_path) as f:
             config = yaml.safe_load(f)
         return config
 
     def load_model(self, config, path_to_model, model_name):
+        print("Loading Model...")
         model = FullModel.load(
             encoder_architecture=config["model"]["encoder"]["architecture"],
             classifier_architecture=config["model"]["classifier"]["architecture"],
@@ -327,6 +328,7 @@ class EvaluateApplication:
         return model
 
     def initialize_figures(self):
+        print("Initializing Figures...")
         self.fig = plt.figure(figsize=(15, 8))
         self.gs = GridSpec(16, 18, figure=self.fig)
 
