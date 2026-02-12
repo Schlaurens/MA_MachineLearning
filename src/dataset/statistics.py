@@ -167,7 +167,7 @@ def main(
                 "name": u_dataset.CategoryNames.BALL.value,
                 "height": 0,
             },
-            "penalty_mark": {
+            "penaltyMark": {
                 "name": u_dataset.CategoryNames.PENALTYMARK.value,
                 "height": 0,
             },
