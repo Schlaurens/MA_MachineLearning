@@ -6,6 +6,9 @@ The raw groundtruth data consists of multiple .json files. This script takes an 
 import argparse
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from util import dataset_io as u_dataset_io
 
@@ -97,7 +100,9 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="This script takes the samples from the test dataset and writes the corresponding samples from gives predictions into separate .json files.")
+    parser = argparse.ArgumentParser(
+        description="This script takes the samples from the test dataset and writes the corresponding samples from gives predictions into separate .json files."
+    )
     parser.add_argument("--test_dataset", default="data/tfrecords/test_ds_v3_1840(0.15).tfrecords")
     parser.add_argument("--groundtruth_source", default="data/groundtruth/")
     parser.add_argument("--prediction_source")
