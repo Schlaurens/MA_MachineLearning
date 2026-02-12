@@ -332,7 +332,6 @@ def main(args) -> None:
         ],
         threshold=args.distance_threshold,
         save_path_for_matches=save_path_for_matches,
-        ball_status_only_seen=False,
     )
     print_results(metrics_ball, u_dataset.CategoryNames.PENALTYMARK.value)
 
@@ -347,7 +346,6 @@ def main(args) -> None:
         ],
         threshold=args.distance_threshold,
         save_path_for_matches=save_path_for_matches,
-        ball_status_only_seen=False,
     )
     print_results(metrics_ball, u_dataset.CategoryNames.INTERSECTIONS.value)
 
