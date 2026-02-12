@@ -11,7 +11,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 import yaml
 
-from train.models import FullModel
+from training.models import FullModel
 from util import callbacks as u_callbacks
 from util import dataset_io as u_dataset_io
 

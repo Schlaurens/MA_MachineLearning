@@ -31,7 +31,7 @@ from matplotlib import patches
 from matplotlib.gridspec import GridSpec
 from matplotlib.widgets import Slider
 
-from train.models import FullModel
+from training.models import FullModel
 from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 from util import image as u_image
