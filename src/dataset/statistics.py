@@ -199,7 +199,7 @@ def main(
             )
             if not no_filesave:
                 os.makedirs("data/distances/", exist_ok=True)
-                np.save(f"data/distances/distances_{obj_key}.npy", np.array(distances[obj_key]))
+                np.save(f"data/distances/{obj_key}.npy", np.array(distances[obj_key]))
 
         # Calculate mean and variance for each object type
         for obj_key in distances:
