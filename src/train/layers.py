@@ -20,11 +20,21 @@ class Normalization(tf.keras.layers.Layer):
             name: The Name of the layer. Defaults to None.
         """
         super().__init__(name=name, **kwargs)
-        self.norm_layer = (
-            tf.keras.layers.BatchNormalization(scale=scale)
-            if batch_norm
-            else tf.keras.layers.GroupNormalization(scale=scale, groups=groups)
-        )
+        self.batch_norm = batch_norm
+        self.scale = scale
+        self.groups = groups
+
+    def build(self, input_shape):
+        # Create the normalization layer here, so it gets built with the correct input shape
+        if self.batch_norm:
+            self.norm_layer = tf.keras.layers.BatchNormalization(scale=self.scale)
+        else:
+            self.norm_layer = tf.keras.layers.GroupNormalization(
+                scale=self.scale, groups=self.groups
+            )
+        # Call build on the sub-layer to ensure weights are created
+        self.norm_layer.build(input_shape)
+        super().build(input_shape)  # Call the parent build method
 
     def call(self, inputs):
         return self.norm_layer(inputs)
