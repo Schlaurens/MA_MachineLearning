@@ -2,6 +2,6 @@
 /prelabeled
 /tfrecords
 /b-human_predictions
-/selected
 *.npy
 *.yaml
+/evaluation
