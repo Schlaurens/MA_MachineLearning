@@ -17,7 +17,7 @@
 #     - DATASET_PATH: Base path to the dataset directory.
 #     - SAVE_DIR_TFRECORDS: Directory to save the split datasets in TFRecord format.
 #     - GROUNDTRUTH_SOURCE: Path to the directory containing the groundtruth data.
-#     - SAVE_DIR_SELECTED: Directory to save the generated JSON files generated in the 3rd step.
+#     - SAVE_DIR_EVALUATION: Directory to save the generated JSON files generated in the 3rd step.
 #     - BHUMAN_PREDICTION_SOURCE: Path to the directory containing prediction data from the current B-Human detectors.
 #     - VAL_SPLIT: Fraction of the dataset to use for validation (default: 0.2).
 #     - TEST_SPLIT: Fraction of the dataset to use for testing (default: 0.15).
@@ -40,7 +40,7 @@ export TF_CPP_MIN_LOG_LEVEL=3  # Suppress TensorFlow logs (0 = all, 1 = info, 2 
 DATASET_PATH="data/"
 SAVE_DIR_TFRECORDS="${DATASET_PATH}tfrecords/"
 GROUNDTRUTH_SOURCE="${DATASET_PATH}groundtruth/"
-SAVE_DIR_SELECTED="${DATASET_PATH}selected/"
+SAVE_DIR_EVALUATION="${DATASET_PATH}evaluation/"
 
 # Prediction source
 BHUMAN_PREDICTION_SOURCE="${DATASET_PATH}b-human_predictions/"
@@ -82,7 +82,7 @@ uv run src/dataset/from_selection.py \
     --test_dataset "${SAVE_DIR_TFRECORDS}${TEST_DATASET}" \
     --groundtruth_source "$GROUNDTRUTH_SOURCE" \
     --prediction_source "$BHUMAN_PREDICTION_SOURCE" \
-    --destination "$SAVE_DIR_SELECTED"
+    --destination "$SAVE_DIR_EVALUATION"
 
 # Step 4: Compute statistics
 echo "Computing statistics..."

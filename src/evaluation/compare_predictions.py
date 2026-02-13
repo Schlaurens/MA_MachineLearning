@@ -289,11 +289,11 @@ def print_results(metrics: dict, object_name: str, status: str = "") -> None:
 
 def main(args) -> None:
 
-    save_path_for_matches = Path(args.path_to_data, args.model_timestamp, "matches")
+    save_path_for_matches = Path(args.directory, args.model_timestamp, "matches")
     os.makedirs(save_path_for_matches, exist_ok=True)
 
     config = load_config(args.model_timestamp)
-    data = load_data(Path(args.path_to_data), args.model_timestamp)
+    data = load_data(Path(args.directory), args.model_timestamp)
 
     print("Calculating Comparisons for Balls...")
     metrics_ball = compare_predictions(
@@ -355,7 +355,7 @@ if __name__ == "__main__":
         description="This script compares the prediction of the model with the given the given timestamp and the current B-Human detectors."
     )
     parser.add_argument("--model_timestamp")
-    parser.add_argument("--path_to_data", default="data/selected")
+    parser.add_argument("--directory", default="data/evaluation")
     parser.add_argument("--distance_threshold", default=30.0)
     args = parser.parse_args()
 
