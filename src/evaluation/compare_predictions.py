@@ -24,9 +24,13 @@ def load_data(path_to_data: Path, model_timestamp: str):
     test_groundtruth_path = Path(path_to_data, "test_groundtruth.json")
     test_bhuman_path = Path(path_to_data, "test_b-human_predictions.json")
 
-    test_model_intersections_path = Path(path_to_data, model_timestamp, "intersections.json")
-    test_model_ball_path = Path(path_to_data, model_timestamp, "ball.json")
-    test_model_penaltymark_path = Path(path_to_data, model_timestamp, "penaltyMark.json")
+    test_model_intersections_path = Path(
+        path_to_data, model_timestamp, "predictions", "intersections.json"
+    )
+    test_model_ball_path = Path(path_to_data, model_timestamp, "predictions", "ball.json")
+    test_model_penaltymark_path = Path(
+        path_to_data, model_timestamp, "predictions", "penaltyMark.json"
+    )
 
     test_groundtruth = None
     test_bhuman = None
