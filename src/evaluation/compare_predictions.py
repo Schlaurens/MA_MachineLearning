@@ -88,23 +88,36 @@ def filter_coords_by_distance(
             gt_coords_tensor = coords_tensor  # (N, 2)
             pred_coords_tensor = None
 
-        img_to_wlrd = u_camera.image_to_world(camera, intrinsics, gt_coords_tensor)  # (N, 3)
-        valid_distances = ~tf.reduce_all(img_to_wlrd == -1.0, axis=-1)  # (N, )
+        img_to_wlrd_gt = u_camera.image_to_world(camera, intrinsics, gt_coords_tensor)  # (N, 3)
+        valid_distances = ~tf.reduce_all(img_to_wlrd_gt == -1.0, axis=-1)  # (N, )
 
-        distances = tf.linalg.norm(img_to_wlrd, axis=-1, keepdims=True)  # (N, )
+        distances_gt = tf.linalg.norm(img_to_wlrd_gt, axis=-1, keepdims=True)  # (N, )
 
-        mask = tf.squeeze(distances <= max_distance, axis=-1) & valid_distances  # (N, )
+        mask = tf.squeeze(distances_gt <= max_distance, axis=-1) & valid_distances  # (N, )
 
         filtered_gt_tensor = tf.boolean_mask(gt_coords_tensor, mask)  # (M, 2)
 
         if pred_coords_tensor is not None:
+            img_to_wlrd_pred = u_camera.image_to_world(camera, intrinsics, pred_coords_tensor)
+            distances_pred = tf.linalg.norm(img_to_wlrd_pred, axis=-1, keepdims=True)  # (N, )
+
+            distances = tf.boolean_mask(
+                tf.squeeze(tf.stack([distances_pred, distances_gt], axis=-1), axis=1), mask
+            )  # (M, 2)
             filtered_pred_tensor = tf.boolean_mask(pred_coords_tensor, mask)  # (M, 2)
+
+            assert tf.reduce_all(tf.shape(distances_gt) == tf.shape(distances_pred))
+            assert tf.reduce_all(tf.shape(distances)[0] == tf.shape(filtered_pred_tensor)[0])
             assert tf.reduce_all(tf.shape(filtered_gt_tensor) == tf.shape(filtered_pred_tensor))
-            return tf.stack([filtered_pred_tensor, filtered_gt_tensor], axis=1)  # (M, 2, 2)
+
+            return (
+                tf.stack([filtered_pred_tensor, filtered_gt_tensor], axis=1),
+                distances,
+            )  # (M, 2, 2), (M, 2)
         else:
-            return filtered_gt_tensor  # (M, 2)
+            return filtered_gt_tensor, distances_gt  # (M, 2), (M, )
     else:
-        return tf.zeros((0, 2, 2), tf.float32)  # (0, 2, 2)
+        return (tf.zeros((0, 2, 2), tf.float32), tf.zeros((0, 2), tf.float32))  # (0, 2, 2), (0, 2)
 
 
 def process_object_metrics(
@@ -162,6 +175,7 @@ def compare_predictions(
     save_path_for_matches: str,
     ball_status_only_seen: bool | None = None,
 ) -> dict:
+    # TODO: lose the for-loop and only do tensor operations to save a lot of time.
     if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
         metrics = {
             "model_true_positives": {k.name: 0 for k in u_labels.IntersectionType},
@@ -172,8 +186,8 @@ def compare_predictions(
             "bhuman_false_positives": {k.name: 0 for k in u_labels.IntersectionType},
         }
         tp_matches = {
-            "model": {k.name: [] for k in u_labels.IntersectionType},
-            "bhuman": {k.name: [] for k in u_labels.IntersectionType},
+            "model": {k.name: {"matches": [], "distances": []} for k in u_labels.IntersectionType},
+            "bhuman": {k.name: {"matches": [], "distances": []} for k in u_labels.IntersectionType},
         }
         intersection_types = [t.name for t in list(u_labels.IntersectionType)]
 
@@ -186,7 +200,10 @@ def compare_predictions(
             "bhuman_false_negatives": 0,
             "bhuman_false_positives": 0,
         }
-        tp_matches = {"model": [], "bhuman": []}
+        tp_matches = {
+            "model": {"matches": [], "distances": []},
+            "bhuman": {"matches": [], "distances": []},
+        }
         intersection_types = [None]
 
     # Iterate over each frame
@@ -227,15 +244,15 @@ def compare_predictions(
                 fp_len = tf.shape(
                     filter_coords_by_distance(
                         matches["fp_tensor"], camera, intrinsics, max_distance
-                    )
+                    )[0]
                 )[0]
                 fn_len = tf.shape(
                     filter_coords_by_distance(
                         matches["fn_tensor"], camera, intrinsics, max_distance
-                    )
+                    )[0]
                 )[0]
 
-                filtered_matches = filter_coords_by_distance(
+                filtered_matches, distances = filter_coords_by_distance(
                     matches["matches"],
                     camera,
                     intrinsics,
@@ -244,35 +261,48 @@ def compare_predictions(
                 matches_len = tf.shape(filtered_matches)[0]
 
                 if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
-                    tp_matches[prefix][intersection_type].append(filtered_matches)
+                    tp_matches[prefix][intersection_type]["matches"].append(filtered_matches)
+                    tp_matches[prefix][intersection_type]["distances"].append(distances)
 
                     # Update metrics
                     metrics[f"{prefix}_true_positives"][intersection_type] += int(matches_len)
                     metrics[f"{prefix}_false_negatives"][intersection_type] += int(fn_len)
                     metrics[f"{prefix}_false_positives"][intersection_type] += int(fp_len)
                 else:
-                    tp_matches[prefix].append(filtered_matches)
+                    tp_matches[prefix]["matches"].append(filtered_matches)
+                    tp_matches[prefix]["distances"].append(distances)
 
                     # Update metrics
                     metrics[f"{prefix}_true_positives"] += int(matches_len)
                     metrics[f"{prefix}_false_negatives"] += int(fn_len)
                     metrics[f"{prefix}_false_positives"] += int(fp_len)
 
-    # Save matches in .npy file
     status_str = ""
     if ball_status_only_seen is not None:
-        status_str = "_seen" if ball_status_only_seen else "_seen+guessed"
+        status_str = "_1" if ball_status_only_seen else "_2"
 
     for key, value in tp_matches.items():
         for intersection_type in intersection_types:
-            matches_list = value if isinstance(value, list) else value[intersection_type]
-            model_tp_matches_concat = tf.concat(matches_list, axis=0)  # (B, 2, 2)
+            object_list = (
+                value if len(value.keys()) != len(intersection_types) else value[intersection_type]
+            )
+
+            model_tp_matches_concat = tf.concat(object_list["matches"], axis=0)  # (B, 2, 2)
+            model_tp_distances_concat = tf.concat(object_list["distances"], axis=0)  # (B, 2)
+            save_path = Path(save_path_for_matches, f"{object_name}{status_str}")
+            os.makedirs(save_path, exist_ok=True)
+
+            # Save matches in .npy file
             np.save(
-                Path(
-                    save_path_for_matches,
-                    f"{key}_{object_name}{status_str}{f'_{intersection_type}' if intersection_type is not None else ''}",
-                ),
+                save_path
+                / f"{key}{f'_{intersection_type}' if intersection_type is not None else ''}_matches",
                 model_tp_matches_concat.numpy(),
+            )
+            # Save distances in .npy file
+            np.save(
+                save_path
+                / f"{key}{f'_{intersection_type}' if intersection_type is not None else ''}_distances",
+                model_tp_distances_concat.numpy(),
             )
 
     return metrics
