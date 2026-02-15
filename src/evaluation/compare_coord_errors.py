@@ -3,6 +3,8 @@ import glob
 import os
 import sys
 
+import yaml
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -21,6 +23,9 @@ def load_data(path_to_data: Path) -> dict:
 
 
 def main(args):
+
+    results = {}
+
     for dir in glob.glob(args.data_directory + "/**/", recursive=True):
         # Only leaf node directories
         if glob.glob(dir + "*/"):
@@ -80,6 +85,16 @@ def main(args):
         print("B-Human World Variance:", bhuman_world_var)
         print("Model World Variance:", model_world_var)
         print("======")
+
+        results[Path(dir).parts[-1]] = {
+            "bhuman_image_mae": float(bhuman_image_mae),
+            "model_image_mae": float(model_image_mae),
+            "bhuman_image_var": float(bhuman_image_var),
+            "model_image_var": float(model_image_var),
+        }
+
+    with open(Path(args.data_directory).parent / "regression_error.yaml", "w") as file:
+        yaml.dump(results, file)
 
 
 if __name__ == "__main__":
