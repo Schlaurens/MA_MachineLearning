@@ -82,7 +82,7 @@ def _get_encoder_inverted_residual_single_category(
 
     # 480x320x4
     # cannot be ires block due to uneven stride
-    x = tf.keras.layers.Conv2D(16, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = Normalization(
         use_batch_norm,
         scale=False,
@@ -92,31 +92,25 @@ def _get_encoder_inverted_residual_single_category(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
-    x = IresBlock(16, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlock(8, use_batch_norm, stride=1, expansion=1)(x)
 
     # 240x320x24
     x = IresBlock(16, use_batch_norm, stride=2, expansion=1)(x)
 
     # 120x160x24
-    # x = IresBlock(16, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlock(16, use_batch_norm, stride=1, expansion=1)(x)
 
     # 120x160x24
-    x = IresBlock(24, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
 
     # 60x80x32
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=1)(x)
-
-    # 60x80x32
-    x = IresBlock(32, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlock(24, use_batch_norm, stride=1, expansion=4)(x)
 
     # 30x40x64
-    x = IresBlock(32, use_batch_norm, stride=1, expansion=1)(x)
-
-    # 30x40x64
-    x = IresBlock(32, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlock(24, use_batch_norm, stride=2, expansion=4)(x)
 
     # 15x20x64
-    x = IresBlock(32, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlock(32, use_batch_norm, stride=2, expansion=4)(x)
 
     # 15x20x64
     return _get_common_encoder_output(x, category_names, n_context, image)
