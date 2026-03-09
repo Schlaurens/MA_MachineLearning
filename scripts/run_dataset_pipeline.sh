@@ -46,9 +46,12 @@ SAVE_DIR_EVALUATION="${DATASET_PATH}evaluation/"
 # Prediction source
 BHUMAN_PREDICTION_SOURCE="${DATASET_PATH}b-human_predictions/"
 
-
-# IMAGE_RESOLUTION="384 512"
-IMAGE_RESOLUTION="480 640"
+# IMAGE_RESOLUTION="256 320" 
+# IMAGE_RESOLUTION="288 384"
+# IMAGE_RESOLUTION="320 448"
+# IMAGE_RESOLUTION="384 512" 
+IMAGE_RESOLUTION="416 576"
+# IMAGE_RESOLUTION="480 640" 
 
 read HEIGHT WIDTH <<< "$IMAGE_RESOLUTION"
 
@@ -60,7 +63,7 @@ TEST_SPLIT=0.15
 SAVE_DATASETS_SH="./scripts/save_datasets.sh"
 
 # Test dataset file (adjust version and sample count as needed)
-TEST_DATASET="test_ds_1656(0.15).tfrecords"
+TEST_DATASET="test_ds_1840(0.15).tfrecords"
 
 # Flags for statistics calculation
 CALCULATE_DISTANCES=true
