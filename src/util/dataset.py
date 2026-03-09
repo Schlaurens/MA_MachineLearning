@@ -160,9 +160,9 @@ class DatasetUtils:
         else:
             raise ValueError("Either (label and object_name) or coordinates must be provided.")
 
-        # Scale down coordinates, if the desired resolution is smaller than the original resolution the coord were annotated for. 
+        # Scale down coordinates, if the desired resolution is smaller than the original resolution the coord were annotated for.
         coordinate_list = coordinate_list * self.config.image_res_scale
-        
+
         offset_mask = self._generate_offset_mask(coordinate_list)
 
         # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
