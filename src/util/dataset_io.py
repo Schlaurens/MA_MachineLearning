@@ -3,13 +3,14 @@ import json
 import os
 from pathlib import Path
 
+import cv2
 import numpy as np
 import tensorflow as tf
 
 from . import dataset as u_dataset
 from . import image as u_image
 
-dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
+# dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
 
 
 def get_label_path(directory: str) -> str:
@@ -378,7 +379,12 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
     return result
 
 
-def make_example(directory: str = None, label: dict = None, sample: dict = None):
+def make_example(
+    dataset_utils: u_dataset.DatasetUtils,
+    directory: str = None,
+    label: dict = None,
+    sample: dict = None,
+):
     """Generate a Tensorflow example for a given data label or sample. Tensorflow examples are used to serialize data into .tfrecords files.
 
     Args:
@@ -439,9 +445,17 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
                 tf.io.serialize_tensor(
                     tf.reshape(
                         tf.constant(
-                            load_image(directory, label, image_format=u_image.ImageFormat.YUYV)
+                            cv2.resize(
+                                load_image(directory, label, image_format=u_image.ImageFormat.YUYV),
+                                dataset_utils.config.input_dims[::-1],
+                                cv2.INTER_AREA,
+                            )
                         ),
-                        (480, 320, 4),
+                        (
+                            dataset_utils.config.input_dims[0],
+                            dataset_utils.config.input_dims[1] // 2,
+                            4,
+                        ),
                     )
                 ).numpy(),
             ]
@@ -481,7 +495,10 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             if from_sample
             else [
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_ball["object_mask"], dtype=tf.float32), (15, 20))
+                    tf.reshape(
+                        tf.cast(masks_ball["object_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
+                    )
                 ).numpy(),
             ]
         )
@@ -493,7 +510,11 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             ]
             if from_sample
             else [
-                tf.io.serialize_tensor(tf.reshape(masks_ball["offsets"], (15, 20, 2))).numpy(),
+                tf.io.serialize_tensor(
+                    tf.reshape(
+                        masks_ball["offsets"], tf.concat([dataset_utils.config.output_dims, [2]], 0)
+                    )
+                ).numpy(),
             ]
         )
     )
@@ -505,7 +526,10 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             if from_sample
             else [
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_ball["loss_mask"], dtype=tf.float32), (15, 20))
+                    tf.reshape(
+                        tf.cast(masks_ball["loss_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
+                    )
                 ).numpy(),
             ]
         )
@@ -519,7 +543,8 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             else [
                 tf.io.serialize_tensor(
                     tf.reshape(
-                        tf.cast(masks_penaltyMark["object_mask"], dtype=tf.float32), (15, 20)
+                        tf.cast(masks_penaltyMark["object_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
                     )
                 ).numpy(),
             ]
@@ -533,7 +558,10 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             if from_sample
             else [
                 tf.io.serialize_tensor(
-                    tf.reshape(masks_penaltyMark["offsets"], (15, 20, 2))
+                    tf.reshape(
+                        masks_penaltyMark["offsets"],
+                        tf.concat([dataset_utils.config.output_dims, [2]], 0),
+                    )
                 ).numpy(),
             ]
         )
@@ -546,7 +574,10 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             if from_sample
             else [
                 tf.io.serialize_tensor(
-                    tf.reshape(tf.cast(masks_penaltyMark["loss_mask"], dtype=tf.float32), (15, 20))
+                    tf.reshape(
+                        tf.cast(masks_penaltyMark["loss_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
+                    )
                 ).numpy(),
             ]
         )
@@ -560,7 +591,8 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             else [
                 tf.io.serialize_tensor(
                     tf.reshape(
-                        tf.cast(masks_intersections["object_mask"], dtype=tf.float32), (15, 20)
+                        tf.cast(masks_intersections["object_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
                     )
                 ).numpy(),
             ]
@@ -575,7 +607,8 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             else [
                 tf.io.serialize_tensor(
                     tf.reshape(
-                        tf.cast(masks_intersections["offsets"], dtype=tf.float32), (15, 20, 2)
+                        tf.cast(masks_intersections["offsets"], dtype=tf.float32),
+                        tf.concat([dataset_utils.config.output_dims, [2]], 0),
                     )
                 ).numpy(),
             ]
@@ -590,7 +623,8 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
             else [
                 tf.io.serialize_tensor(
                     tf.reshape(
-                        tf.cast(masks_intersections["loss_mask"], dtype=tf.float32), (15, 20)
+                        tf.cast(masks_intersections["loss_mask"], dtype=tf.float32),
+                        dataset_utils.config.output_dims,
                     )
                 ).numpy(),
             ]
@@ -606,7 +640,7 @@ def make_example(directory: str = None, label: dict = None, sample: dict = None)
                 tf.io.serialize_tensor(
                     tf.reshape(
                         tf.cast(masks_intersections["classification_mask"], dtype=tf.float32),
-                        (15, 20),
+                        dataset_utils.config.output_dims,
                     )
                 ).numpy(),
             ]
