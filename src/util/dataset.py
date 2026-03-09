@@ -180,7 +180,9 @@ class DatasetUtils:
                     indices = self.get_cell_of_coordinate(c)
                     classification_mask[indices[1], indices[0]].assign(IntersectionType.X.value)
         else:
-            classification_mask = tf.fill((*self.config.output_dims, 3), -1.0)
+            classification_mask = tf.cast(
+                tf.fill(self.config.output_dims, value=0), dtype=tf.float32
+            )
 
         return {
             "offsets": offset_mask,
