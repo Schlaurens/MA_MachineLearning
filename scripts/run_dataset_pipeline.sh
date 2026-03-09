@@ -39,11 +39,18 @@ export TF_CPP_MIN_LOG_LEVEL=3  # Suppress TensorFlow logs (0 = all, 1 = info, 2 
 # Paths
 DATASET_PATH="data/"
 SAVE_DIR_TFRECORDS="${DATASET_PATH}tfrecords/"
-GROUNDTRUTH_SOURCE="${DATASET_PATH}groundtruth/"
+GROUNDTRUTH_SOURCE="${DATASET_PATH}groundtruth_raw/"
+SPLIT_GROUNDTRUTH_DESTINATION="${DATASET_PATH}groundtruth_tfrecords/"
 SAVE_DIR_EVALUATION="${DATASET_PATH}evaluation/"
 
 # Prediction source
 BHUMAN_PREDICTION_SOURCE="${DATASET_PATH}b-human_predictions/"
+
+
+# IMAGE_RESOLUTION="384 512"
+IMAGE_RESOLUTION="480 640"
+
+read HEIGHT WIDTH <<< "$IMAGE_RESOLUTION"
 
 # Split ration
 VAL_SPLIT=0.2
@@ -53,7 +60,7 @@ TEST_SPLIT=0.15
 SAVE_DATASETS_SH="./scripts/save_datasets.sh"
 
 # Test dataset file (adjust version and sample count as needed)
-TEST_DATASET="test_ds_v3_1840(0.15).tfrecords"
+TEST_DATASET="test_ds_1656(0.15).tfrecords"
 
 # Flags for statistics calculation
 CALCULATE_DISTANCES=true
@@ -63,7 +70,7 @@ PRINT_OUTPUT=true
 # Step 1: Save all datasets into .tfrecords files
 echo "Saving all datasets..."
 if [ -f "$SAVE_DATASETS_SH" ]; then
-    "$SAVE_DATASETS_SH" "$GROUNDTRUTH_SOURCE"
+    "$SAVE_DATASETS_SH" "$GROUNDTRUTH_SOURCE" "$SPLIT_GROUNDTRUTH_DESTINATION" "$HEIGHT" "$WIDTH"
 else
     echo "Error: $SAVE_DATASETS_SH not found. Please check the path."
     exit 1
@@ -72,17 +79,20 @@ fi
 # Step 2: Split the dataset
 echo "Splitting dataset..."
 uv run src/dataset/split_dataset.py \
-    --save-dir "$SAVE_DIR_TFRECORDS" \
-    --val "$VAL_SPLIT" \
-    --test "$TEST_SPLIT"
+    --src_dir "${SPLIT_GROUNDTRUTH_DESTINATION}/${WIDTH}x${HEIGHT}/" \
+    --save_dir "$SAVE_DIR_TFRECORDS" \
+    --val_split "$VAL_SPLIT" \
+    --test_split "$TEST_SPLIT" \
+    --image_res "$HEIGHT" "$WIDTH" \
 
 # Step 3: Generate JSON files from selection
 echo "Generating JSON files from selection..."
 uv run src/dataset/from_selection.py \
-    --test_dataset "${SAVE_DIR_TFRECORDS}${TEST_DATASET}" \
+    --test_dataset "${SAVE_DIR_TFRECORDS}${WIDTH}x${HEIGHT}/${TEST_DATASET}" \
     --groundtruth_source "$GROUNDTRUTH_SOURCE" \
     --prediction_source "$BHUMAN_PREDICTION_SOURCE" \
-    --destination "$SAVE_DIR_EVALUATION"
+    --destination "$SAVE_DIR_EVALUATION" \
+    --image_res "$HEIGHT" "$WIDTH" \
 
 # Step 4: Compute statistics
 echo "Computing statistics..."
