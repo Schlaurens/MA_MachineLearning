@@ -178,7 +178,7 @@ def get_sample_name(label: dict, directory: str) -> str:
     return f"{log_name}_{image_name}"
 
 
-def get_dataset(directory: str) -> tf.data.Dataset:
+def get_dataset(directory: str, dataset_utils: u_dataset.DatasetUtils) -> tf.data.Dataset:
     """Read and parse dataset from a given directory
 
     Args:
@@ -219,6 +219,9 @@ def get_dataset(directory: str) -> tf.data.Dataset:
         Returns:
             a dict of 6 parsed tensors with known shapes.
         """
+
+        output_dims = list(dataset_utils.config.output_dims)
+
         return {
             "name": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["name"], out_type=tf.string), []
@@ -227,7 +230,8 @@ def get_dataset(directory: str) -> tf.data.Dataset:
                 tf.io.parse_tensor(serialized_tensor["frame_time"], out_type=tf.int32), []
             ),
             "image": tf.ensure_shape(
-                tf.io.parse_tensor(serialized_tensor["image"], out_type=tf.uint8), [480, 320, 4]
+                tf.io.parse_tensor(serialized_tensor["image"], out_type=tf.uint8),
+                (dataset_utils.config.input_dims[0], dataset_utils.config.input_dims[1] // 2, 4),
             ),
             "camera": tf.ensure_shape(
                 tf.io.parse_tensor(serialized_tensor["camera"], out_type=tf.float32), [3]
@@ -238,15 +242,15 @@ def get_dataset(directory: str) -> tf.data.Dataset:
             "ball": {
                 "object_mask": tf.ensure_shape(
                     tf.io.parse_tensor(serialized_tensor["object_ball"], out_type=tf.float32),
-                    [15, 20],
+                    output_dims,
                 ),
                 "offset_mask": tf.ensure_shape(
                     tf.io.parse_tensor(serialized_tensor["offsets_ball"], out_type=tf.float32),
-                    [15, 20, 2],
+                    output_dims + [2],
                 ),
                 "loss_mask": tf.ensure_shape(
                     tf.io.parse_tensor(serialized_tensor["loss_mask_ball"], out_type=tf.float32),
-                    [15, 20],
+                    output_dims,
                 ),
             },
             "penaltyMark": {
@@ -254,19 +258,19 @@ def get_dataset(directory: str) -> tf.data.Dataset:
                     tf.io.parse_tensor(
                         serialized_tensor["object_penaltyMark"], out_type=tf.float32
                     ),
-                    [15, 20],
+                    output_dims,
                 ),
                 "offset_mask": tf.ensure_shape(
                     tf.io.parse_tensor(
                         serialized_tensor["offsets_penaltyMark"], out_type=tf.float32
                     ),
-                    [15, 20, 2],
+                    output_dims + [2],
                 ),
                 "loss_mask": tf.ensure_shape(
                     tf.io.parse_tensor(
                         serialized_tensor["loss_mask_penaltyMark"], out_type=tf.float32
                     ),
-                    [15, 20],
+                    output_dims,
                 ),
             },
             "intersections": {
@@ -274,25 +278,25 @@ def get_dataset(directory: str) -> tf.data.Dataset:
                     tf.io.parse_tensor(
                         serialized_tensor["object_intersections"], out_type=tf.float32
                     ),
-                    [15, 20],
+                    output_dims,
                 ),
                 "offset_mask": tf.ensure_shape(
                     tf.io.parse_tensor(
                         serialized_tensor["offsets_intersections"], out_type=tf.float32
                     ),
-                    [15, 20, 2],
+                    output_dims + [2],
                 ),
                 "loss_mask": tf.ensure_shape(
                     tf.io.parse_tensor(
                         serialized_tensor["loss_mask_intersections"], out_type=tf.float32
                     ),
-                    [15, 20],
+                    output_dims,
                 ),
                 "classification_mask": tf.ensure_shape(
                     tf.io.parse_tensor(
                         serialized_tensor["classification_intersections"], out_type=tf.float32
                     ),
-                    [15, 20],
+                    output_dims,
                 ),
             },
         }
@@ -332,7 +336,9 @@ def get_data_info(directory: str = "data"):
         file_names.append(file)
 
         # Count samples
-        num_samples += len(glob.glob(f"{file.removesuffix('.tfrecords')}/*.jpg"))
+        num_samples += len(
+            glob.glob(f"./data/groundtruth_raw/{Path(file).name.removesuffix('.tfrecords')}/*.jpg")
+        )
 
     return {"file_names": file_names, "num_samples": num_samples}
 

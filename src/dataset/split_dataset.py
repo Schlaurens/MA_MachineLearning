@@ -15,14 +15,22 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
+from pathlib import Path
+
 import tensorflow as tf
 
+from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 
 
-def load_data(val_split, test_split):
-    data = u_dataset_io.get_data_info(directory="/data/groundtruth")
-    dataset = u_dataset_io.get_dataset(data["file_names"])
+def load_data(
+    directory: Path, dataset_utils: u_dataset.DatasetUtils, val_split: float, test_split: float
+):
+    data = u_dataset_io.get_data_info(directory)
+
+    dataset = u_dataset_io.get_dataset(data["file_names"], dataset_utils)
 
     num_samples = data["num_samples"]
     train_samples = round(num_samples * (1 - val_split - test_split))
@@ -50,40 +58,47 @@ def load_data(val_split, test_split):
     }
 
 
-def write_file(directory, val_split=0.2, test_split=0.15):
-    dataset_version = "3"
+def write_file(
+    src_dir: Path,
+    save_dir: Path,
+    image_res: list[int, int],
+    val_split: float = 0.2,
+    test_split: float = 0.15,
+):
+    resolution = f"{image_res[1]}x{image_res[0]}"
+    dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig(input_dims=image_res))
 
     # Load the dataset
-    data = load_data(val_split, test_split)
+    data = load_data(src_dir, dataset_utils, val_split, test_split)
     print("Dataset loaded.")
 
     # Write .tfrecords files
     print("Writing Train Dataset...")
     train_ds_file = (
-        directory
-        + f"train_ds_v{dataset_version}_{data['train_samples']}({round(1 - test_split - val_split, 2)}).tfrecords"
+        save_dir
+        / resolution
+        / f"train_ds_{data['train_samples']}({round(1 - test_split - val_split, 2)}).tfrecords"
     )
-    with tf.io.TFRecordWriter(train_ds_file) as writer:
+    os.makedirs(train_ds_file.parent, exist_ok=True)
+    with tf.io.TFRecordWriter(train_ds_file.as_posix()) as writer:
         for sample in data["train_ds"]:
-            example = u_dataset_io.make_example(sample=sample)
+            example = u_dataset_io.make_example(dataset_utils, sample=sample)
             writer.write(example.SerializeToString())
 
     print("Writing Test Dataset...")
-    test_ds_file = (
-        directory + f"test_ds_v{dataset_version}_{data['test_samples']}({test_split}).tfrecords"
-    )
-    with tf.io.TFRecordWriter(test_ds_file) as writer:
+    test_ds_file = save_dir / resolution / f"test_ds_{data['test_samples']}({test_split}).tfrecords"
+
+    with tf.io.TFRecordWriter(test_ds_file.as_posix()) as writer:
         for sample in data["test_ds"]:
-            example = u_dataset_io.make_example(sample=sample)
+            example = u_dataset_io.make_example(dataset_utils, sample=sample)
             writer.write(example.SerializeToString())
 
     print("Writing Validation Dataset...")
-    val_ds_file = (
-        directory + f"val_ds_v{dataset_version}_{data['val_samples']}({val_split}).tfrecords"
-    )
-    with tf.io.TFRecordWriter(val_ds_file) as writer:
+    val_ds_file = save_dir / resolution / f"val_ds_{data['val_samples']}({val_split}).tfrecords"
+
+    with tf.io.TFRecordWriter(val_ds_file.as_posix()) as writer:
         for sample in data["val_ds"]:
-            example = u_dataset_io.make_example(sample=sample)
+            example = u_dataset_io.make_example(dataset_utils, sample=sample)
             writer.write(example.SerializeToString())
 
 
@@ -92,11 +107,21 @@ if __name__ == "__main__":
         description="This script takes multiple .tfrecords files and split them into train, val and test datasets"
     )
     # Directory where the .tfrecords files are saved to
-    parser.add_argument("--save-dir")
-    parser.add_argument("--val", type=float)
-    parser.add_argument("--test", type=float)
+    parser.add_argument("--src_dir", required=True)
+    parser.add_argument("--save_dir", required=True)
+    parser.add_argument("--val_split", type=float)
+    parser.add_argument("--test_split", type=float)
+    parser.add_argument(
+        "--image_res",
+        type=int,
+        nargs=2,
+        required=True,
+        help="Image resolution as height and width. e. g. 480 640",
+    )
 
     args = parser.parse_args()
 
-    write_file(args.save_dir, args.val, args.test)
+    write_file(
+        Path(args.src_dir), Path(args.save_dir), args.image_res, args.val_split, args.test_split
+    )
     print("Done!")
