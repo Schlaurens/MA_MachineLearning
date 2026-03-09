@@ -15,10 +15,12 @@ class DatasetConfig:
     cell_dims: np.ndarray = None
     cell_center: float = None
     scale: float = None
+    image_res_scale: float = None
     cell_grid: tf.Tensor = None
 
     def __post_init__(self):
         self.scale = np.array(self.output_dims) / np.array(self.input_dims)
+        self.image_res_scale = np.array(self.input_dims) / np.array((480, 640))
         self.cell_dims = np.array(self.input_dims) // np.array(self.output_dims)
         # The center of a cell (starts at 0).
         self.cell_center = self.cell_dims / 2 - 1
@@ -155,6 +157,9 @@ class DatasetUtils:
         else:
             raise ValueError("Either (label and object_name) or coordinates must be provided.")
 
+        # Scale down coordinates, if the desired resolution is smaller than the original resolution the coord were annotated for. 
+        coordinate_list = coordinate_list * self.config.image_res_scale
+        
         offset_mask = self._generate_offset_mask(coordinate_list)
 
         # Mark all cells with true, where the value is between 0 and 1 (object is in that cell)
