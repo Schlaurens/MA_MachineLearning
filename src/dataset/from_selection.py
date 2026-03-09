@@ -10,6 +10,9 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
+from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 
 
@@ -67,7 +70,9 @@ def select_samples_by_identifier(identifiers: list[dict], jsons: dict[dict]) -> 
 
 
 def main(args):
-    test_ds = u_dataset_io.get_dataset(args.test_dataset)
+    dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig(input_dims=args.image_res))
+
+    test_ds = u_dataset_io.get_dataset(args.test_dataset, dataset_utils)
     prediction_jsons = load_json_files(args.prediction_source)
     groundtruth_jsons = load_json_files(args.groundtruth_source)
 
@@ -103,10 +108,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="This script takes the samples from the test dataset and writes the corresponding samples from gives predictions into separate .json files."
     )
-    parser.add_argument("--test_dataset", default="data/tfrecords/test_ds_v3_1840(0.15).tfrecords")
-    parser.add_argument("--groundtruth_source", default="data/groundtruth/")
+    parser.add_argument(
+        "--test_dataset", default="data/tfrecords/512x384/test_ds_1656(0.15).tfrecords"
+    )
+    parser.add_argument("--groundtruth_source", default="data/groundtruth_raw/")
     parser.add_argument("--prediction_source")
-    parser.add_argument("--destination", default="data/selected/")
+    parser.add_argument("--destination", default="data/evaluation/")
+    parser.add_argument(
+        "--image_res",
+        type=int,
+        nargs=2,
+        required=True,
+        help="Image resolution as height and width. e. g. 480 640",
+    )
 
     args = parser.parse_args()
 
