@@ -13,6 +13,7 @@ import yaml
 
 from training.models import FullModel
 from util import callbacks as u_callbacks
+from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
 
 
@@ -84,15 +85,20 @@ def get_callbacks(timestamp: str, config):
 
 
 def load_datasets(config):
+    input_dims = config["model"]["encoder"]["input_dims"]
+    dataset_utils = u_dataset.DatasetUtils(
+        u_dataset.DatasetConfig((input_dims[0], input_dims[1] * 2))
+    )
+
     path_to_train = glob.glob(config["data"]["train_path"])
     path_to_val = glob.glob(config["data"]["val_path"])
 
-    train_ds = u_dataset_io.get_dataset(path_to_train)
-    val_ds = u_dataset_io.get_dataset(path_to_val)
+    train_ds = u_dataset_io.get_dataset(path_to_train, dataset_utils)
+    val_ds = u_dataset_io.get_dataset(path_to_val, dataset_utils)
 
     # Get number of train/val samples from file name of .tfrecords file.
-    train_samples = int(path_to_train[0].split("_")[3].split("(")[0])
-    val_samples = int(path_to_val[0].split("_")[3].split("(")[0])
+    train_samples = int(path_to_train[0].split("_")[2].split("(")[0])
+    val_samples = int(path_to_val[0].split("_")[2].split("(")[0])
 
     print("Number of samples: ", train_samples + val_samples)
     print("Train Size: ", train_samples)
