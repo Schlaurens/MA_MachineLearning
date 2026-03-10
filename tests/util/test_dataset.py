@@ -356,7 +356,7 @@ class TestObjectMask:
             self.dataset_utils.get_masks(coordinates=coordinates)["object_mask"], tf.int32
         )
 
-        coordinates_scaled = coordinates * self.dataset_config.image_res_scale
+        coordinates_scaled = coordinates * self.dataset_config.image_res_scale[::-1]
 
         clipped_coords = tf.clip_by_value(
             coordinates_scaled,

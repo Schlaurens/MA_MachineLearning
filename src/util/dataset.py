@@ -161,7 +161,7 @@ class DatasetUtils:
             raise ValueError("Either (label and object_name) or coordinates must be provided.")
 
         # Scale down coordinates, if the desired resolution is smaller than the original resolution the coord were annotated for.
-        coordinate_list = coordinate_list * self.config.image_res_scale
+        coordinate_list = coordinate_list * self.config.image_res_scale[::-1]
 
         offset_mask = self._generate_offset_mask(coordinate_list)
 
