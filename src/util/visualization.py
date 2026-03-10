@@ -39,6 +39,8 @@ def show_masks_on_image(
         masks = dataset_utils.get_masks(coordinates=coordinates)
     elif directory is not None and label is not None:
         image = u_dataset_io.load_image(directory, label, image_format=u_image.ImageFormat.RGB)
+        image = cv2.resize(image, dataset_config.input_dims[::-1], cv2.INTER_AREA)
+
         masks = dataset_utils.get_masks(label, object_name)
     else:
         raise ValueError(
