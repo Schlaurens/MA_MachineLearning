@@ -5,23 +5,23 @@ import tensorflow as tf
 from src.util import dataset as u_dataset
 
 CONFIGS = [
-    (None, (256, 320)),
-    (None, (288, 384)),
-    (None, (256, 320)),
-    (None, (384, 512)),
-    (None, (416, 576)),
-    (None, (480, 640)),
+    (None, (240, 320), (16, 16)),
+    (None, (300, 400), (20, 20)),
+    (None, (360, 480), (24, 24)),
+    (None, (420, 560), (28, 28)),
+    (None, (480, 640), (32, 32)),
 ]
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestFilterCoordinates:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
+        self.cell_dims = cell_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -140,14 +140,15 @@ class TestFilterCoordinates:
         assert tf.reduce_all(result == expected)
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestCoordsInSameCell:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
+        self.cell_dims = np.array(cell_dims)
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -175,15 +176,15 @@ class TestCoordsInSameCell:
         assert self.dataset_utils.are_coords_in_same_cell(coords_a, coords_b) == False
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestGetCoordsFromOffset:
     # Assumes that the generation of offset_masks works!
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -301,14 +302,14 @@ class TestGetCoordsFromOffset:
         )
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestObjectMask:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -376,14 +377,15 @@ class TestObjectMask:
         assert tf.reduce_all(mask_values == 1)
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestGetCellOfCoordinates:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
+        self.cell_dims = cell_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -476,15 +478,15 @@ class TestGetCellOfCoordinates:
         assert tf.reduce_all(expected == results)
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestFlattenCellIndices:
     # These tests are done with the default cell_grid size.
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -539,16 +541,17 @@ class TestFlattenCellIndices:
         assert tf.reduce_all(expected == result)
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestGetDistanceMaskFromOffsets:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
+
         self.camera = tf.constant(
             [[-0.0220113918, 0.0786367953, 0.493571222], [0.0550611168, 0.298894078, 0.481570929]],
             tf.float32,
@@ -641,14 +644,14 @@ class TestGetDistanceMaskFromOffsets:
         assert len(y1) == 1
 
 
-@pytest.mark.parametrize("output_dims,input_dims", CONFIGS)
+@pytest.mark.parametrize("output_dims,input_dims, cell_dims", CONFIGS)
 class TestGetCoordinateMask:
     @pytest.fixture(autouse=True)
-    def setup(self, output_dims, input_dims):
+    def setup(self, output_dims, input_dims, cell_dims):
         self.output_dims = np.array(output_dims)
         self.input_dims = input_dims
         self.dataset_config = u_dataset.DatasetConfig(
-            input_dims=input_dims, output_dims=output_dims
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
