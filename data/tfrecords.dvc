@@ -1,6 +1,6 @@
 outs:
-- md5: 0a4666e0c70a210e09f6788bc8fad48b.dir
-  size: 50321113138
-  nfiles: 27
+- md5: 8d93a0e8495089f0f1716dc626a30274.dir
+  size: 46765255940
+  nfiles: 24
   hash: md5
   path: tfrecords
