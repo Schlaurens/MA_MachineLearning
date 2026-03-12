@@ -162,7 +162,7 @@ def main(config):
             encoder_only = config["training"]["load_model"]["encoder_only"]
             verbose = config["training"]["load_model"]["verbose"]
 
-        # ==== When loading a ceckpoint ====
+        # ==== When loading a checkpoint ====
         else:
             timestamp = config["training"]["load_checkpoint"]["timestamp"]
             filepath = os.path.join(config["callbacks"]["checkpoint_dir"], timestamp)
