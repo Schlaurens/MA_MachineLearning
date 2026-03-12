@@ -52,7 +52,7 @@ class EvaluateApplication:
         input_dims = config["model"]["encoder"]["input_dims"]
 
         self.dataset_utils = u_dataset.DatasetUtils(
-            u_dataset.DatasetConfig((input_dims[0], input_dims[1] * 2))
+            u_dataset.DatasetConfig(input_dims)
         )
         self.data = list(
             u_dataset_io.get_dataset(data_path, self.dataset_utils).as_numpy_iterator()
@@ -188,8 +188,7 @@ class EvaluateApplication:
         best_box = output["boxes"][0][best_score_index]
 
         # We only need the width because the patch is a square.
-        best_width = (best_box[3] - best_box[1]) * (self.dataset_utils.config.input_dims[1] - 1)
-
+        best_width = (best_box[3] - best_box[1]) * (self.dataset_utils.config.input_dims[1] / 2 - 1)
         # Used to scale the box with variable size to the fixed patch size
         patch_to_box_ratio = self.dataset_utils.config.cell_dims[0] / best_width
 
