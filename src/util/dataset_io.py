@@ -372,7 +372,7 @@ def get_sample_at_index(batched_data: dict[str, tf.Tensor], index: int, keep_bat
                 "object_mask": maybe_batch_dim(batched_data[category]["object_mask"]),
                 "offset_mask": maybe_batch_dim(batched_data[category]["offset_mask"]),
                 "loss_mask": maybe_batch_dim(batched_data[category]["loss_mask"]),
-                "classification_mask": maybe_batch_dim(batched_data[category]["loss_mask"])
+                "classification_mask": maybe_batch_dim(batched_data[category]["classification_mask"])
                 if category == "intersections"
                 else None,
             }
