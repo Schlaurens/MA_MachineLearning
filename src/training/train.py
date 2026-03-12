@@ -3,6 +3,9 @@ import datetime
 import glob
 import os
 import sys
+from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -86,12 +89,21 @@ def get_callbacks(timestamp: str, config):
 
 def load_datasets(config):
     input_dims = config["model"]["encoder"]["input_dims"]
-    dataset_utils = u_dataset.DatasetUtils(
-        u_dataset.DatasetConfig((input_dims[0], input_dims[1] * 2))
+    dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig(input_dims))
+
+    path_to_train = glob.glob(
+        (
+            Path(config["data"]["path"])
+            / f"{input_dims[1]}x{input_dims[0]}"
+            / "train_ds*.tfrecords"
+        ).as_posix()
     )
 
-    path_to_train = glob.glob(config["data"]["train_path"])
-    path_to_val = glob.glob(config["data"]["val_path"])
+    path_to_val = glob.glob(
+        (
+            Path(config["data"]["path"]) / f"{input_dims[1]}x{input_dims[0]}" / "val_ds*.tfrecords"
+        ).as_posix()
+    )
 
     train_ds = u_dataset_io.get_dataset(path_to_train, dataset_utils)
     val_ds = u_dataset_io.get_dataset(path_to_val, dataset_utils)
@@ -129,7 +141,7 @@ def main(config):
         else config["training"]["initial_epoch"]
     )
     batch_size = config["training"]["batch_size"]
-    model_input_dims = config["model"]["encoder"]["input_dims"]
+    model_input_dims = config["model"]["encoder"]["input_dims"] // np.array((1, 2))
     encoder_architecture = config["model"]["encoder"]["architecture"]
     classifier_architecture = config["model"]["classifier"]["architecture"]
     only_train_encoder = config["model"]["encoder"]["only_train_encoder"]

@@ -1,7 +1,7 @@
 model:
   encoder:
-    architecture: "inverted_residual_single_category_v3"
-    input_dims: [256, 160]
+    architecture: "inverted_residual_single_category_16x16"
+    input_dims: [240, 320]
     n_context: 64
     only_train_encoder: False
     use_batch_norm: False
@@ -13,15 +13,15 @@ model:
     use_batch_norm: False
 
 training:
-  epochs: 500
+  epochs: 400
   initial_epoch: 0
   batch_size: 32
   verbose: 1
   from_checkpoint: False # < when starting training from checkpoint
   from_model: False # < when loading an existing model
   load_checkpoint:
-    initial_epoch: 39
-    timestamp: "20251027-123055" 
+    initial_epoch: 183
+    timestamp: "20260312-114325" 
     encoder_only: False # < when only loading the encoder
     verbose: True
   load_model:
@@ -37,21 +37,21 @@ categories:
     object_height: 0.05
     n_classes: 1
     n_candidates: 5
-    max_distance: 4
+    max_distance: 6.0
   penaltyMark:
     object_size: 0.175
     padding: 0
     object_height: 0.0
     n_classes: 1
     n_candidates: 5
-    max_distance: 4.0
+    max_distance: 6.0
   intersections:
     object_size: 0.2
     padding: 0.2 # padding to avoid intersections being cut off by the patch edge
     object_height: 0.0
     n_classes: 4 # types + background class
     n_candidates: 7
-    max_distance: 4.0 # the maximal distance between the object and the camera.
+    max_distance: 6.0 # the maximal distance between the object and the camera.
 
 callbacks:
   reduce_lr:
@@ -68,5 +68,4 @@ callbacks:
   checkpoint_dir: "models/checkpoints/"
 
 data:
-  train_path: "data/tfrecords/320x256/train_ds_*.tfrecords"
-  val_path: "data/tfrecords/320x256/val_ds_*.tfrecords"
+  path: "data/tfrecords/"
