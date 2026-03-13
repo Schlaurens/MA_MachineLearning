@@ -221,7 +221,7 @@ class LabelApplication:
 
             # Transform camera coords to world coords
             data_in_world = u_camera.image_to_world(
-                camera, camera_intr, (event.xdata, event.ydata), object_size=ball_size
+                camera, camera_intr, (event.xdata, event.ydata), object_height=ball_size
             )
 
             distance_to_camera = np.linalg.norm(data_in_world) if data_in_world is not None else 1.0
