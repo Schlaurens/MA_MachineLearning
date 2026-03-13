@@ -281,8 +281,8 @@ def calculate_binary_metrics(
 
     confusion_matrix = np.array([[tp_count, fn_count], [fp_count, tn_count]])
 
-    precision = tp_count / (tp_count + fp_count)
-    recall = tp_count / (tp_count + fn_count)
+    precision = tp_count / (tp_count + fp_count) if (tp_count + fp_count) > 0 else 0.0
+    recall = tp_count / (tp_count + fn_count) if (tp_count + fn_count) > 0 else 0.0
 
     fp_rate = fp_count / np.sum(confusion_matrix)
     fn_rate = fn_count / np.sum(confusion_matrix)
@@ -419,11 +419,11 @@ def calculate_multiclass_metrics(
     )
 
     # Calculate precision and recall for every class.
-    precisions = tf.linalg.diag_part(confusion_matrix) / tf.reduce_sum(
-        confusion_matrix, axis=0
+    precisions = tf.math.divide_no_nan(
+        tf.linalg.diag_part(confusion_matrix), tf.reduce_sum(confusion_matrix, axis=0)
     )  # (num_classes, )
-    recalls = tf.linalg.diag_part(confusion_matrix) / tf.reduce_sum(
-        confusion_matrix, axis=1
+    recalls = tf.math.divide_no_nan(
+        tf.linalg.diag_part(confusion_matrix), tf.reduce_sum(confusion_matrix, axis=1)
     )  # (num_classes, )
 
     total_samples = tf.reduce_sum(confusion_matrix)
@@ -446,11 +446,11 @@ def calculate_multiclass_metrics(
     # Precision = TP / TP + FP
     pooled_precision = pooled_confusion_matrix[0][0] / (
         pooled_confusion_matrix[0][0] + pooled_confusion_matrix[1][0]
-    )
+    ) if pooled_confusion_matrix[0][0] + pooled_confusion_matrix[1][0] > 0 else 0.0
     # Recall = TP / TP + FN
     pooled_recall = pooled_confusion_matrix[0][0] / (
         pooled_confusion_matrix[0][0] + pooled_confusion_matrix[0][1]
-    )
+    ) if pooled_confusion_matrix[0][0] + pooled_confusion_matrix[0][1] > 0 else 0.0
 
     return {
         "confusion_matrix": confusion_matrix.numpy(),
