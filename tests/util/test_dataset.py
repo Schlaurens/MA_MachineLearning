@@ -785,3 +785,141 @@ class TestGetCoordinateMask:
         result = self.dataset_utils.get_coordinate_mask(offset_mask)
 
         assert tf.reduce_all(tf.keras.ops.isclose(result, expected))
+
+
+FULL_RES = np.array([480, 640])  # h, w
+
+
+@pytest.mark.parametrize("output_dims, input_dims, cell_dims", CONFIGS)
+class TestGetMasksClassification:
+    @pytest.fixture(autouse=True)
+    def setup(self, output_dims, input_dims, cell_dims):
+        self.output_dims = np.array(output_dims)
+        self.input_dims = np.array(input_dims)
+        self.cell_dims = np.array(cell_dims)
+        self.dataset_config = u_dataset.DatasetConfig(
+            input_dims=input_dims, output_dims=output_dims, cell_dims=cell_dims
+        )
+        self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
+
+        # Cell size in full-resolution (480x640) coordinate space
+        self.image_res_scale = self.input_dims / FULL_RES  # [h_scale, w_scale]
+        self.full_ch = self.cell_dims[0] / self.image_res_scale[0]  # cell height in full-res pixels
+        self.full_cw = self.cell_dims[1] / self.image_res_scale[1]  # cell width  in full-res pixels
+
+    # ===== HELPER FUNCTIONS =====
+    def _make_label(self, l_coords=None, t_coords=None, x_coords=None, ignore_sample=False):
+        """Build a label dict with coordinates in full 480x640 resolution space."""
+
+        def to_entry(coords):
+            return [{"x": float(c[0]), "y": float(c[1])} for c in (coords or [])]
+
+        return {
+            u_dataset.CategoryNames.INTERSECTIONS.value: {
+                "ignore_sample": ignore_sample,
+                "L": to_entry(l_coords),
+                "T": to_entry(t_coords),
+                "X": to_entry(x_coords),
+            }
+        }
+
+    def _get_classification_mask(self, label):
+        return self.dataset_utils.get_masks(
+            label=label, object_name=u_dataset.CategoryNames.INTERSECTIONS.value
+        )["classification_mask"]
+
+    def _cell_value(self, mask, full_res_coord):
+        """Read the classification value for a coordinate given in full-res space."""
+        scaled = tf.constant(full_res_coord, tf.float32) * self.dataset_config.image_res_scale[::-1]
+        idx = self.dataset_utils.get_cell_of_coordinate(scaled)
+        return mask[idx[1], idx[0]]
+
+    # ===== TESTS =====
+    def test_non_intersection_object_has_zero_classification_mask(self):
+        label = {"some_object": {"x": self.full_cw / 2, "y": self.full_ch / 2, "radius": 5.0}}
+        result = self.dataset_utils.get_masks(label=label, object_name="some_object")
+        assert tf.reduce_all(result["classification_mask"] == 0)
+
+    def test_empty_intersection_label_returns_zero_mask(self):
+        label = self._make_label()
+        mask = self._get_classification_mask(label)
+        assert tf.reduce_all(mask == 0)
+
+    def test_ignore_sample_returns_zero_mask(self):
+        label = self._make_label(
+            l_coords=[[self.full_cw / 2, self.full_ch / 2]], ignore_sample=True
+        )
+        mask = self._get_classification_mask(label)
+        assert tf.reduce_all(mask == 0)
+
+    def test_single_l_intersection(self):
+        coord = [self.full_cw / 2, self.full_ch / 2]  # center of cell (0, 0)
+        label = self._make_label(l_coords=[coord])
+        mask = self._get_classification_mask(label)
+
+        assert self._cell_value(mask, coord) == u_dataset.IntersectionType.L.value
+
+    def test_single_t_intersection(self):
+        coord = [self.full_cw + self.full_cw / 2, self.full_ch / 2]  # center of cell (0, 1)
+        label = self._make_label(t_coords=[coord])
+        mask = self._get_classification_mask(label)
+
+        assert self._cell_value(mask, coord) == u_dataset.IntersectionType.T.value
+
+    def test_single_x_intersection(self):
+        coord = [2 * self.full_cw + self.full_cw / 2, self.full_ch / 2]  # center of cell (0, 2)
+        label = self._make_label(x_coords=[coord])
+        mask = self._get_classification_mask(label)
+
+        assert self._cell_value(mask, coord) == u_dataset.IntersectionType.X.value
+
+    def test_multiple_different_types_in_different_cells(self):
+        l_coord = [self.full_cw / 2, self.full_ch / 2]  # cell (0, 0)
+        t_coord = [self.full_cw + self.full_cw / 2, self.full_ch / 2]  # cell (0, 1)
+        x_coord = [self.full_cw / 2, self.full_ch + self.full_ch / 2]  # cell (1, 0)
+
+        label = self._make_label(l_coords=[l_coord], t_coords=[t_coord], x_coords=[x_coord])
+        mask = self._get_classification_mask(label)
+
+        tf.print(label)
+        tf.print(mask)
+        assert self._cell_value(mask, l_coord) == u_dataset.IntersectionType.L.value
+        assert self._cell_value(mask, t_coord) == u_dataset.IntersectionType.T.value
+        assert self._cell_value(mask, x_coord) == u_dataset.IntersectionType.X.value
+
+    def test_cells_without_intersections_remain_zero(self):
+        coord = [self.full_cw / 2, self.full_ch / 2]
+        label = self._make_label(l_coords=[coord])
+        mask = self._get_classification_mask(label)
+
+        assert tf.reduce_sum(tf.cast(mask != 0, tf.int32)) == 1
+
+    def test_two_coords_same_cell_only_one_entry(self):
+        coord_a = [self.full_cw * 0.25, self.full_ch * 0.25]  # both in cell (0, 0)
+        coord_b = [self.full_cw * 0.75, self.full_ch * 0.75]
+        label = self._make_label(l_coords=[coord_a, coord_b])
+        mask = self._get_classification_mask(label)
+
+        assert tf.reduce_sum(tf.cast(mask != 0, tf.int32)) == 1
+
+    def test_classification_mask_shape(self):
+        coord = [self.full_cw / 2, self.full_ch / 2]
+        label = self._make_label(l_coords=[coord])
+        mask = self._get_classification_mask(label)
+
+        assert tf.reduce_all(mask.shape == self.dataset_config.output_dims)
+
+    def test_coordinates_input_returns_zero_classification_mask(self):
+        coords = tf.constant([[self.full_cw / 2, self.full_ch / 2]], tf.float32)
+        result = self.dataset_utils.get_masks(coordinates=coords)
+        assert tf.reduce_all(result["classification_mask"] == 0)
+
+    def test_multiple_different_intersection_in_single_cell(self):
+        coord_a = [self.full_cw * 0.25, self.full_ch * 0.25]  # both in cell (0, 0)
+        coord_b = [self.full_cw * 0.75, self.full_ch * 0.75]  # coord_b is lower
+
+        label = self._make_label(l_coords=[coord_a], t_coords=[coord_b])
+        mask = self._get_classification_mask(label)
+
+        assert tf.reduce_sum(tf.cast(mask != 0, tf.int32)) == 1
+        assert self._cell_value(mask, coord_a) == u_dataset.IntersectionType.T.value
