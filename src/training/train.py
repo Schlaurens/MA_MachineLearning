@@ -142,6 +142,7 @@ def main(config):
     )
     batch_size = config["training"]["batch_size"]
     model_input_dims = config["model"]["encoder"]["input_dims"] // np.array((1, 2))
+    model_cell_dims = config["model"]["encoder"]["cell_dims"]
     encoder_architecture = config["model"]["encoder"]["architecture"]
     classifier_architecture = config["model"]["classifier"]["architecture"]
     only_train_encoder = config["model"]["encoder"]["only_train_encoder"]
@@ -154,6 +155,7 @@ def main(config):
         encoder_architecture,
         classifier_architecture,
         *model_input_dims,
+        cell_dims=model_cell_dims,
         n_context=config["model"]["encoder"]["n_context"],
         only_train_encoder=only_train_encoder,
         classifier_offsets=config["model"]["classifier"]["with_offsets"],
@@ -185,9 +187,10 @@ def main(config):
         model = FullModel.load(
             encoder_architecture,
             classifier_architecture,
-            input_dims=model_input_dims,
             filepath=filepath,
             filename=filename,
+            input_dims=model_input_dims,
+            cell_dims=model_cell_dims,
             n_context=config["model"]["encoder"]["n_context"],
             only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
             classifier_offsets=config["model"]["classifier"]["with_offsets"],

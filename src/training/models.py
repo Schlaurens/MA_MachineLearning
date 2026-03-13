@@ -17,6 +17,7 @@ class FullModel(tf.keras.Model):
         classifier_architecture: str,
         height: int,
         width: int,
+        cell_dims: list[int] = None,
         n_context: int = 0,
         only_train_encoder: bool = False,
         classifier_offsets: bool = True,
@@ -57,7 +58,9 @@ class FullModel(tf.keras.Model):
             [self.image_height, self.image_width * 2], dtype=tf.float32
         )  # constructor input image_width is halved due to YUYV
 
-        self.dataset_config = u_dataset.DatasetConfig((self.image_height, self.image_width * 2))
+        self.dataset_config = u_dataset.DatasetConfig(
+            (self.image_height, self.image_width * 2), cell_dims=cell_dims
+        )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
         self.categories = (
@@ -385,9 +388,10 @@ class FullModel(tf.keras.Model):
         cls,
         encoder_architecture: str,
         classifier_architecture: str,
-        input_dims: list[int] | tuple[int],
         filepath: str,
         filename: str,
+        input_dims: list[int] | tuple[int, int],
+        cell_dims: list[int] | tuple[int, int] = None,
         n_context: int = 0,
         only_train_encoder: bool = False,
         classifier_offsets: bool = True,
@@ -418,6 +422,7 @@ class FullModel(tf.keras.Model):
             encoder_architecture,
             classifier_architecture,
             *input_dims,
+            cell_dims,
             n_context,
             only_train_encoder,
             classifier_offsets,
