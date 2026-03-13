@@ -359,11 +359,11 @@ def calculate_multiclass_metrics(
             tf.sequence_mask(processed_predictions["nms_num_valid"], maxlen=num_candidates), [-1]
         )  # (B * N)
 
-        y_true_suppressed = tf.reshape(
+        y_true_out = tf.reshape(
             tf.gather(y_true_labels, processed_predictions["nms_selected_indices"], batch_dims=1),
             [-1],
         )  # (B * N)
-        y_pred_suppressed = tf.reshape(
+        y_pred_out = tf.reshape(
             tf.gather(
                 y_pred_labels,
                 processed_predictions["nms_selected_indices"],
@@ -371,14 +371,17 @@ def calculate_multiclass_metrics(
             ),
             [-1],
         )  # (B * N)
-        coords_true_suppressed = tf.reshape(
+        coords_true_out = tf.reshape(
             tf.gather(coords_true, processed_predictions["nms_selected_indices"], batch_dims=1),
             (-1, 2),
         )  # (B * N, 2)
 
     else:
-        y_true_labels = tf.reshape(y_true_labels, [-1])  # (B * N)
-        y_pred_labels = tf.reshape(y_pred_labels, [-1])  # (B * N)
+        # No NMS — use all candidates, sequence mask is all True
+        nms_sequence_mask = tf.ones(tf.shape(use_sample_tiled), dtype=tf.bool)  # (B * N)
+        y_true_out = tf.reshape(y_true_labels, [-1])  # (B * N)
+        y_pred_out = tf.reshape(y_pred_labels, [-1])  # (B * N)
+        coords_true_out = tf.reshape(coords_true, (-1, 2))  # (B * N, 2)
 
     tf.assert_equal(tf.shape(y_true_labels), tf.shape(y_pred_labels))
 
@@ -391,7 +394,7 @@ def calculate_multiclass_metrics(
         u_camera.image_to_world(
             tf.reshape(camera_tiled, (-1, 3)),
             tf.reshape(intrinsics_tiled, (-1, 4)),
-            coords_true_suppressed,
+            coords_true_out,
         ),
         axis=-1,
         keepdims=True,
@@ -405,11 +408,11 @@ def calculate_multiclass_metrics(
     )  # (B * N)
 
     y_true_labels_filtered = tf.boolean_mask(
-        y_true_suppressed,
+        y_true_out,
         use_sample_tiled & nms_sequence_mask & coords_true_distance_mask,
     )
     y_pred_labels_filtered = tf.boolean_mask(
-        y_pred_suppressed, use_sample_tiled & nms_sequence_mask & coords_true_distance_mask
+        y_pred_out, use_sample_tiled & nms_sequence_mask & coords_true_distance_mask
     )
 
     # ===== Evaluation Metrics ======
