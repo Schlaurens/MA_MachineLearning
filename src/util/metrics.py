@@ -1002,22 +1002,22 @@ def handle_predictions_multiclass(
         predictions["logits"], predictions["patch_indices"], batch_dims=1
     )  # (B, N)
 
-    # Candidates that pass the threshold(s)
-    combined_threshold_mask = get_thresholding_mask(
-        tf.reduce_max(classification_scores, axis=-1),
-        classifier_threshold,
-        best_logits,
-        encoder_threshold,
-    )  # (B, N)
+    max_class_scores = tf.reduce_max(
+        classification_scores[:, :, 1:], axis=-1
+    )  # (B, N) -- ignore background
+    y_pred_labels = (
+        tf.argmax(classification_scores[:, :, 1:], axis=-1) + 1
+    )  # (B, N) -- +1 due to background
+    threshold_mask = max_class_scores >= classifier_threshold  # (B, N)
 
-    y_pred_labels = tf.argmax(classification_scores, axis=-1)  # (B, N)
+    if encoder_threshold is not None:
+        best_logits_mask = best_logits >= encoder_threshold
+        threshold_mask = threshold_mask & best_logits_mask
 
-    # Classify all samples that are under the threshold as 0 (negative class).
-    masked_scores = tf.where(combined_threshold_mask, y_pred_labels, 0)  # (B, N)
+    masked_scores = tf.where(threshold_mask, y_pred_labels, 0)  # (B, N)
 
     return {
         "classes_of_candidates": masked_scores,
-        "threshold_mask": combined_threshold_mask,
         "nms_selected_indices": nms_selected_indices,
         "nms_num_valid": nms_num_valid,
     }
