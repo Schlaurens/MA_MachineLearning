@@ -479,6 +479,49 @@ def calculate_multiclass_metrics(
     }
 
 
+def count_unique(x: tf.Tensor, invalid_val: float = None) -> tf.Tensor:
+    """Counts the number of unique values per row in a 2D tensor.
+
+    Unique counting is done by sorting each row and counting adjacent differences.
+    If an invalid value is specified, those entries are excluded from the count.
+
+    Args:
+        x: A 2D tensor of shape (B, N) containing the values to count unique
+            entries for. Each row is counted independently.
+        invalid_val: A float value to exclude from the unique count, e.g. a
+            sentinel value for padding or missing entries. If None, all values
+            are counted. Defaults to None.
+
+    Returns:
+        A 1D tensor of shape (B,) containing the number of unique valid values
+        per row.
+
+    Example:
+        >>> x = tf.constant([[1.0, 2.0, 2.0, 3.0], [1.0, -1.0, -1.0, 1.0]])
+        >>> count_unique(x, invalid_val=-1.0)
+        <tf.Tensor: shape=(2,), dtype=int32, numpy=array([3, 1])>
+    """
+    if invalid_val is not None:
+        valid_mask = x != invalid_val  # (B, N)
+        sentinel = tf.reduce_max(x) + 1
+        x = tf.where(valid_mask, x, sentinel)
+
+    sorted_x = tf.sort(x, axis=-1)
+    diff = sorted_x[:, 1:] != sorted_x[:, :-1]
+
+    if invalid_val is not None:
+        valid_sorted = tf.sort(
+            tf.cast(valid_mask, tf.int32), axis=-1, direction="DESCENDING"
+        )  # (B, N)
+        diff = tf.cast(valid_sorted[:, 1:], tf.bool) & diff
+        any_valid = tf.reduce_any(valid_mask, axis=-1)  # (B,)
+        counts = tf.reduce_sum(tf.cast(diff, tf.int32), axis=-1) + tf.cast(any_valid, tf.int32)
+    else:
+        counts = tf.reduce_sum(tf.cast(diff, tf.int32), axis=-1) + 1
+
+    return counts
+
+
 def calculate_metrics(
     predictions: dict,
     groundtruth: dict,
