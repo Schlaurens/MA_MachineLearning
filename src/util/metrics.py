@@ -206,6 +206,7 @@ def calculate_binary_metrics(
     camera,
     intrinsics,
     max_distance,
+    threshold_mode,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
 
@@ -247,7 +248,7 @@ def calculate_binary_metrics(
     coords_true_distance_mask = coords_true_distances_valid <= max_distance
 
     best_predictions = handle_predictions_binary(
-        predictions, encoder_threshold, classifier_threshold
+        predictions, encoder_threshold, classifier_threshold, threshold_mode
     )
 
     # The best box of each sample
@@ -484,6 +485,7 @@ def calculate_metrics(
     num_classes: int,
     classifier_threshold: float,
     encoder_threshold: float,
+    treshold_mode: str,
     camera,
     intrinsics,
     max_distance,
@@ -512,6 +514,7 @@ def calculate_metrics(
             camera,
             intrinsics,
             max_distance,
+            treshold_mode,
         )
         return {
             "confusion_matrix": binary_metrics["confusion_matrix"],
@@ -530,6 +533,7 @@ def get_thresholding_mask(
     classifier_threshold: float,
     encoder_preds: tf.Tensor = None,
     encoder_threshold: float = None,
+    mode: str = "additive",
 ):
     """Generates a binary mask that is True everwhere the prediction is within the specified theshold. This function assumes that `classifier_preds` and `encoder_preds` are of the same shape. `encoder_preds` and `encoder_threshold` are optional.
 
@@ -542,19 +546,28 @@ def get_thresholding_mask(
     Returns:
     The thresholding mask.
     """
+    if mode == "additive":
+        if encoder_preds is not None:
+            combined_score = classifier_preds + encoder_preds
+            return combined_score >= (classifier_threshold + encoder_threshold)
+        else:
+            return classifier_preds >= classifier_threshold
 
-    classifier_preds_thresholded = classifier_preds >= classifier_threshold  # (...)
+    elif mode == "logical_and":
+        classifier_preds_thresholded = classifier_preds >= classifier_threshold  # (...)
 
-    if encoder_preds is not None and encoder_threshold is not None:
-        encoder_preds_thresholded = encoder_preds >= encoder_threshold  # (...)
-    else:
-        encoder_preds_thresholded = tf.ones_like(classifier_preds_thresholded)
+        if encoder_preds is not None and encoder_threshold is not None:
+            encoder_preds_thresholded = encoder_preds >= encoder_threshold  # (...)
+        else:
+            encoder_preds_thresholded = tf.ones_like(classifier_preds_thresholded)
 
-    tf.assert_equal(tf.shape(classifier_preds_thresholded), tf.shape(encoder_preds_thresholded))
+        tf.assert_equal(tf.shape(classifier_preds_thresholded), tf.shape(encoder_preds_thresholded))
 
-    combined_thresholds = tf.logical_and(classifier_preds_thresholded, encoder_preds_thresholded)
+        combined_thresholds = tf.logical_and(
+            classifier_preds_thresholded, encoder_preds_thresholded
+        )
 
-    return combined_thresholds
+        return combined_thresholds
 
 
 def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1):
@@ -798,7 +811,10 @@ def save_predictions(
 
 
 def handle_predictions_binary(
-    predictions: dict, encoder_threshold: float, classifier_threshold: float
+    predictions: dict,
+    encoder_threshold: float,
+    classifier_threshold: float,
+    threshold_mode: str = "logical_and",
 ) -> dict:
     """Processes binary predictions by applying thresholding to filter and classify candidates.
 
@@ -829,10 +845,7 @@ def handle_predictions_binary(
 
     # Candidates that pass the threshold(s)
     combined_threshold_mask = get_thresholding_mask(
-        classification_scores,
-        classifier_threshold,
-        best_logits,
-        encoder_threshold,
+        classification_scores, classifier_threshold, best_logits, encoder_threshold, threshold_mode
     )  # (B, N)
 
     # If the classification_scores are invalid because of the threshold, they are tf.float32.min !
