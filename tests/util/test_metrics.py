@@ -283,3 +283,54 @@ class TestMatchKeypointsImage:
         assert tf.reduce_all(fn_tensor == result["fn_tensor"])
         assert tf.reduce_all(fp_tensor == result["fp_tensor"])
         assert tf.reduce_all(expected == result["matches"])
+
+
+class TestCountUnique:
+    def test_base_case(self):
+        x = tf.constant([[1, 3, 4, 1]], tf.float32)
+        expected = tf.constant([3])
+
+        result = u_metrics.count_unique(x)
+
+        assert tf.reduce_all(expected == result)
+        assert tf.reduce_all(tf.shape(result) == tf.shape(expected))
+
+    def test_single_row_with_invalid_val(self):
+        x = tf.constant([[1, 3, 4, 1]], tf.float32)
+        invalid_val = 1
+        expected = tf.constant([2])
+
+        result = u_metrics.count_unique(x, invalid_val)
+
+        assert tf.reduce_all(expected == result)
+        assert tf.reduce_all(tf.shape(result) == tf.shape(expected))
+
+    def test_multiple_row_with_invalid_val(self):
+        x = tf.constant([[0, 3, 6, 1], [1, 87, 4, 1], [1.54, 1.55, -13, 1]], tf.float32)
+        invalid_val = 1
+        expected = tf.constant([3, 2, 3])
+
+        result = u_metrics.count_unique(x, invalid_val)
+        tf.print(result)
+        assert tf.reduce_all(expected == result)
+        assert tf.reduce_all(tf.shape(result) == tf.shape(expected))
+
+    def test_no_values(self):
+        x = tf.constant([[]], tf.float32)
+        invalid_val = 1
+        expected = tf.constant([0])
+
+        result = u_metrics.count_unique(x, invalid_val)
+        tf.print(result)
+        assert tf.reduce_all(expected == result)
+        assert tf.reduce_all(tf.shape(result) == tf.shape(expected))
+
+    def test_only_invalid(self):
+        x = tf.constant([[1, 1, 1, 1], [1, 1, 1, 1]], tf.float32)
+        invalid_val = 1
+        expected = tf.constant([0, 0])
+
+        result = u_metrics.count_unique(x, invalid_val)
+        tf.print(result)
+        assert tf.reduce_all(expected == result)
+        assert tf.reduce_all(tf.shape(result) == tf.shape(expected))
