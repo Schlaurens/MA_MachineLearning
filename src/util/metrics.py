@@ -9,8 +9,6 @@ from . import camera as u_camera
 from . import dataset as u_dataset
 from . import keypoint as u_keypoint
 
-dataset_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
-
 
 class Error_Metric(tf.keras.metrics.Metric):
     """
@@ -198,6 +196,7 @@ class RMSE(Error_Metric):
 
 
 def calculate_binary_metrics(
+    dataset_utils: u_dataset.DatasetUtils,
     predictions,
     groundtruth,
     classifier_threshold,
@@ -298,6 +297,7 @@ def calculate_binary_metrics(
 
 
 def calculate_multiclass_metrics(
+    dataset_utils: u_dataset.DatasetUtils,
     predictions: dict,
     groundtruth: dict,
     classifier_threshold: float,
@@ -557,6 +557,7 @@ def count_unique(x: tf.Tensor, invalid_val: float = None) -> tf.Tensor:
 
 
 def calculate_metrics(
+    dataset_utils: u_dataset.DatasetUtils,
     predictions: dict,
     groundtruth: dict,
     num_classes: int,
@@ -571,6 +572,7 @@ def calculate_metrics(
 ):
     if num_classes > 1:
         return calculate_multiclass_metrics(
+            dataset_utils,
             predictions,
             groundtruth,
             classifier_threshold,
@@ -583,6 +585,7 @@ def calculate_metrics(
 
     else:
         binary_metrics = calculate_binary_metrics(
+            dataset_utils,
             predictions,
             groundtruth,
             classifier_threshold,
