@@ -788,6 +788,7 @@ def save_predictions(
     classifier_threshold: float,
     encoder_threshold: float,
     nms_iou_threshold: float,
+    image_res_scale: list[float],
 ) -> None:
     """Saves the predictions for each object category into a .json file.
 
@@ -804,7 +805,7 @@ def save_predictions(
 
     def coords_tensor_to_dict_list(tensor):
         return [
-            {"x": float(x), "y": float(y), "confidence": float(conf)}
+            {"x": float(x) / image_res_scale[1], "y": float(y) / image_res_scale[0], "confidence": float(conf)}
             for x, y, conf in tensor.numpy()
         ]
 
