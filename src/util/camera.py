@@ -99,6 +99,12 @@ def image_to_world(
     camera_height = camera[..., 2]  # [B, ]
     object_height = 0.5 * object_height
 
+    tf.debugging.assert_equal(
+        tf.shape(camera_intr[..., :2]),
+        tf.shape(point_in_image),
+        message="camera_intr and point_in_image batch shapes must match",
+    )
+
     dir_in_camera = tf.concat(
         [
             tf.ones_like(point_in_image[..., :1]),
