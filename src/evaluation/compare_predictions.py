@@ -289,19 +289,21 @@ def compare_predictions(
 
             model_tp_matches_concat = tf.concat(object_list["matches"], axis=0)  # (B, 2, 2)
             model_tp_distances_concat = tf.concat(object_list["distances"], axis=0)  # (B, 2)
-            save_path = Path(save_path_for_matches, f"{object_name}{status_str}", intersection_type if intersection_type is not None else "")
+            save_path = Path(
+                save_path_for_matches,
+                f"{object_name}{status_str}",
+                intersection_type if intersection_type is not None else "",
+            )
             os.makedirs(save_path, exist_ok=True)
 
             # Save matches in .npy file
             np.save(
-                save_path
-                / f"{key}_matches",
+                save_path / f"{key}_matches",
                 model_tp_matches_concat.numpy(),
             )
             # Save distances in .npy file
             np.save(
-                save_path
-                / f"{key}_distances",
+                save_path / f"{key}_distances",
                 model_tp_distances_concat.numpy(),
             )
 
@@ -322,7 +324,6 @@ def print_results(metrics: dict, object_name: str, status: str = "") -> None:
 
 
 def main(args) -> None:
-
     save_path_for_matches = Path(args.directory, args.model_timestamp, "matches")
     os.makedirs(save_path_for_matches, exist_ok=True)
 
