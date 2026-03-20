@@ -641,7 +641,9 @@ class FullModel(tf.keras.Model):
             )  # (B * N, n_context)
             classifier_inputs += [context_reshaped]
 
-        classification, offsets = classifier(classifier_inputs)  # + meta + context
+        classification, offsets = classifier(
+            classifier_inputs, training=training
+        )  # + meta + context
 
         classification = tf.reshape(
             classification, (tf.shape(intrinsics)[0], sampler.n_sample, n_classes)
