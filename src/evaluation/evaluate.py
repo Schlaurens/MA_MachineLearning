@@ -318,6 +318,7 @@ class EvaluateApplication:
             encoder_architecture=config["model"]["encoder"]["architecture"],
             classifier_architecture=config["model"]["classifier"]["architecture"],
             input_dims=config["model"]["encoder"]["input_dims"],
+            cell_dims=config["model"]["encoder"]["input_dims"],
             filepath=path_to_model,
             filename=model_name,
             n_context=config["model"]["encoder"]["n_context"],
