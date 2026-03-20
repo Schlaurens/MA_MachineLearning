@@ -50,9 +50,10 @@ class EvaluateApplication:
 
         config = self.load_config(f"logs/fit/{model_timestamp}/config.yaml")
         input_dims = config["model"]["encoder"]["input_dims"]
+        cell_dims = config["model"]["encoder"]["cell_dims"]
 
         self.dataset_utils = u_dataset.DatasetUtils(
-            u_dataset.DatasetConfig(input_dims)
+            u_dataset.DatasetConfig(input_dims, cell_dims=cell_dims)
         )
         self.data = list(
             u_dataset_io.get_dataset(data_path, self.dataset_utils).as_numpy_iterator()
