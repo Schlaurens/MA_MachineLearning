@@ -372,9 +372,10 @@ class FullModel(tf.keras.Model):
         os.makedirs(os.path.join(filepath, "encoder"), exist_ok=True)
 
         # Save the encoder
-        encoder_path = os.path.join(filepath, "encoder", f"{filename}.keras")
+        encoder_path = os.path.join(filepath, "encoder", f"{filename}")
 
-        self.encoder.save(encoder_path, overwrite)
+        self.encoder.save(encoder_path + ".keras", overwrite)
+        self.encoder.export(encoder_path + ".onnx", format="onnx")
 
         if verbose:
             print("Encoder saved!")
@@ -385,8 +386,9 @@ class FullModel(tf.keras.Model):
                 # Create directory if it does not exist.
                 os.makedirs(os.path.join(filepath, "classifier", name), exist_ok=True)
 
-                classifier_path = os.path.join(filepath, "classifier", name, f"{filename}.keras")
-                value["classifier"].save(classifier_path, overwrite)
+                classifier_path = os.path.join(filepath, "classifier", name, f"{filename}")
+                value["classifier"].save(classifier_path + ".keras", overwrite)
+                value["classifier"].export(classifier_path + ".onnx", format="onnx")
 
                 if verbose:
                     print(f"{name.capitalize()}-Classifier saved!")
