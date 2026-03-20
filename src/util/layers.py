@@ -132,22 +132,22 @@ class IresBlock(tf.keras.layers.Layer):
 
         # Expansion phase: 1x1 convolution to expand channels
         x = self.conv_expand(inputs)
-        x = self.norm_expand(x, training=training)
+        # x = self.norm_expand(x, training=training)
         x = self.relu(x)
 
         # Use Depthwise convolution
         x = self.conv_depthwise(x)
-        x = self.norm_depthwise(x, training=training)
+        # x = self.norm_depthwise(x, training=training)
         x = self.relu(x)
 
         # Projection phase: 1x1 convolution to project back to original channels
         x = self.conv_projection(x)
-        x = self.norm_projection(x, training=training)
+        # x = self.norm_projection(x, training=training)
 
         # If dimensions changed, project the residual
         if self.stride != 1 or residual.shape[-1] != self.filters:
             residual = self.conv_residual(residual)
-            residual = self.norm_residual(residual, training=training)
+            # residual = self.norm_residual(residual, training=training)
 
         # Add residual
         return self.add([x, residual])

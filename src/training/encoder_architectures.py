@@ -323,12 +323,12 @@ def _get_encoder_inverted_residual_single_category_v4_16x16(
     # 480x320x4
     # cannot be ires block due to uneven stride
     x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
-    x = Normalization(
-        use_batch_norm,
-        scale=False,
-        groups=-1,
-        name="BatchNormalization" if use_batch_norm else "GroupNormalization",
-    )(x)
+    # x = Normalization(
+    #     use_batch_norm,
+    #     scale=True,
+    #     groups=-1,
+    #     name="BatchNormalization" if use_batch_norm else "GroupNormalization",
+    # )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
