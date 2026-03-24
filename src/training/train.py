@@ -26,12 +26,12 @@ def load_config(config_path):
     return config
 
 
-def log_config(timestamp: str, config):
+def log_config(timestamp: str, input_dims_str: str, config):
     # if the training is started from a checkpoint, do not log the config a in a new directory
     if config["training"]["from_checkpoint"]:
         return
 
-    log_dir = os.path.join(config["callbacks"]["log_dir"], timestamp)
+    log_dir = Path(config["callbacks"]["log_dir"]) / input_dims_str / timestamp
 
     # Create a directory
     os.makedirs(log_dir, exist_ok=True)
@@ -48,16 +48,18 @@ def log_config(timestamp: str, config):
     print(f"Configuration logged to {log_file}")
 
 
-def get_callbacks(timestamp: str, config):
-    log_dir = config["callbacks"]["log_dir"] + timestamp
+def get_callbacks(timestamp: str, input_dims_str: str, config):
+    log_dir = Path(config["callbacks"]["log_dir"]) / input_dims_str / timestamp
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
     checkpoint_callback = u_callbacks.CustomCheckpointCallback(
-        filepath=f"models/checkpoints/{timestamp}", overwrite=True, verbose=False
+        filepath=f"models/checkpoints/{input_dims_str}/{timestamp}", overwrite=True, verbose=False
     )
 
-    csv_logger = tf.keras.callbacks.CSVLogger(log_dir + "/log.csv", separator=",", append=True)
+    csv_logger = tf.keras.callbacks.CSVLogger(
+        log_dir.as_posix() + "/log.csv", separator=",", append=True
+    )
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor=config["callbacks"]["reduce_lr"]["monitor"],
@@ -149,7 +151,9 @@ def main(config):
     classifier_architecture = config["model"]["classifier"]["architecture"]
     only_train_encoder = config["model"]["encoder"]["only_train_encoder"]
 
-    log_config(timestamp, config)
+    input_dims_str = f"{config['model']['encoder']['input_dims'][0]}x{config['model']['encoder']['input_dims'][1]}"
+
+    log_config(timestamp, input_dims_str, config)
 
     dataset = load_datasets(config)
 
@@ -204,7 +208,7 @@ def main(config):
             categories_config=config["categories"],
         )
 
-    callbacks = get_callbacks(timestamp, config)
+    callbacks = get_callbacks(timestamp, input_dims_str, config)
 
     model.fit(
         x=dataset["train_ds"],
@@ -217,7 +221,9 @@ def main(config):
         initial_epoch=initial_epoch,
     )
 
-    model.save("models/finished", f"{timestamp}", only_save_encoder=only_train_encoder)
+    model.save(
+        f"models/finished/{input_dims_str}", f"{timestamp}", only_save_encoder=only_train_encoder
+    )
 
     return
 
