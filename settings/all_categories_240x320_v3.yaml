@@ -1,15 +1,15 @@
 model:
   encoder:
-    architecture: "inverted_residual_single_category_v4_16x16"
+    architecture: "conv_16x16_v1"
     input_dims: [240, 320]
     cell_dims: [16, 16]
-    n_context: 64
+    n_context: 0
     only_train_encoder: False
     use_batch_norm: False
   classifier:
-    architecture: "classifier_ires_single_category_v6"
+    architecture: "ires_v1"
     patch_size: [32, 32]
-    n_meta: 1 # if 1 it's just the distance to the patch center
+    n_meta: 0 # if 1 it's just the distance to the patch center
     with_offsets: True
     use_batch_norm: False
 
