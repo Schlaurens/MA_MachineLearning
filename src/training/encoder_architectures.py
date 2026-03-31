@@ -152,6 +152,8 @@ def _get_encoder_ires_16x16_v2(
     x = IresBlock(16, use_batch_norm, stride=2, expansion=2)(x)
     # 15x20x16
     x = IresBlock(24, use_batch_norm, stride=1, expansion=3)(x)
+    # 15x20x64
+    x = IresBlock(24, use_batch_norm, stride=1, expansion=3)(x)
     # 15x20x24
     return _get_common_encoder_output(x, category_names, n_context, image)
 
