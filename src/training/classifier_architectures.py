@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from util.layers import IresBlock, Normalization
+from util.layers import IresBlock
 
 
 def get_classifier(
@@ -199,22 +199,18 @@ def _get_classifier_conv_v1(
     x = image
     # 32x32x3
     x = tf.keras.layers.Conv2D(16, 3, strides=2, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 16x16x16
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(32, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 8x8x32
     x = tf.keras.layers.DepthwiseConv2D(3, strides=1, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(32, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 8x8x32
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(48, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 4x4x48
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
@@ -246,22 +242,18 @@ def _get_classifier_conv_v2(
     x = image
     # 32x32x3
     x = tf.keras.layers.Conv2D(8, 3, strides=2, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 16x16x8
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(16, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 8x8x16
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(24, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 4x4x24
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
     x = tf.keras.layers.Conv2D(32, 1, padding="same", use_bias=False)(x)
-    x = Normalization(use_batch_norm, scale=False, groups=-1)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 2x2x32
     x = tf.keras.layers.Flatten()(x)
