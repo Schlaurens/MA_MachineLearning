@@ -133,6 +133,7 @@ class FullModel(tf.keras.Model):
         element_wise_bce_multiplied = tf.multiply(
             element_wise_bce, batch_data["loss_mask"]
         )  # (B, 15, 20)
+        bce_batched = tf.reduce_sum(element_wise_bce_multiplied, axis=[1, 2])  # (B, )
 
         tf.debugging.assert_all_finite(batch_data["loss_mask"], "batch_data[loss_mask]")
         tf.debugging.assert_all_finite(element_wise_bce_multiplied, "element_wise_bce_multiplied")
