@@ -82,12 +82,11 @@ def _get_common_encoder_output(x, category_names, n_context, image):
     output = []
     for name in category_names:
         y = x
-        offset = tf.keras.layers.Conv2D(2, 1)(y)
+        offset = tf.keras.layers.Conv2D(2, 1, name=f"{name}_offsets")(y)
 
         y = tf.keras.layers.Conv2D(1, 1)(y)
-        interest = tf.keras.layers.Activation("sigmoid")(y)
-
-        output += [tf.keras.layers.Concatenate(name=name)([offset, interest])]
+        interest = tf.keras.layers.Activation("sigmoid", name=f"{name}_interest")(y)
+        output += [offset, interest]
 
     if n_context > 0:
         context = tf.keras.layers.Conv2D(n_context, 1, name="context")(x)

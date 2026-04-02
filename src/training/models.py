@@ -105,24 +105,24 @@ class FullModel(tf.keras.Model):
             self.encoder_use_batch_norm,
         )
 
-    def encoder_loss(self, batch_data, maps):
+    def encoder_loss(self, batch_data, interest, offsets):
         # Compute Binary Cross Entropy
 
         # Numeric stabilizer
         epsilon = tf.constant(1e-7, dtype=tf.float32)
         element_wise_bce = -(
-            batch_data["object_mask"] * tf.math.log(maps[..., 2] + epsilon)
-            + (1.0 - batch_data["object_mask"]) * tf.math.log(1.0 - maps[..., 2] + epsilon)
+            batch_data["object_mask"] * tf.math.log(interest + epsilon)
+            + (1.0 - batch_data["object_mask"]) * tf.math.log(1.0 - interest + epsilon)
         )  # (B, 15, 20)
 
-        tf.debugging.assert_non_negative(maps[..., 2], "maps[..., 2] is negative")
+        tf.debugging.assert_non_negative(interest, "interest is negative")
         tf.debugging.assert_all_finite(tf.math.log(epsilon), "tf.math.log(epsilon)")
         tf.debugging.assert_all_finite(
-            tf.math.log(maps[..., 2] + epsilon), "tf.math.log(maps[..., 2] + epsilon)"
+            tf.math.log(interest + epsilon), "tf.math.log(interest + epsilon)"
         )
-        tf.debugging.assert_none_equal(1.0 - maps[..., 2] + epsilon, 0.0, message="equals 0.0")
+        tf.debugging.assert_none_equal(1.0 - interest + epsilon, 0.0, message="equals 0.0")
         tf.debugging.assert_all_finite(
-            tf.math.log(1.0 - maps[..., 2] + epsilon), "tf.math.log(1.0 - maps[..., 2] + epsilon"
+            tf.math.log(1.0 - interest + epsilon), "tf.math.log(1.0 - interest + epsilon"
         )
         tf.debugging.assert_all_finite(batch_data["object_mask"], "batch_data[object_mask]")
         tf.debugging.assert_all_finite(
@@ -140,7 +140,7 @@ class FullModel(tf.keras.Model):
 
         # Compute MSE
         squared_error = tf.square(
-            tf.norm(batch_data["offset_mask"] - maps[..., :2], axis=-1)
+            tf.norm(batch_data["offset_mask"] - offsets, axis=-1)
         )  # (B, 15, 20)
         squared_error_multiplied = tf.multiply(
             squared_error, batch_data["object_mask"]
@@ -295,9 +295,23 @@ class FullModel(tf.keras.Model):
         }
 
     def _calculate_losses(self, batch_data, results, maps):
-        encoder_losses = {
-            key: self.encoder_loss(batch_data[key], maps[key]) for key in self.categories
-        }
+        # This is a bit hacky and should be removed once there are no more models with the old Concatenated architecture.
+        if f"{list(self.categories.keys())[0]}_interest" in maps:
+            encoder_losses = {
+                key: self.encoder_loss(
+                    batch_data[key],
+                    interest=tf.squeeze(maps[f"{key}_interest"], -1),
+                    offsets=maps[f"{key}_offsets"],
+                )
+                for key in self.categories
+            }
+        else:
+            encoder_losses = {
+                key: self.encoder_loss(
+                    batch_data[key], interest=maps[key][..., 2], offsets=maps[key][..., :2]
+                )
+                for key in self.categories
+            }
         classifier_losses = {
             key: self.classifier_loss(
                 batch_data[key],
@@ -519,24 +533,43 @@ class FullModel(tf.keras.Model):
         context = None
         if "context" in maps:
             context = maps["context"]  # (B, H_out, W_out, n_context)
-
-        results = {
-            key: self._handle_category(
-                image_yuv,
-                camera,
-                intrinsics,
-                value["object_height"],
-                maps[key][..., 2],
-                maps[key][..., :2],
-                context,
-                value["n_classes"],
-                value["sampler"],
-                value["extractor"],
-                value["classifier"],
-                training=training,
-            )
-            for key, value in self.categories.items()
-        }  # Call _handle_category for each category and store the results in a dictionary
+        # This is a bit hacky and should be removed once there are no more models with the old Concatenated architecture.
+        if f"{list(self.categories.keys())[0]}_interest" in maps:
+            results = {
+                key: self._handle_category(
+                    image_yuv,
+                    camera,
+                    intrinsics,
+                    value["object_height"],
+                    maps[f"{key}_interest"],
+                    maps[f"{key}_offsets"],
+                    context,
+                    value["n_classes"],
+                    value["sampler"],
+                    value["extractor"],
+                    value["classifier"],
+                    training=training,
+                )
+                for key, value in self.categories.items()
+            }  # Call _handle_category for each category and store the results in a dictionary
+        else:
+            results = {
+                key: self._handle_category(
+                    image_yuv,
+                    camera,
+                    intrinsics,
+                    value["object_height"],
+                    maps[key][..., 2],
+                    maps[key][..., :2],
+                    context,
+                    value["n_classes"],
+                    value["sampler"],
+                    value["extractor"],
+                    value["classifier"],
+                    training=training,
+                )
+                for key, value in self.categories.items()
+            }  # Call _handle_category for each category and store the results in a dictionary
 
         # results: patches, masks
         # maps: [B, H_out, W_out, 3] (offsets, logits) or [B, H_out, W_out, n_context]
