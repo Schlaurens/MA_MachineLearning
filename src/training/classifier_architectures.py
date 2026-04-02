@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from util.layers import IresBlock
+from util.layers import IresBlockCompiledNN
 
 
 def get_classifier(
@@ -127,9 +127,9 @@ def _get_classifier_ires_v1(
         inputs += [context]
 
     x = image
-    x = IresBlock(8, use_batch_norm, stride=2, expansion=6)(x)
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=6)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=4)(x)
 
     x = tf.keras.layers.Flatten()(x)
 
@@ -166,9 +166,9 @@ def _get_classifier_ires_v2(
         inputs += [context]
 
     x = image
-    x = IresBlock(8, use_batch_norm, stride=2, expansion=4)(x)
-    x = IresBlock(10, use_batch_norm, stride=2, expansion=4)(x)
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(10, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=4)(x)
 
     x = tf.keras.layers.Flatten()(x)
 

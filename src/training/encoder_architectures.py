@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from util.layers import IresBlock
+from util.layers import IresBlockCompiledNN
 
 
 def get_encoder(
@@ -118,19 +118,19 @@ def _get_encoder_ires_16x16_v1(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
-    x = IresBlock(8, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=1, expansion=1)(x)
 
     # 240x320x24
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=1)(x)
 
     # 120x160x24
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=4)(x)
 
     # 60x80x32
-    x = IresBlock(24, use_batch_norm, stride=2, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=2, expansion=3)(x)
 
     # 15x20x64
-    x = IresBlock(32, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(32, use_batch_norm, stride=1, expansion=3)(x)
 
     # 15x20x64
     return _get_common_encoder_output(x, category_names, n_context, image)
@@ -145,15 +145,15 @@ def _get_encoder_ires_16x16_v2(
     x = tf.keras.layers.Conv2D(4, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 120x160x4
-    x = IresBlock(8, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
     # 60x80x8
-    x = IresBlock(12, use_batch_norm, stride=2, expansion=2)(x)
+    x = IresBlockCompiledNN(12, use_batch_norm, stride=2, expansion=2)(x)
     # 30x40x12
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=2)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=2)(x)
     # 15x20x16
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=1, expansion=3)(x)
     # 15x20x64
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=1, expansion=3)(x)
     # 15x20x24
     return _get_common_encoder_output(x, category_names, n_context, image)
 
@@ -206,16 +206,16 @@ def _get_encoder_ires_24x24_v1(
     x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
-    x = IresBlock(8, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=1, expansion=1)(x)
 
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=1)(x)
-    x = IresBlock(16, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=1, expansion=3)(x)
 
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=4)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=4)(x)
 
     x = tf.keras.layers.AveragePooling2D(pool_size=3, strides=3, padding="same")(x)
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=4)(x)
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=4)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=1, expansion=4)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=1, expansion=4)(x)
 
     return _get_common_encoder_output(x, category_names, n_context, image)
 
@@ -229,15 +229,15 @@ def _get_encoder_ires_24x24_v2(
     x = tf.keras.layers.Conv2D(6, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 180x240x6
-    x = IresBlock(8, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
     # 90x120x8
-    x = IresBlock(12, use_batch_norm, stride=2, expansion=2)(x)
+    x = IresBlockCompiledNN(12, use_batch_norm, stride=2, expansion=2)(x)
     # 45x60x12
-    x = IresBlock(16, use_batch_norm, stride=1, expansion=2)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=1, expansion=2)(x)
     # 45x60x16
-    x = IresBlock(20, use_batch_norm, stride=3, expansion=2)(x)
+    x = IresBlockCompiledNN(20, use_batch_norm, stride=3, expansion=2)(x)
     # 15x20x20
-    x = IresBlock(24, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=1, expansion=3)(x)
     # 15x20x24
     return _get_common_encoder_output(x, category_names, n_context, image)
 
@@ -290,15 +290,15 @@ def _get_encoder_ires_32x32_v1(
     x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 240x160x8
-    x = IresBlock(8, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
     # 120x80x8
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=2)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=2)(x)
     # 60x40x16
-    x = IresBlock(24, use_batch_norm, stride=2, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=2, expansion=3)(x)
     # 30x20x24
-    x = IresBlock(32, use_batch_norm, stride=2, expansion=3)(x)
+    x = IresBlockCompiledNN(32, use_batch_norm, stride=2, expansion=3)(x)
     # 15x10x32
-    x = IresBlock(32, use_batch_norm, stride=1, expansion=3)(x)
+    x = IresBlockCompiledNN(32, use_batch_norm, stride=1, expansion=3)(x)
     # 15x10x32
     return _get_common_encoder_output(x, category_names, n_context, image)
 
@@ -316,19 +316,19 @@ def _get_encoder_ires_32x32_v2(
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
-    x = IresBlock(8, use_batch_norm, stride=1, expansion=1)(x)
+    x = IresBlockCompiledNN(8, use_batch_norm, stride=1, expansion=1)(x)
 
     # 240x320x24
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=1)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=1)(x)
 
     # 120x160x24
-    x = IresBlock(16, use_batch_norm, stride=2, expansion=2)(x)
+    x = IresBlockCompiledNN(16, use_batch_norm, stride=2, expansion=2)(x)
 
     # 60x80x32
-    x = IresBlock(24, use_batch_norm, stride=2, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=2, expansion=3)(x)
 
     # 15x20x64
-    x = IresBlock(24, use_batch_norm, stride=2, expansion=3)(x)
+    x = IresBlockCompiledNN(24, use_batch_norm, stride=2, expansion=3)(x)
 
     # 15x20x64
     return _get_common_encoder_output(x, category_names, n_context, image)
