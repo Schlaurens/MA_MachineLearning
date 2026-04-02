@@ -58,8 +58,8 @@ callbacks:
   reduce_lr:
     monitor: "val_total_loss"
     mode: "min"
-    factor: 0.9999999
-    patience: 25
+    factor: 0.85
+    patience: 50
     min_lr: 0.00001
   early_stopping:
     monitor: "val_total_loss"
