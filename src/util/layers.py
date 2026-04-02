@@ -153,6 +153,56 @@ class IresBlock(tf.keras.layers.Layer):
         return self.add([x, residual])
 
 
+def IresBlockCompiledNN(filters, use_batch_norm, stride, expansion, name=None):
+    def forward(inputs):
+        residual = inputs
+        # Conv expand
+        x = tf.keras.layers.Conv2D(
+            filters * expansion,
+            1,
+            padding="same",
+            use_bias=False,
+            # name=f"{name}_conv_expand",
+        )(inputs)
+
+        # relu
+        x = tf.keras.layers.ReLU(6.0)(x)
+
+        # conv depthwise
+        x = tf.keras.layers.DepthwiseConv2D(
+            3,
+            strides=stride,
+            padding="same",
+            use_bias=False,
+            # name=f"{name}_conv_depthwise",
+        )(x)
+        # relu
+        x = tf.keras.layers.ReLU(6.0)(x)
+
+        # conv projection
+        x = tf.keras.layers.Conv2D(
+            filters,
+            1,
+            padding="same",
+            use_bias=False,
+            # name=f"{name}_conv_projection",
+        )(x)
+
+        if stride != 1 or residual.shape[-1] != filters:
+            residual = tf.keras.layers.Conv2D(
+                filters,
+                1,
+                strides=stride,
+                padding="same",
+                use_bias=False,
+                # name=f"{name}_conv_residual",
+            )(residual)
+
+        return tf.keras.layers.Add()([x, residual])
+
+    return forward
+
+
 class PatchExtractor(tf.keras.layers.Layer):
     def __init__(
         self,
