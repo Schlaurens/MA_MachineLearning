@@ -106,6 +106,7 @@ class FullModel(tf.keras.Model):
 
     def encoder_loss(self, batch_data, interest, offsets, n_candidates):
         B = tf.shape(interest)[0]  # Batch Size
+
         # Compute Binary Cross Entropy
 
         # Numeric stabilizer
@@ -179,14 +180,22 @@ class FullModel(tf.keras.Model):
 
         mse_batched = tf.reduce_mean(squared_error_multiplied, axis=[1, 2]) * 10000  # (B, )
 
+        gt_coord_mask = self.dataset_utils.get_coordinate_mask(batch_data["offset_mask"])
+        pred_coord_mask = self.dataset_utils.get_coordinate_mask(offsets)
+
+        error_in_pixels = tf.norm(gt_coord_mask - pred_coord_mask, axis=-1)  # (B, 15, 20)
+
+        error_in_pixels_multiplied = (
+            error_in_pixels * batch_data["object_mask"]
+        )  # (B, 15, 20)
+
         # The RMSE Metric (not used int the loss)
-        sum_of_se_multiplied = tf.reduce_sum(squared_error_multiplied)  # Shape: ( )
+        sum_of_error_multiplied = tf.reduce_sum(error_in_pixels_multiplied)  # Shape: ( )
         num_ones = tf.maximum(tf.reduce_sum(batch_data["object_mask"]), 1e-8)  # Shape: ( )
-        mse_metric = sum_of_se_multiplied / num_ones  # Shape: ( )
-        rmse = tf.math.sqrt(mse_metric)  # Shape: ()
+        mae_metric = sum_of_error_multiplied / num_ones  # Shape: ( )
 
         tf.debugging.assert_all_finite(bce_batched, "Encoder BCE")
-        tf.debugging.assert_all_finite(mse_metric, "Encoder MSE Metric")
+        tf.debugging.assert_all_finite(mae_metric, "Encoder MAE Metric")
 
         # Total loss
         loss_batched = bce_batched + mse_batched  # (B, )
@@ -199,6 +208,7 @@ class FullModel(tf.keras.Model):
         return {
             "loss": loss,
             "mse": mse,
+            "mae": mae_metric,
             "bce": bce,
             "gm_bce": global_mean_bce,
             "recall@k": recall_at_k,
@@ -340,6 +350,7 @@ class FullModel(tf.keras.Model):
                     batch_data[key],
                     interest=tf.squeeze(maps[f"{key}_interest"], -1),
                     offsets=maps[f"{key}_offsets"],
+                    n_candidates=self.categories[key]["n_candidates"],
                 )
                 for key in self.categories
             }
@@ -367,8 +378,9 @@ class FullModel(tf.keras.Model):
         for key in self.categories:
             result[f"encoder_bce_{key}"] = encoder_losses[key]["bce"]
             result[f"encoder_gm_bce_{key}"] = encoder_losses[key]["gm_bce"]
+            result[f"encoder_recall@k_{key}"] = encoder_losses[key]["recall@k"]
             result[f"encoder_mse_{key}"] = encoder_losses[key]["mse"]
-            result[f"encoder_rmse_{key}"] = encoder_losses[key]["rmse"]
+            result[f"encoder_mae_{key}"] = encoder_losses[key]["mae"]
             result[f"classifier_ce_{key}"] = classifier_losses[key]["ce"]
             result[f"classifier_mse_{key}"] = classifier_losses[key]["mse"]
             result[f"classifier_rmse_{key}"] = classifier_losses[key]["rmse"]
