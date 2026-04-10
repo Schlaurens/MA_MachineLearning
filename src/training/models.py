@@ -668,7 +668,7 @@ class FullModel(tf.keras.Model):
             camera: The pose of the camera, represented as (roll angle, pitch angle, height above ground) [B, 3]
             intrinsics: The intrisics of the camera, represented as (cx, cy, fx, fy) [B, 4]
             logits: The logits for the category. [B, H_out, W_out]
-            offsets: The offsets for the category. Relative to the upper left corner of the patch. [B, H_out, W_out, 2]
+            offsets: The offsets for the category. Relative to the middle of the patch. [B, H_out, W_out, 2]
             context: The context vector which is part of the encoder output. It encodes information about the whole image that might help the classifier.
             sampler: The patch sampler for the category with a fixed number of candidates
             extractor: The patch extractor for the category with the fixed object parameters
