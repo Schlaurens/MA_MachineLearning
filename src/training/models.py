@@ -17,6 +17,7 @@ class FullModel(tf.keras.Model):
         classifier_architecture: str,
         height: int,
         width: int,
+        encoder_channels: int = 4,
         cell_dims: list[int] = None,
         n_context: int = 0,
         only_train_encoder: bool = False,
@@ -45,21 +46,22 @@ class FullModel(tf.keras.Model):
         self.n_context = n_context
         self.only_train_encoder = only_train_encoder
         self.encoder_use_batch_norm = encoder_use_batch_norm
+        self.encoder_channels = encoder_channels
 
         # Classifier config
         self.classifier_architecture = classifier_architecture
         self.patch_size = [32, 32]
-        self.patch_channels = 3
+        self.patch_channels = 1
         self.n_meta = n_meta
         self.classifier_offsets = classifier_offsets
         self.classifier_use_batch_norm = classifier_use_batch_norm
 
         self.full_image_size = tf.constant(
-            [self.image_height, self.image_width * 2], dtype=tf.float32
+            [self.image_height, self.image_width], dtype=tf.float32
         )  # constructor input image_width is halved due to YUYV
 
         self.dataset_config = u_dataset.DatasetConfig(
-            (self.image_height, self.image_width * 2), cell_dims=cell_dims
+            (self.image_height, self.image_width), cell_dims=cell_dims
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -99,6 +101,7 @@ class FullModel(tf.keras.Model):
             self.encoder_architecture,
             self.image_height,
             self.image_width,
+            self.encoder_channels,
             self.categories.keys(),
             self.n_context,
             self.encoder_use_batch_norm,
@@ -496,6 +499,7 @@ class FullModel(tf.keras.Model):
         filepath: str,
         filename: str,
         input_dims: list[int] | tuple[int, int],
+        encoder_channels: int = 4,
         cell_dims: list[int] | tuple[int, int] = None,
         n_context: int = 0,
         only_train_encoder: bool = False,
@@ -527,7 +531,8 @@ class FullModel(tf.keras.Model):
             encoder_architecture,
             classifier_architecture,
             input_dims[0],
-            input_dims[1] // 2,
+            input_dims[1],
+            encoder_channels,
             cell_dims,
             n_context,
             only_train_encoder,
@@ -587,6 +592,13 @@ class FullModel(tf.keras.Model):
             Per category x,y,p tuples {key: [B, N_out, 2 + n_classes + 1?]}
         """
         image, camera, intrinsics = batch_data
+
+        image_grayscale = u_image.convert_yuyv_to_yuv(image)[..., 0:1]  # (B, W_in, H_in, 1)
+
+        # Encoder gets grayscale image
+        if self.encoder_channels == 1:
+            image = image_grayscale
+
         maps = self.encoder(image, training=training)  # Run the encoder on the image
 
         # assert isinstance(maps, list) == len(self.categories) > 1
@@ -599,7 +611,9 @@ class FullModel(tf.keras.Model):
                 self.encoder.output_names[0]: maps
             }  # [B, H_out, W_out, 3] Encoder results for the first category
 
-        image_yuv = u_image.convert_yuyv_to_yuv(image)
+        # Convert image to grayscale if only one channel is requested.
+        if self.patch_channels == 1:
+            image = image_grayscale
 
         context = None
         if "context" in maps:
@@ -608,7 +622,7 @@ class FullModel(tf.keras.Model):
         if f"{list(self.categories.keys())[0]}_interest" in maps:
             results = {
                 key: self._handle_category(
-                    image_yuv,
+                    image,
                     camera,
                     intrinsics,
                     value["object_height"],
@@ -626,7 +640,7 @@ class FullModel(tf.keras.Model):
         else:
             results = {
                 key: self._handle_category(
-                    image_yuv,
+                    image,
                     camera,
                     intrinsics,
                     value["object_height"],

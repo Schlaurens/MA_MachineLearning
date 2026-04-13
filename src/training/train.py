@@ -145,7 +145,13 @@ def main(config):
         else config["training"]["initial_epoch"]
     )
     batch_size = config["training"]["batch_size"]
-    model_input_dims = config["model"]["encoder"]["input_dims"] // np.array((1, 2))
+    encoder_channels = config["model"]["encoder"]["channels_in"]
+    
+    if encoder_channels != 1:
+        model_input_dims = config["model"]["encoder"]["input_dims"] // np.array((1, 2))
+    else:
+        model_input_dims = config["model"]["encoder"]["input_dims"]
+
     model_cell_dims = config["model"]["encoder"]["cell_dims"]
     encoder_architecture = config["model"]["encoder"]["architecture"]
     classifier_architecture = config["model"]["classifier"]["architecture"]
@@ -161,6 +167,7 @@ def main(config):
         encoder_architecture,
         classifier_architecture,
         *model_input_dims,
+        encoder_channels=encoder_channels,
         cell_dims=model_cell_dims,
         n_context=config["model"]["encoder"]["n_context"],
         only_train_encoder=only_train_encoder,

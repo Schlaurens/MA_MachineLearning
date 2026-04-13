@@ -7,6 +7,7 @@ def get_encoder(
     encoder_architecture: str,
     height: int,
     width: int,
+    channels_in: int,
     category_names: list[str],
     n_context: int,
     use_batch_norm: bool = False,
@@ -29,39 +30,39 @@ def get_encoder(
     """
     if encoder_architecture == "ires_16x16_v1":
         return _get_encoder_ires_16x16_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "ires_16x16_v2":
         return _get_encoder_ires_16x16_v2(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "conv_16x16_v1":
         return _get_encoder_conv_16x16_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "ires_24x24_v1":
         return _get_encoder_ires_24x24_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "ires_24x24_v2":
         return _get_encoder_ires_24x24_v2(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "conv_24x24_v1":
         return _get_encoder_conv_24x24_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "ires_32x32_v1":
         return _get_encoder_ires_32x32_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "ires_32x32_v2":
         return _get_encoder_ires_32x32_v2(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     if encoder_architecture == "conv_32x32_v1":
         return _get_encoder_conv_32x32_v1(
-            height, width, category_names, n_context, use_batch_norm, **kwargs
+            height, width, category_names, n_context, use_batch_norm, channels_in, **kwargs
         )
     else:
         raise ValueError(f"Unknown encoder name: {encoder_architecture}")
@@ -105,15 +106,22 @@ def _get_common_encoder_output(x, category_names, n_context, image):
 
 
 def _get_encoder_ires_16x16_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     # Be careful not to make the tensors too much for the GPU memory. (keep the expansion low for the bigger tensors)
     x = image
 
     # 480x320x4
     # cannot be ires block due to uneven stride
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
@@ -136,12 +144,19 @@ def _get_encoder_ires_16x16_v1(
 
 
 def _get_encoder_ires_16x16_v2(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 240x160x4
-    x = tf.keras.layers.Conv2D(4, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        4, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 120x160x4
     x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
@@ -158,12 +173,19 @@ def _get_encoder_ires_16x16_v2(
 
 
 def _get_encoder_conv_16x16_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 240x160x4
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 120x160x8
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
@@ -195,14 +217,21 @@ def _get_encoder_conv_16x16_v1(
 
 
 def _get_encoder_ires_24x24_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     # Be careful not to make the tensors too much for the GPU memory. (keep the expansion low for the bigger tensors)
     x = image
 
     # cannot be ires block due to uneven stride
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     x = IresBlockCompiledNN(8, use_batch_norm, stride=1, expansion=1)(x)
@@ -220,12 +249,19 @@ def _get_encoder_ires_24x24_v1(
 
 
 def _get_encoder_ires_24x24_v2(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 360x240x4
-    x = tf.keras.layers.Conv2D(6, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        6, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 180x240x6
     x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
@@ -242,12 +278,19 @@ def _get_encoder_ires_24x24_v2(
 
 
 def _get_encoder_conv_24x24_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 360x240x4
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 180x240x8
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
@@ -281,12 +324,19 @@ def _get_encoder_conv_24x24_v1(
 
 
 def _get_encoder_ires_32x32_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 480x320x4 — aggressive early downsampling to reduce cost at large spatial dims
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 240x160x8
     x = IresBlockCompiledNN(8, use_batch_norm, stride=2, expansion=1)(x)
@@ -303,15 +353,22 @@ def _get_encoder_ires_32x32_v1(
 
 
 def _get_encoder_ires_32x32_v2(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     # Be careful not to make the tensors too much for the GPU memory. (keep the expansion low for the bigger tensors)
     x = image
 
     # 480x320x4
     # cannot be ires block due to uneven stride
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
 
     # 240x320x24
@@ -334,12 +391,19 @@ def _get_encoder_ires_32x32_v2(
 
 
 def _get_encoder_conv_32x32_v1(
-    height: int, width: int, category_names: list[str], n_context: int, use_batch_norm: bool
+    height: int,
+    width: int,
+    category_names: list[str],
+    n_context: int,
+    use_batch_norm: bool,
+    channels_in: int = 4,
 ):
-    image = tf.keras.layers.Input((height, width, 4))
+    image = tf.keras.layers.Input((height, width, channels_in))
     x = image
     # 480x320x4
-    x = tf.keras.layers.Conv2D(8, 3, strides=(2, 1), padding="same", use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(
+        8, 3, strides=(2, 1) if channels_in == 4 else (2, 2), padding="same", use_bias=False
+    )(x)
     x = tf.keras.layers.ReLU(6.0)(x)
     # 240x320x8
     x = tf.keras.layers.DepthwiseConv2D(3, strides=2, padding="same", use_bias=False)(x)
