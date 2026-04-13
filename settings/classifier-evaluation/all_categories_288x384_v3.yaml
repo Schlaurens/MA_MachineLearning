@@ -21,8 +21,8 @@ training:
   from_checkpoint: False # < when starting training from checkpoint
   from_model: False # < when loading an existing model
   load_checkpoint:
-    initial_epoch: 269
-    timestamp: "20260402-123031" 
+    initial_epoch: 426
+    timestamp: "20260410-215331" 
     encoder_only: False # < when only loading the encoder
     verbose: True
   load_model:
