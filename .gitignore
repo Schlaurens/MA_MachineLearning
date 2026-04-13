@@ -7,6 +7,6 @@ uv.lock
 *.tfrecords
 *.keras
 data/gamelogs/
-plots/*
+*.pdf
 .coverage
 .vscode
