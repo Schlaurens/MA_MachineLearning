@@ -60,6 +60,7 @@ def load_model(config: dict, path_to_models: str, model_name: str):
         filepath=path_to_models,
         filename=model_name,
         input_dims=config["model"]["encoder"]["input_dims"],
+        encoder_channels=config["model"]["encoder"]["channels_in"],
         cell_dims=config["model"]["encoder"]["cell_dims"],
         n_context=config["model"]["encoder"]["n_context"],
         only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
