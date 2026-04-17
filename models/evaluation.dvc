@@ -1,0 +1,6 @@
+outs:
+- md5: 019714bffaaf92ea7889f8c1d84eae07.dir
+  size: 12165201
+  nfiles: 90
+  hash: md5
+  path: evaluation
