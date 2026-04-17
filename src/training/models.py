@@ -541,7 +541,7 @@ class FullModel(tf.keras.Model):
 
         # Load the encoder
         encoder = tf.keras.models.load_model(
-            os.path.join(filepath, "encoder", f"{filename}"),
+            os.path.join(filepath, filename, "encoder", f"{filename}.keras"),
             custom_objects={"IresBlock": IresBlock, "Normalization": Normalization},
         )
         model.encoder = encoder
@@ -553,7 +553,7 @@ class FullModel(tf.keras.Model):
         if not encoder_only:
             for name, value in model.categories.items():
                 try:
-                    classifier_path = os.path.join(filepath, "classifier", name, f"{filename}")
+                    classifier_path = os.path.join(filepath, filename, "classifier", name, f"{filename}.keras")
                     classifier = tf.keras.models.load_model(
                         classifier_path,
                         custom_objects={"IresBlock": IresBlock, "Normalization": Normalization},
