@@ -50,13 +50,15 @@ def load_model(config: dict, path_to_models: str, model_name: str):
     encoder_architecture = config["model"]["encoder"]["architecture"]
     classifier_architecture = config["model"]["classifier"]["architecture"]
 
+    channels_in = config["model"]["encoder"].get("channels_in", 4)
+
     model = FullModel.load(
         encoder_architecture,
         classifier_architecture,
         filepath=path_to_models,
         filename=model_name,
         input_dims=config["model"]["encoder"]["input_dims"],
-        encoder_channels=config["model"]["encoder"]["channels_in"],
+        encoder_channels=channels_in,
         cell_dims=config["model"]["encoder"]["cell_dims"],
         n_context=config["model"]["encoder"]["n_context"],
         only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
@@ -132,7 +134,7 @@ def create_metrics_csv(file_path, resolution, architecture, config, model_timest
     data = {
         "resolution": resolution,
         "architecture": architecture,
-        "input_channels": config["model"]["encoder"]["channels_in"],
+        "input_channels": config["model"]["encoder"].get("channels_in", 4),
         "model_timestamp": model_timestamp,
         "config_architecture": config["model"]["encoder"]["architecture"],
     }
