@@ -171,8 +171,8 @@ def main(args):
     # Save Metrics to YAML file
     metrics_to_save = {}
     for key, value in metrics_list.items():
-        # if "encoder_recall@k" in key or "encoder_mae" in key:
-        metrics_to_save[key] = float(value)
+        if "encoder_recall_at_k" in key or "encoder_mae" in key:
+            metrics_to_save[key] = float(value)
 
     with open(Path(config_dir, "cpn_metrics.yaml"), "w") as f:
         yaml.dump(metrics_to_save, f)
