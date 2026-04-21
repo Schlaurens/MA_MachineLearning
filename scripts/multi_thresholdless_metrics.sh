@@ -13,6 +13,6 @@ MODEL_DIR="models/evaluation/classifier-basic"
 for timestamp in "$LOG_DIR"/* "$LOG_DIR"/*/*; do
     timestamp=$(basename "$timestamp")
     if [[ "$timestamp" =~ ^[0-9]{8}-[0-9]{6}$ ]]; then
-        uv run src/evaluation/cpn_metrics.py --model_timestamp "$timestamp" --log_dir "$LOG_DIR" --model_dir "$MODEL_DIR" --cpn "$CPN_EVAL" --classifier "$CLASSIFIER_EVAL"
+        uv run src/evaluation/thresholdless_metrics.py --model_timestamp "$timestamp" --log_dir "$LOG_DIR" --model_dir "$MODEL_DIR" --cpn "$CPN_EVAL" --classifier "$CLASSIFIER_EVAL"
     fi
 done
