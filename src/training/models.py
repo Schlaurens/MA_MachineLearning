@@ -243,13 +243,9 @@ class FullModel(tf.keras.Model):
             coords_true_normalized, boxes
         )  # (B, N)
 
-        # If coords_true are inside the patch always calculate the MSE. Else the classifier's offset predictions are useless and should be ignored. Assign a constant max error that has gradient of zero. Also if there are no coords_true because the sample was ignored, the results have no impact on the loss.
-        squared_error = tf.where(
-            are_coords_true_inside_patch,
-            tf.square(tf.norm(coords_pred - coords_true_of_patches, axis=-1))
-            * tf.stop_gradient(results["distances"]),
-            0.0,
-        )  # (B, N)
+        # =========================
+        # == Classification Loss ==
+        # =========================
 
         # The Encoder predictions for each of the patches
         encoder_predictions = tf.gather(
@@ -347,10 +343,24 @@ class FullModel(tf.keras.Model):
         # Ignore the patches in the mean that do not contain gt coords
         sum_euc_error = tf.reduce_sum(euclidean_error)  # Shape: ( )
         mean_euclidean_error = sum_euc_error / num_true_patches  # Shape: ( )
+
+        # ========================
+        # == Mean Squared Error ==
+        # ========================
+
+        # If coords_true are inside the patch always calculate the MSE. Else the classifier's offset predictions are useless and should be ignored. Assign a constant max error that has gradient of zero. Also if there are no coords_true because the sample was ignored, the results have no impact on the loss.
+        squared_error = tf.where(
+            are_coords_true_inside_patch,
+            tf.reduce_sum(tf.square(coords_pred - coords_true_of_patches), axis=-1)
+            * tf.stop_gradient(results["distances"]),
+            0.0,
+        )  # (B, N)
         # If the classifier thinks that there is no object in the image, this error has a smaller contribution to the loss
         squared_error_multiplied = squared_error * tf.stop_gradient(error_factor)  # (B, N)
 
-        mse = tf.reduce_mean(squared_error_multiplied)  # Shape: ()
+        # Ignore the patches in the mean that do not contain gt coords
+        sum_of_squared_errors = tf.reduce_sum(squared_error_multiplied)  # Shape: ( )
+        mse = sum_of_squared_errors / num_true_patches  # Shape: ()
 
         tf.debugging.assert_all_finite(mse, "Classifier MSE")
         tf.debugging.assert_all_finite(cross_entropy, "Classifier CE")
