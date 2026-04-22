@@ -43,7 +43,6 @@ def load_dataset(config):
     )
 
     test_ds = u_dataset_io.get_dataset(path_to_test_data, dataset_utils)
-    test_ds = test_ds.take(20)
     batch_size = 32
     test_ds = test_ds.batch(batch_size, drop_remainder=False)
 
