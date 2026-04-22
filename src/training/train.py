@@ -192,10 +192,10 @@ def main(config):
         # ==== When loading a checkpoint ====
         else:
             timestamp = config["training"]["load_checkpoint"]["timestamp"]
-            filepath = os.path.join(
-                config["callbacks"]["checkpoint_dir"], input_dims_str, timestamp
-            )
             filename = f"epoch_{initial_epoch}"
+            filepath = os.path.join(
+                config["callbacks"]["checkpoint_dir"], input_dims_str, timestamp, filename
+            )
             encoder_only = config["training"]["load_checkpoint"]["encoder_only"]
             verbose = config["training"]["load_checkpoint"]["verbose"]
 
