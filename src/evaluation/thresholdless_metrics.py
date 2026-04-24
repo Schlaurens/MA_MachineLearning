@@ -229,23 +229,44 @@ def evaluate_classifier(model, dataset, config):
             if object.value not in metrics_threshold_range_additive:
                 continue
 
-            precision_additive = np.array(
-                [x["precision_pooled"] for x in metrics_threshold_range_additive[object.value]]
-            )
-            recall_additive = np.array(
-                [x["recall_pooled"] for x in metrics_threshold_range_additive[object.value]]
+            results = metrics_threshold_range_additive[object.value]
+
+            # Pooled AP (binary)
+            precision_pooled = np.array([x["precision_pooled"] for x in results])
+            recall_pooled = np.array([x["recall_pooled"] for x in results])
+            sorted_idx = np.argsort(recall_pooled)
+            recall_pooled_sorted = recall_pooled[sorted_idx]
+            precision_pooled_sorted = precision_pooled[sorted_idx]
+            # Remove duplicate recalls to avoid sklearn error
+            unique_mask = np.concatenate([[True], np.diff(recall_pooled_sorted) > 0])
+            ap_pooled = sklearn.metrics.auc(
+                recall_pooled_sorted[unique_mask], precision_pooled_sorted[unique_mask]
             )
 
-            sorted_indices_additive = np.argsort(recall_additive)
-            recall_additive_sorted = recall_additive[sorted_indices_additive]
-            precision_additive_sorted = precision_additive[sorted_indices_additive]
-
-            ap_additive = sklearn.metrics.auc(recall_additive_sorted, precision_additive_sorted)
+            if object == u_dataset.CategoryNames.INTERSECTIONS:
+                # Per-class AP (for mAP, skip background class 0)
+                num_classes = len(results[0]["precisions"])
+                per_class_aps = []
+                for class_idx in range(1, num_classes):
+                    precision = np.array([x["precisions"][class_idx] for x in results])
+                    recall = np.array([x["recalls"][class_idx] for x in results])
+                    sorted_idx = np.argsort(recall)
+                    recall_sorted = recall[sorted_idx]
+                    precision_sorted = precision[sorted_idx]
+                    unique_mask = np.concatenate([[True], np.diff(recall_sorted) > 0])
+                    ap = sklearn.metrics.auc(
+                        recall_sorted[unique_mask], precision_sorted[unique_mask]
+                    )
+                    per_class_aps.append(ap)
+            else:
+                per_class_aps = ap_pooled
 
             metrics[object.value] = {
-                "precision": precision_additive_sorted,
-                "recall": recall_additive_sorted,
-                "ap": ap_additive,
+                "precision_pooled": precision_pooled_sorted,
+                "recall_pooled": recall_pooled_sorted,
+                "ap_pooled": ap_pooled,
+                "per_class_aps": per_class_aps,
+                "mAP": np.mean(per_class_aps),
             }
 
         return metrics
@@ -366,7 +387,11 @@ def main(args):
             if category.value in predicted_metrics:
                 # metrics_to_save[f"{category.value}_precision"] = classifier_metrics[category.value]["precision"]
                 # metrics_to_save[f"{category.value}_recall"] = classifier_metrics[category.value]["recall"]
-                metrics_to_save[f"{category.value}_ap"] = predicted_metrics[category.value]["ap"]
+                metrics_to_save[f"{category.value}_ap_pooled"] = predicted_metrics[category.value][
+                    "ap_pooled"
+                ]
+                # metrics_to_save[f"{category.value}_ap"] = predicted_metrics[category.value]["ap_per_class"]
+                metrics_to_save[f"{category.value}_mAP"] = predicted_metrics[category.value]["mAP"]
 
         metrics_to_save.update(inference_metrics)
 
