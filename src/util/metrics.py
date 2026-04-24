@@ -827,7 +827,11 @@ def save_predictions(
 
     def coords_tensor_to_dict_list(tensor):
         return [
-            {"x": float(x) / image_res_scale[1], "y": float(y) / image_res_scale[0], "confidence": float(conf)}
+            {
+                "x": float(x) / image_res_scale[1],
+                "y": float(y) / image_res_scale[0],
+                "confidence": float(conf),
+            }
             for x, y, conf in tensor.numpy()
         ]
 
