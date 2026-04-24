@@ -61,6 +61,16 @@ GRAYSCALE=true
 # == Classifier Evaluation ==
 # ===========================
 
+SETTINGSFILES=(
+    # "classifier-evaluation/288x384_v0.yaml"
+    # "classifier-evaluation/288x384_v1.yaml"
+    # "classifier-evaluation/288x384_v2.yaml"
+    # "classifier-evaluation/288x384_v3.yaml"
+    # "classifier-evaluation/288x384_v4.yaml"
+    # "classifier-evaluation/288x384_v5.yaml"
+    # "classifier-evaluation/288x384_v6.yaml"
+)
+
 # ==============================
 # == Contextvector Saturation ==
 # ==============================
