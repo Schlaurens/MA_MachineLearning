@@ -260,6 +260,21 @@ def calculate_binary_metrics(
         coords_true_normalized, best_box, padding
     )  # (B, )
 
+    coords_true_in_one_of_boxes = (
+        tf.reduce_sum(
+            tf.cast(
+                u_keypoint.are_coords_in_patch(
+                    coords_true_normalized[:, tf.newaxis, :], predictions["boxes"], padding
+                ),
+                tf.int32,
+            ),
+            axis=-1,
+        )
+        > 0
+    )  # (B, )
+
+    end_to_end_eval = False
+
     fp = best_predictions["valid_samples"] & (
         (~is_best_box_valid & coords_true_distance_mask) | ~object_in_image
     )  # (B, )
@@ -269,10 +284,17 @@ def calculate_binary_metrics(
         & coords_true_distance_mask
         & object_in_image
     )  # (B, )
-    fn = ~best_predictions["valid_samples"] & coords_true_distance_mask & object_in_image  # (B, )
-    tn = ~best_predictions["valid_samples"] & (
-        ~object_in_image | ~coords_true_distance_mask
-    )  # (B, )
+
+    if end_to_end_eval:
+        fn = (
+            ~best_predictions["valid_samples"] & coords_true_distance_mask & object_in_image
+        )  # (B, )
+        tn = ~best_predictions["valid_samples"] & (
+            ~object_in_image | ~coords_true_distance_mask
+        )  # (B, )
+    else:
+        fn = ~best_predictions["valid_samples"] & coords_true_in_one_of_boxes
+        tn = ~best_predictions["valid_samples"] & ~coords_true_in_one_of_boxes
 
     fp_count = tf.math.count_nonzero(fp).numpy()
     tp_count = tf.math.count_nonzero(tp).numpy()
