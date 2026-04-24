@@ -176,7 +176,7 @@ def evaluate_classifier(model, dataset, config):
         )
 
         for object in u_dataset.CategoryNames:
-            if object.value not in predictions[0]["results"]:
+            if object.value not in predictions["results"]:
                 print(f"No {object.value} in results.")
                 continue
 
@@ -184,14 +184,14 @@ def evaluate_classifier(model, dataset, config):
                 results = [
                     u_metrics.calculate_metrics(
                         dataset_utils,
-                        predictions[0]["results"][object.value],
-                        groundtruth[0][object.value],
+                        predictions["results"][object.value],
+                        groundtruth[object.value],
                         config["categories"][object.value]["n_classes"],
                         cla,
                         encoder_threshold,
                         threshold_mode,
-                        groundtruth[0]["camera"],
-                        groundtruth[0]["intrinsics"],
+                        groundtruth["camera"],
+                        groundtruth["intrinsics"],
                         config["categories"][object.value]["max_distance"],
                         iou_threshold=nms_iou_threshold,
                     )
@@ -201,14 +201,14 @@ def evaluate_classifier(model, dataset, config):
                 results = [
                     u_metrics.calculate_metrics(
                         dataset_utils,
-                        predictions[0]["results"][object.value],
-                        groundtruth[0][object.value],
+                        predictions["results"][object.value],
+                        groundtruth[object.value],
                         config["categories"][object.value]["n_classes"],
                         cla,
                         encoder_threshold,
                         threshold_mode,
-                        groundtruth[0]["camera"],
-                        groundtruth[0]["intrinsics"],
+                        groundtruth["camera"],
+                        groundtruth["intrinsics"],
                         config["categories"][object.value]["max_distance"],
                         config["categories"][object.value]["padding"],
                     )
@@ -250,23 +250,48 @@ def evaluate_classifier(model, dataset, config):
 
         return metrics
 
+    input_dataset = dataset.map(lambda x: (x["image"], x["camera"], x["intrinsics"]))
+
+    predictions_list = []
+    for batch in input_dataset:
+        predictions_list.append(model.predict(batch))  # or model(batch, training=False)
+
+    # Then concat manually
+    predictions_concat = {"results": {}}
+    for object in u_dataset.CategoryNames:
+        key = object.value
+        if key not in predictions_list[0]["results"]:
+            continue
+        predictions_concat["results"][key] = {
+            field: tf.concat([p["results"][key][field] for p in predictions_list], axis=0)
+            for field in predictions_list[0]["results"][key]
+        }
+
     groundtruth_dataset = []
     for x in dataset:
         groundtruth_dataset.append(x)
 
-    # Take only image, camera, intrinsics for input
-    input_data = dataset.map(lambda x: (x["image"], x["camera"], x["intrinsics"]))
+    groundtruth_concat = {}
+    for key in groundtruth_dataset[0]:
+        if isinstance(groundtruth_dataset[0][key], tf.Tensor):
+            # Top-level tensors like intrinsics, camera
+            groundtruth_concat[key] = tf.concat([g[key] for g in groundtruth_dataset], axis=0)
+        elif isinstance(groundtruth_dataset[0][key], dict):
+            # Nested dicts like groundtruth["ball"], groundtruth["penaltymark"]
+            groundtruth_concat[key] = {}
+            for subkey in groundtruth_dataset[0][key]:
+                if isinstance(groundtruth_dataset[0][key][subkey], tf.Tensor):
+                    groundtruth_concat[key][subkey] = tf.concat(
+                        [g[key][subkey] for g in groundtruth_dataset], axis=0
+                    )
+                else:
+                    groundtruth_concat[key][subkey] = groundtruth_dataset[0][key][subkey]
+        else:
+            groundtruth_concat[key] = groundtruth_dataset[0][key]
 
-    # Convert tf.Data.Dataset into list
-    input_list = []
-    for x, y, z in input_data:
-        input_list.append((x, y, z))
-
-    predictions = [model.predict(x=batch) for batch in input_list]
-
-    nms_iou_threshold = None
+    nms_iou_threshold = 0.35
     encoder_threshold = 0.0
-    threshold_range_additive = np.linspace(0, 1 + 1, num=100)
+    threshold_range_additive = np.linspace(0, 1 + encoder_threshold, num=100)
 
     classifier_threshold_ranges_additive = {
         u_dataset.CategoryNames.BALL.value: threshold_range_additive,
@@ -275,8 +300,8 @@ def evaluate_classifier(model, dataset, config):
     }
 
     metrics_threshold_range_additive = _get_metrics(
-        predictions,
-        groundtruth_dataset,
+        predictions_concat,
+        groundtruth_concat,
         config,
         classifier_threshold_ranges_additive,
         "additive",
