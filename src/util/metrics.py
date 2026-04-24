@@ -649,7 +649,7 @@ def get_thresholding_mask(
     The thresholding mask.
     """
     if mode == "additive":
-        if encoder_preds is not None:
+        if encoder_preds is not None and encoder_threshold > 0:
             combined_score = classifier_preds + encoder_preds
             return combined_score >= (classifier_threshold + encoder_threshold)
         else:
