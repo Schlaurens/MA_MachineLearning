@@ -20,7 +20,8 @@ class FullModel(tf.keras.Model):
         encoder_channels: int = 4,
         cell_dims: list[int] = None,
         n_context: int = 0,
-        only_train_encoder: bool = False,
+        train_encoder: bool = True,
+        train_classifier: bool = True,
         classifier_offsets: bool = True,
         n_meta: int = 0,
         encoder_use_batch_norm: bool = False,
@@ -44,7 +45,7 @@ class FullModel(tf.keras.Model):
         # Encoder config
         self.encoder_architecture = encoder_architecture
         self.n_context = n_context
-        self.only_train_encoder = only_train_encoder
+        self.train_encoder = train_encoder
         self.encoder_use_batch_norm = encoder_use_batch_norm
         self.encoder_channels = encoder_channels
 
@@ -52,6 +53,7 @@ class FullModel(tf.keras.Model):
         self.classifier_architecture = classifier_architecture
         self.patch_size = [32, 32]
         self.patch_channels = 1
+        self.train_classifier = train_classifier
         self.n_meta = n_meta
         self.classifier_offsets = classifier_offsets
         self.classifier_use_batch_norm = classifier_use_batch_norm
@@ -61,7 +63,11 @@ class FullModel(tf.keras.Model):
         )  # constructor input image_width is halved due to YUYV
 
         self.dataset_config = u_dataset.DatasetConfig(
-            (self.image_height, self.image_width), cell_dims=cell_dims
+            (
+                self.image_height,
+                self.image_width * 2 if encoder_channels == 4 else self.image_width,
+            ),
+            cell_dims=cell_dims,
         )
         self.dataset_utils = u_dataset.DatasetUtils(self.dataset_config)
 
@@ -77,26 +83,27 @@ class FullModel(tf.keras.Model):
                 },
             }
         )
-        for _, value in self.categories.items():
-            value["sampler"] = PatchSampler(
-                value["n_candidates"],
-                value["max_distance"],
-            )  # The patch sampler for the category with a fixed number of candidates
-            value["extractor"] = PatchExtractor(
-                self.patch_size,
-                value["object_size"],
-                value.get("object_height", 0),
-            )  # The patch extractor for the category with the fixed object parameters
-            value["classifier"] = u_classifiers.get_classifier(
-                self.classifier_architecture,
-                self.patch_size,
-                self.patch_channels,
-                self.n_meta,
-                self.n_context,
-                value["n_classes"],
-                self.classifier_offsets,
-                self.classifier_use_batch_norm,
-            )  # The patch classifier for the category with the fixed number of classes
+        if self.train_classifier:
+            for _, value in self.categories.items():
+                value["sampler"] = PatchSampler(
+                    value["n_candidates"],
+                    value["max_distance"],
+                )  # The patch sampler for the category with a fixed number of candidates
+                value["extractor"] = PatchExtractor(
+                    self.patch_size,
+                    value["object_size"],
+                    value.get("object_height", 0),
+                )  # The patch extractor for the category with the fixed object parameters
+                value["classifier"] = u_classifiers.get_classifier(
+                    self.classifier_architecture,
+                    self.patch_size,
+                    self.patch_channels,
+                    self.n_meta,
+                    self.n_context,
+                    value["n_classes"],
+                    self.classifier_offsets,
+                    self.classifier_use_batch_norm,
+                )  # The patch classifier for the category with the fixed number of classes
         self.encoder = u_encoders.get_encoder(
             self.encoder_architecture,
             self.image_height,
@@ -377,45 +384,61 @@ class FullModel(tf.keras.Model):
 
     def _calculate_losses(self, batch_data, results, maps):
         # This is a bit hacky and should be removed once there are no more models with the old Concatenated architecture.
-        if f"{list(self.categories.keys())[0]}_interest" in maps:
-            encoder_losses = {
-                key: self.encoder_loss(
-                    batch_data[key],
-                    interest=tf.squeeze(maps[f"{key}_interest"], -1),
-                    offsets=maps[f"{key}_offsets"],
-                    n_candidates=self.categories[key]["n_candidates"],
-                )
-                for key in self.categories
-            }
-        else:
-            encoder_losses = {
-                key: self.encoder_loss(
-                    batch_data[key], interest=maps[key][..., 2], offsets=maps[key][..., :2]
-                )
-                for key in self.categories
-            }
-        classifier_losses = {
-            key: self.classifier_loss(
-                batch_data[key],
-                results=value,
-                object_name=key,
-            )
-            for key, value in results.items()
-        }
         result = {}
-        result["encoder_loss"] = tf.reduce_sum([value["loss"] for value in encoder_losses.values()])
-        result["classifier_loss"] = tf.reduce_sum(
-            [value["loss"] for value in classifier_losses.values()]
-        )
 
-        for key in self.categories:
-            result[f"encoder_bce_{key}"] = encoder_losses[key]["bce"]
-            result[f"encoder_recall_at_k_{key}"] = encoder_losses[key]["recall_at_k"]
-            result[f"encoder_mse_{key}"] = encoder_losses[key]["mse"]
-            result[f"encoder_mae_{key}"] = encoder_losses[key]["mae"]
-            result[f"classifier_ce_{key}"] = classifier_losses[key]["ce"]
-            result[f"classifier_mse_{key}"] = classifier_losses[key]["mse"]
-            result[f"classifier_euc_error_{key}"] = classifier_losses[key]["euc_error"]
+        # =========================
+        # == Handle Encoder Loss ==
+        # =========================
+        if self.train_encoder:
+            if f"{list(self.categories.keys())[0]}_interest" in maps:
+                encoder_losses = {
+                    key: self.encoder_loss(
+                        batch_data[key],
+                        interest=tf.squeeze(maps[f"{key}_interest"], -1),
+                        offsets=maps[f"{key}_offsets"],
+                        n_candidates=self.categories[key]["n_candidates"],
+                    )
+                    for key in self.categories
+                }
+            else:
+                encoder_losses = {
+                    key: self.encoder_loss(
+                        batch_data[key], interest=maps[key][..., 2], offsets=maps[key][..., :2]
+                    )
+                    for key in self.categories
+                }
+
+            result["encoder_loss"] = tf.reduce_sum(
+                [value["loss"] for value in encoder_losses.values()]
+            )
+
+            for key in self.categories:
+                result[f"encoder_bce_{key}"] = encoder_losses[key]["bce"]
+                result[f"encoder_recall_at_k_{key}"] = encoder_losses[key]["recall_at_k"]
+                result[f"encoder_mse_{key}"] = encoder_losses[key]["mse"]
+                result[f"encoder_mae_{key}"] = encoder_losses[key]["mae"]
+
+        # ============================
+        # == Handle Classifier Loss ==
+        # ============================
+        if self.train_classifier:
+            classifier_losses = {
+                key: self.classifier_loss(
+                    batch_data[key],
+                    results=value,
+                    object_name=key,
+                )
+                for key, value in results.items()
+            }
+
+            result["classifier_loss"] = tf.reduce_sum(
+                [value["loss"] for value in classifier_losses.values()]
+            )
+
+            for key in self.categories:
+                result[f"classifier_ce_{key}"] = classifier_losses[key]["ce"]
+                result[f"classifier_mse_{key}"] = classifier_losses[key]["mse"]
+                result[f"classifier_euc_error_{key}"] = classifier_losses[key]["euc_error"]
 
         return result
 
@@ -428,9 +451,8 @@ class FullModel(tf.keras.Model):
             losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
             total_loss = (
-                losses["encoder_loss"]
-                if self.only_train_encoder
-                else losses["encoder_loss"] + losses["classifier_loss"]
+                losses.get("encoder_loss", 0.0) * self.train_encoder
+                + losses.get("classifier_loss", 0.0) * self.train_classifier
             )
 
         # Compute gradients
@@ -450,9 +472,8 @@ class FullModel(tf.keras.Model):
         losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
         total_loss = (
-            losses["encoder_loss"]
-            if self.only_train_encoder
-            else losses["encoder_loss"] + losses["classifier_loss"]
+            losses.get("encoder_loss", 0.0) * self.train_encoder
+            + losses.get("classifier_loss", 0.0) * self.train_classifier
         )
 
         losses["total_loss"] = total_loss
@@ -500,7 +521,7 @@ class FullModel(tf.keras.Model):
         if verbose:
             print("Encoder saved!")
 
-        if not only_save_encoder:
+        if self.train_classifier:
             # Save the classifier of each category
             for name, value in self.categories.items():
                 # Create directory if it does not exist.
@@ -533,7 +554,8 @@ class FullModel(tf.keras.Model):
         encoder_channels: int = 4,
         cell_dims: list[int] | tuple[int, int] = None,
         n_context: int = 0,
-        only_train_encoder: bool = False,
+        train_encoder: bool = True,
+        train_classifier: bool = True,
         classifier_offsets: bool = True,
         encoder_only: bool = False,
         verbose: bool = False,
@@ -566,7 +588,8 @@ class FullModel(tf.keras.Model):
             encoder_channels,
             cell_dims,
             n_context,
-            only_train_encoder,
+            train_encoder,
+            train_classifier,
             classifier_offsets,
             n_meta,
             encoder_use_batch_norm,
@@ -585,7 +608,7 @@ class FullModel(tf.keras.Model):
             print("Encoder loaded!")
 
         # Load each classifier
-        if not encoder_only:
+        if train_classifier:
             for name, value in model.categories.items():
                 try:
                     classifier_path = os.path.join(
@@ -609,7 +632,8 @@ class FullModel(tf.keras.Model):
         model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
 
         if verbose:
-            print("Only Train Encoder = ", only_train_encoder)
+            print("Train Encoder = ", train_encoder)
+            print("Train Classifier = ", train_classifier)
             print("Loading complete!")
         return model
 
@@ -643,6 +667,9 @@ class FullModel(tf.keras.Model):
             maps = {
                 self.encoder.output_names[0]: maps
             }  # [B, H_out, W_out, 3] Encoder results for the first category
+
+        if not self.train_classifier:
+            return {"results": None, "maps": maps}
 
         # Convert image to grayscale if only one channel is requested.
         if self.patch_channels == 1:

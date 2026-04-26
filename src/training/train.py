@@ -146,7 +146,7 @@ def main(config):
     )
     batch_size = config["training"]["batch_size"]
     encoder_channels = config["model"]["encoder"]["channels_in"]
-    
+
     if encoder_channels != 1:
         model_input_dims = config["model"]["encoder"]["input_dims"] // np.array((1, 2))
     else:
@@ -155,7 +155,8 @@ def main(config):
     model_cell_dims = config["model"]["encoder"]["cell_dims"]
     encoder_architecture = config["model"]["encoder"]["architecture"]
     classifier_architecture = config["model"]["classifier"]["architecture"]
-    only_train_encoder = config["model"]["encoder"]["only_train_encoder"]
+    train_encoder = config["model"]["encoder"]["train_encoder"]
+    train_classifier = config["model"]["classifier"]["train_classifier"]
 
     input_dims_str = f"{config['model']['encoder']['input_dims'][0]}x{config['model']['encoder']['input_dims'][1]}"
 
@@ -170,7 +171,8 @@ def main(config):
         encoder_channels=encoder_channels,
         cell_dims=model_cell_dims,
         n_context=config["model"]["encoder"]["n_context"],
-        only_train_encoder=only_train_encoder,
+        train_encoder=train_encoder,
+        train_classifier=train_classifier,
         classifier_offsets=config["model"]["classifier"]["with_offsets"],
         n_meta=config["model"]["classifier"]["n_meta"],
         encoder_use_batch_norm=config["model"]["encoder"]["use_batch_norm"],
@@ -208,7 +210,8 @@ def main(config):
             encoder_channels=encoder_channels,
             cell_dims=model_cell_dims,
             n_context=config["model"]["encoder"]["n_context"],
-            only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
+            train_encoder=train_encoder,
+            train_classifier=train_classifier,
             classifier_offsets=config["model"]["classifier"]["with_offsets"],
             encoder_only=encoder_only,
             verbose=verbose,
@@ -231,9 +234,7 @@ def main(config):
         initial_epoch=initial_epoch,
     )
 
-    model.save(
-        f"models/finished/{input_dims_str}", f"{timestamp}", only_save_encoder=only_train_encoder
-    )
+    model.save(f"models/finished/{input_dims_str}", f"{timestamp}")
 
     return
 
