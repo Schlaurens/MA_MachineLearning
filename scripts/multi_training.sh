@@ -55,7 +55,8 @@ export TF_CPP_MIN_LOG_LEVEL=2
 # )
 
 
-GRAYSCALE=true
+GRAYSCALE=false
+YUYV=true
 
 # ===========================
 # == Classifier Evaluation ==
@@ -82,7 +83,10 @@ SETTINGSFILES=(
 
 for F in "${SETTINGSFILES[@]}"; do
     if [ "$GRAYSCALE" = true ]; then
-        F="cpn-evaluation_grayscale/$F"
+        F="cpn-evaluation-grayscale/$F"
+    fi
+    if [ "$YUYV" = true ]; then
+        F="cpn-evaluation-yuyv/$F"
     fi
     echo "Running with settings file: $F"
     uv run src/training/train.py "$F"
