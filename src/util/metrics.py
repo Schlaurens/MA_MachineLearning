@@ -432,44 +432,74 @@ def calculate_multiclass_metrics(
     # = Calculate the Objects that are not covered by any candidates =
     # ================================================================
 
-    # Encode the 2D coordinate into a 1D key that is unique for every possible coordinate up 100000.
-    scale = 1e5
-    invalid_key = -1.0 * scale + (-1.0)  # (-1.0, -1.0) is marked as invalid and later filtered out.
-
+    classification_mask_flat = tf.cast(
+        tf.reshape(
+            groundtruth["classification_mask"],
+            (-1, tf.reduce_prod(dataset_utils.config.output_dims)),
+        ),
+        tf.int32,
+    )
+    
     mask_gt_coords = use_sample[:, tf.newaxis] & (distance_mask <= max_distance)
+    
     # use_sample and distance filtering
     coord_mask_filtered = tf.where(
         mask_gt_coords[..., None], coord_mask, tf.fill([2], -1.0, tf.float32)
-    )
-
-    # round the coordinates to the 4th decimal to account for rounding error that occured when calculate the coordinate mask.
-    coord_mask_rounded = tf.round(coord_mask_filtered * 1e4) / 1e4  # (B, H_out * W_out, 2)
-    keys_gt = tf.sort(
-        coord_mask_rounded[:, :, 0] * scale + coord_mask_rounded[:, :, 1], axis=-1
-    )  # (B, H_out * W_out)
+    )  # (B, H_out * W_out, 2)
 
     mask_coords_true = use_sample[:, tf.newaxis] & (distances_of_coords_true <= max_distance)
     coords_true_filtered = tf.where(
         mask_coords_true[..., None], coords_true, tf.fill([2], -1.0, tf.float32)
     )
-    coords_true_rounded = tf.round(coords_true_filtered * 1e4) / 1e4  # (B, N, 2)
-    keys_covered = tf.sort(
-        coords_true_rounded[:, :, 0] * scale + coords_true_rounded[:, :, 1], axis=-1
-    )  # (B, N)
+    
+    # round the coordinates to the 4th decimal to account for rounding error that occured when calculate the coordinate mask.
+    coord_mask_rounded = tf.round(coord_mask_filtered * 1e1) / 1e1  # (B, H_out * W_out, 2)
+    coords_true_rounded = tf.round(coords_true_filtered * 1e1) / 1e1  # (B, N, 2)
 
-    num_of_covered_coords = tf.reduce_sum(count_unique(keys_covered, invalid_key))  # ( )
-    num_of_gt_coords = tf.reduce_sum(count_unique(keys_gt, invalid_key))  # ( )
+    covered_coords_mask = tf.reduce_all(
+        coord_mask_rounded[:, :, tf.newaxis, :] == coords_true_rounded[:, tf.newaxis, :, :], axis=-1
+    )  # (B, W_out * H_out, N)
 
-    num_of_uncovered_gt_coords = num_of_gt_coords - num_of_covered_coords  # ( )
+    # True where the cells of gt coords are covered by at least one candidate.
+    is_covered = tf.reduce_any(covered_coords_mask, axis=-1)  # (B, W_out * H_out)
+
+    # True where the cells are NOT covered by any candidate. If one object is not covered, multiple cells are False!
+    is_uncovered = ~is_covered  # (B, W_out * H_out)
+
+    # If one object is not covered, only one cell is True! Because each cell in the classification_mask only has their own class-encoding.
+    is_uncovered_foreground = (
+        is_uncovered & mask_gt_coords & (classification_mask_flat > 0)
+    )  # (B, W_out, H_out)
+
+    # Each cell is True for the class that was NOT covered by a candidate. If the 0th class is True then the cell is either a background cell or it was covered by a candidate.
+    uncovered_one_hot = tf.one_hot(
+        tf.where(is_uncovered_foreground, classification_mask_flat, 0),
+        depth=num_classes,
+        dtype=tf.int32,
+    )  # (B, H_out*W_out, num_classes)
+
+    uncovered_foreground_counts = tf.reduce_sum(uncovered_one_hot, axis=[0, 1])[
+        1:
+    ]  # (num_classes - 1, )
+    
+    indices = tf.stack(
+        [tf.range(1, num_classes), tf.zeros(num_classes - 1, dtype=tf.int32)], axis=1
+    )  # (num_classes-1, 2) — [(1,0), (2,0), (3,0), ...]
 
     # ======================
     # = Evaluation Metrics =
     # ======================
+
     # The (num_classes, num_classes) confusion matrix
     confusion_matrix = tf.math.confusion_matrix(
         y_true_labels_filtered, y_pred_labels_filtered, num_classes
     )
 
+    # Add the uncovered groundtruth coords to the False Negatives of the confusion matrix.
+    confusion_matrix = tf.tensor_scatter_nd_add(
+        confusion_matrix, indices, uncovered_foreground_counts
+    )
+    
     # Calculate precision and recall for every class.
     precisions = tf.where(
         tf.reduce_sum(confusion_matrix, axis=0) == 0,
@@ -489,16 +519,12 @@ def calculate_multiclass_metrics(
     tp_count_pooled = tf.reduce_sum(tf.linalg.diag_part(confusion_matrix)[1:])
     tn_count_pooled = confusion_matrix[0, 0]
     fp_count_pooled = tf.reduce_sum(confusion_matrix[0, 1:])
-    # Add the number of gt_coords that were not covered by any candidates to fn and total_samples
-    fn_count_pooled = tf.reduce_sum(confusion_matrix[1:, 0]).numpy() + num_of_uncovered_gt_coords
-    total_samples = tf.reduce_sum(confusion_matrix).numpy() + num_of_uncovered_gt_coords
+    fn_count_pooled = tf.reduce_sum(confusion_matrix[1:, 0])
+    
+    total_samples = tf.reduce_sum(confusion_matrix)
 
     fp_rate_pooled = fp_count_pooled / total_samples
     fn_rate_pooled = fn_count_pooled / total_samples
-
-    # print(
-    #     f"Expected ceiling: {1 - num_of_uncovered_gt_coords / tf.reduce_sum(num_of_gt_coords).numpy():.3f}"
-    # )
 
     # Pooled metrics
     pooled_confusion_matrix = np.array(
