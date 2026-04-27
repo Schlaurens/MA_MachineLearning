@@ -358,6 +358,7 @@ def main(args):
     mode = args.log_dir.split("-")[-1]
 
     if eval_cpn:
+        print("Evaluating CPN...")
         architecture = glob.glob(
             os.path.join(args.model_dir, resolution, "**", f"{args.model_timestamp}.keras"),
             recursive=True,
@@ -379,6 +380,7 @@ def main(args):
         )
 
     if eval_classifier:
+        print("Evaluating Classifier...")
         end_to_end = True
         path_to_models = Path(args.model_dir, args.model_timestamp)
 
