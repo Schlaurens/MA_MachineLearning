@@ -206,6 +206,7 @@ def calculate_binary_metrics(
     intrinsics,
     max_distance,
     threshold_mode,
+    end_to_end,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
 
@@ -273,8 +274,6 @@ def calculate_binary_metrics(
         > 0
     )  # (B, )
 
-    end_to_end_eval = False
-
     fp = best_predictions["valid_samples"] & (
         (~is_best_box_valid & coords_true_distance_mask) | ~object_in_image
     )  # (B, )
@@ -285,7 +284,8 @@ def calculate_binary_metrics(
         & object_in_image
     )  # (B, )
 
-    if end_to_end_eval:
+    # Include the FNs from the cpn
+    if end_to_end:
         fn = (
             ~best_predictions["valid_samples"] & coords_true_distance_mask & object_in_image
         )  # (B, )
@@ -328,6 +328,7 @@ def calculate_multiclass_metrics(
     intrinsics,
     max_distance,
     iou_threshold: float = None,
+    end_to_end: bool = True,
 ):
     """
     Calculate metrics for multi-class predictions.
@@ -495,11 +496,12 @@ def calculate_multiclass_metrics(
         y_true_labels_filtered, y_pred_labels_filtered, num_classes
     )
 
-    # Add the uncovered groundtruth coords to the False Negatives of the confusion matrix.
-    confusion_matrix = tf.tensor_scatter_nd_add(
-        confusion_matrix, indices, uncovered_foreground_counts
-    )
-    
+    if end_to_end:
+        # Add the uncovered groundtruth coords to the False Negatives of the confusion matrix.
+        confusion_matrix = tf.tensor_scatter_nd_add(
+            confusion_matrix, indices, uncovered_foreground_counts
+        )
+
     # Calculate precision and recall for every class.
     precisions = tf.where(
         tf.reduce_sum(confusion_matrix, axis=0) == 0,
@@ -612,6 +614,7 @@ def calculate_metrics(
     classifier_threshold: float,
     encoder_threshold: float,
     treshold_mode: str,
+    end_to_end: bool,
     camera,
     intrinsics,
     max_distance,
@@ -629,6 +632,7 @@ def calculate_metrics(
             intrinsics,
             max_distance,
             iou_threshold,
+            end_to_end,
         )
 
     else:
@@ -643,6 +647,7 @@ def calculate_metrics(
             intrinsics,
             max_distance,
             treshold_mode,
+            end_to_end,
         )
         return {
             "confusion_matrix": binary_metrics["confusion_matrix"],

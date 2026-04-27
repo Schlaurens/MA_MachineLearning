@@ -156,7 +156,7 @@ def evaluate_cpn(model, dataset):
     return metrics_list
 
 
-def evaluate_classifier(model, dataset, config):
+def evaluate_classifier(model, dataset, config, end_to_end):
     def _get_metrics(
         predictions,
         groundtruth,
@@ -165,6 +165,7 @@ def evaluate_classifier(model, dataset, config):
         threshold_mode: str,
         encoder_threshold: float = 0.1,
         nms_iou_threshold: float = None,
+        end_to_end: bool = True,
     ) -> dict:
         metrics = {}
 
@@ -190,6 +191,7 @@ def evaluate_classifier(model, dataset, config):
                         cla,
                         encoder_threshold,
                         threshold_mode,
+                        end_to_end,
                         groundtruth["camera"],
                         groundtruth["intrinsics"],
                         config["categories"][object.value]["max_distance"],
@@ -207,6 +209,7 @@ def evaluate_classifier(model, dataset, config):
                         cla,
                         encoder_threshold,
                         threshold_mode,
+                        end_to_end,
                         groundtruth["camera"],
                         groundtruth["intrinsics"],
                         config["categories"][object.value]["max_distance"],
@@ -328,6 +331,7 @@ def evaluate_classifier(model, dataset, config):
         "additive",
         encoder_threshold,
         nms_iou_threshold,
+        end_to_end
     )
 
     return _calculate_ap_metrics(metrics_threshold_range_additive)
@@ -375,12 +379,13 @@ def main(args):
         )
 
     if eval_classifier:
+        end_to_end = True
         path_to_models = Path(args.model_dir, args.model_timestamp)
 
         print("Loading Model...")
         model = load_model(config, path_to_models, args.model_timestamp)
 
-        predicted_metrics = evaluate_classifier(model, test_ds, config)
+        predicted_metrics = evaluate_classifier(model, test_ds, config, end_to_end)
         inference_metrics = model.evaluate(x=test_ds, return_dict=True)
         metrics_to_save = {}
         for category in u_dataset.CategoryNames:
