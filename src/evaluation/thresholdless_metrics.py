@@ -54,6 +54,10 @@ def load_model(config: dict, path_to_models: str, model_name: str):
     classifier_architecture = config["model"]["classifier"]["architecture"]
 
     channels_in = config["model"]["encoder"].get("channels_in", 4)
+    
+    config["categories"]["ball"]["n_candidates"] = 4
+    config["categories"]["penaltyMark"]["n_candidates"] = 4
+    config["categories"]["intersections"]["n_candidates"] = 10
 
     model = FullModel.load(
         encoder_architecture,
@@ -64,7 +68,8 @@ def load_model(config: dict, path_to_models: str, model_name: str):
         encoder_channels=channels_in,
         cell_dims=config["model"]["encoder"]["cell_dims"],
         n_context=config["model"]["encoder"]["n_context"],
-        only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
+        train_encoder=config["model"]["encoder"]["train_encoder"],
+        train_classifier=config["model"]["classifier"]["train_classifier"],
         classifier_offsets=config["model"]["classifier"]["with_offsets"],
         encoder_only=False,
         verbose=True,
