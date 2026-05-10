@@ -304,7 +304,10 @@ class FullModel(tf.keras.Model):
             )  # Shape: ()
 
             # Get probability of the predicted class for each candidate.
-            error_factor = tf.math.reduce_max(y_pred, axis=-1)  # (B, N)
+            # error_factor = tf.math.reduce_max(y_pred, axis=-1)  # (B, N)
+
+            # Get combined probability of the positive classes.
+            error_factor = 1 - y_pred[..., 0]  # (B, N)
 
         elif object_name in [
             u_dataset.CategoryNames.BALL.value,
