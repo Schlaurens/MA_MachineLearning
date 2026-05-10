@@ -89,7 +89,8 @@ def get_callbacks(timestamp: str, input_dims_str: str, config):
     ]
 
 
-def load_datasets(config):
+def load_datasets(config, encoder, encoder_channels):
+    batch_size = config["training"]["batch_size"]
     input_dims = config["model"]["encoder"]["input_dims"]
     dataset_utils = u_dataset.DatasetUtils(
         u_dataset.DatasetConfig(input_dims, cell_dims=config["model"]["encoder"]["cell_dims"])
@@ -112,21 +113,40 @@ def load_datasets(config):
     train_ds = u_dataset_io.get_dataset(path_to_train, dataset_utils)
     val_ds = u_dataset_io.get_dataset(path_to_val, dataset_utils)
 
+    if encoder is not None:
+
+        def apply_encoder(sample):
+            image = sample["image"]
+            image_grayscale = u_image.convert_yuyv_to_yuv(image)[..., 0:1]
+
+            enc_input = tf.expand_dims(image_grayscale if encoder_channels == 1 else image, axis=0)
+            maps = encoder(enc_input, training=False)
+            if isinstance(maps, list):  # If there is a context vector
+                maps = dict(zip(encoder.output_names, maps, strict=True))
+            else:
+                maps = {
+                    encoder.output_names[0]: maps
+                }  # [B, H_out, W_out, 3] Encoder results for the first category
+            for k, v in maps.items():
+                sample[f"encoder_{k}"] = tf.squeeze(v, axis=0)  # remove batch_dim
+            return sample
+
+        train_ds = (
+            train_ds.map(
+                apply_encoder, num_parallel_calls=tf.data.AUTOTUNE
+            ).cache()  # Epoch 1: fill cache, ab Epoch 2: train with cache
+        )
+        val_ds = val_ds.map(apply_encoder, num_parallel_calls=tf.data.AUTOTUNE).cache()
+
+    train_ds = train_ds.repeat(-1).shuffle(2000).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    val_ds = val_ds.repeat(-1).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
     # Get number of train/val samples from file name of .tfrecords file.
     train_samples = int(path_to_train[0].split("_")[2].split("(")[0])
     val_samples = int(path_to_val[0].split("_")[2].split("(")[0])
-
     print("Number of samples: ", train_samples + val_samples)
     print("Train Size: ", train_samples)
     print("Val Samples: ", val_samples)
-    
-    # To counteract "Local rendezvous warning"
-    train_ds = train_ds.repeat(-1)
-    val_ds = val_ds.repeat(-1)
-    
-    batch_size = config["training"]["batch_size"]
-    train_ds = train_ds.shuffle(2000).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    val_ds = val_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     return {
         "train_ds": train_ds,
@@ -161,8 +181,6 @@ def main(config):
     input_dims_str = f"{config['model']['encoder']['input_dims'][0]}x{config['model']['encoder']['input_dims'][1]}"
 
     log_config(timestamp, input_dims_str, config)
-
-    dataset = load_datasets(config)
 
     model = FullModel(
         encoder_architecture,
@@ -220,6 +238,10 @@ def main(config):
             classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
             categories_config=config["categories"],
         )
+
+    dataset = load_datasets(
+        config, model.encoder if not train_encoder else None, encoder_channels=encoder_channels
+    )
 
     callbacks = get_callbacks(timestamp, input_dims_str, config)
 

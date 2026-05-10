@@ -444,9 +444,7 @@ class FullModel(tf.keras.Model):
 
     def train_step(self, batch_data):
         with tf.GradientTape() as tape:
-            outputs = self(
-                (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=True
-            )  # calls call()
+            outputs = self(batch_data, training=True)  # calls call()
 
             losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
@@ -465,10 +463,7 @@ class FullModel(tf.keras.Model):
         return losses
 
     def test_step(self, batch_data):
-        outputs = self(
-            (batch_data["image"], batch_data["camera"], batch_data["intrinsics"]), training=False
-        )  # calls call()
-
+        outputs = self(batch_data, training=False)  # calls call()
         losses = self._calculate_losses(batch_data, outputs["results"], outputs["maps"])
 
         total_loss = (
@@ -648,32 +643,37 @@ class FullModel(tf.keras.Model):
         Returns:
             Per category x,y,p tuples {key: [B, N_out, 2 + n_classes + 1?]}
         """
-        image, camera, intrinsics = batch_data
 
-        image_grayscale = u_image.convert_yuyv_to_yuv(image)[..., 0:1]  # (B, W_in, H_in, 1)
+        full_image = batch_data["image"]
+        camera = batch_data["camera"]
+        intrinsics = batch_data["intrinsics"]
 
-        # Encoder gets grayscale image
-        if self.encoder_channels == 1:
-            image = image_grayscale
+        image_grayscale = u_image.convert_yuyv_to_yuv(full_image)[..., 0:1]  # (B, W_in, H_in, 1)
 
-        maps = self.encoder(image, training=training)  # Run the encoder on the image
+        if self.train_encoder:
+            full_image = image_grayscale if self.encoder_channels == 1 else full_image
+            maps = self.encoder(full_image, training=training)  # Run the encoder on the image
 
-        # assert isinstance(maps, list) == len(self.categories) > 1
-        if isinstance(maps, list):  # If there is a context vector
-            maps = dict(
-                zip(self.encoder.output_names, maps, strict=True)
-            )  # [B, H_out, W_out, 3], ([B, H_out, W_out, n_context])
+            if isinstance(maps, list):  # If there is a context vector
+                maps = dict(zip(self.encoder.output_names, maps, strict=True))
+            else:
+                maps = {
+                    self.encoder.output_names[0]: maps
+                }  # [B, H_out, W_out, 3] Encoder results for the first category
         else:
+            # Use cached encoder outputs to avoid inference
             maps = {
-                self.encoder.output_names[0]: maps
-            }  # [B, H_out, W_out, 3] Encoder results for the first category
+                k.removeprefix("encoder_"): v
+                for k, v in batch_data.items()  # batch_data ist hier das ganze Dict
+                if k.startswith("encoder_")
+            }
 
         if not self.train_classifier:
             return {"results": None, "maps": maps}
 
         # Convert image to grayscale if only one channel is requested.
         if self.patch_channels == 1:
-            image = image_grayscale
+            full_image = image_grayscale
 
         context = None
         if "context" in maps:
@@ -681,7 +681,7 @@ class FullModel(tf.keras.Model):
 
         results = {
             key: self._handle_category(
-                image,
+                full_image,
                 camera,
                 intrinsics,
                 value["object_height"],
