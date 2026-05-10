@@ -18,6 +18,7 @@ from training.models import FullModel
 from util import callbacks as u_callbacks
 from util import dataset as u_dataset
 from util import dataset_io as u_dataset_io
+from util import image as u_image
 
 
 def load_config(config_path):
