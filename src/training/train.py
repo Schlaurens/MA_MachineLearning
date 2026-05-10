@@ -205,8 +205,11 @@ def main(config):
         if config["training"]["from_model"]:
             model_timestamp = config["training"]["load_model"]["timestamp"]
 
-            filepath = config["training"]["load_model"]["filepath"]
-            filename = f"{model_timestamp}.keras"
+            filepath = os.path.join(
+                config["training"]["load_model"]["filepath"], input_dims_str, model_timestamp
+            )
+
+            filename = model_timestamp
             encoder_only = config["training"]["load_model"]["encoder_only"]
             verbose = config["training"]["load_model"]["verbose"]
 
