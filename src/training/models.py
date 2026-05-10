@@ -115,6 +115,20 @@ class FullModel(tf.keras.Model):
         )
 
         object.__setattr__(self, "_test_metrics", {})  # not tracked by Keras
+        object.__setattr__(self, "_train_metrics", {})  # not tracked by Keras
+
+    def reset_metrics(self):
+        super().reset_metrics()
+        for m in self._train_metrics.values():
+            m.reset_state()
+        for m in self._test_metrics.values():
+            m.reset_state()
+
+    @property
+    def metrics(self):
+        if not self._test_metrics:
+            return []
+        return list(self._test_metrics.values())
 
     def encoder_loss(self, batch_data, interest, offsets, n_candidates):
         B = tf.shape(interest)[0]  # Batch Size
@@ -460,7 +474,18 @@ class FullModel(tf.keras.Model):
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables, strict=True))
 
         losses["total_loss"] = total_loss
-        return losses
+
+        # Initialize metrics lazily on first call
+        if not self._train_metrics:
+            object.__setattr__(
+                self, "_train_metrics", {name: tf.keras.metrics.Mean(name=name) for name in losses}
+            )
+
+        # Update metric objects
+        for key, value in losses.items():
+            self._train_metrics[key].update_state(value)
+
+        return {k: m.result() for k, m in self._train_metrics.items()}
 
     def test_step(self, batch_data):
         outputs = self(batch_data, training=False)  # calls call()
@@ -484,12 +509,6 @@ class FullModel(tf.keras.Model):
             self._test_metrics[key].update_state(value)
 
         return {k: m.result() for k, m in self._test_metrics.items()}
-
-    @property
-    def metrics(self):
-        if not self._test_metrics:
-            return []
-        return list(self._test_metrics.values())
 
     def save(
         self, filepath, filename, only_save_encoder=False, overwrite=True, verbose=False, **kwargs
