@@ -54,7 +54,7 @@ def load_model(config: dict, path_to_models: str, model_name: str):
     classifier_architecture = config["model"]["classifier"]["architecture"]
 
     channels_in = config["model"]["encoder"].get("channels_in", 4)
-    
+
     config["categories"]["ball"]["n_candidates"] = 4
     config["categories"]["penaltyMark"]["n_candidates"] = 4
     config["categories"]["intersections"]["n_candidates"] = 10
@@ -282,8 +282,8 @@ def evaluate_classifier(model, dataset, config, end_to_end):
     input_dataset = dataset.map(lambda x: (x["image"], x["camera"], x["intrinsics"]))
 
     predictions_list = []
-    for batch in input_dataset:
-        predictions_list.append(model.predict(batch))  # or model(batch, training=False)
+    for batch in dataset:
+        predictions_list.append(model.predict(batch))
 
     # Then concat manually
     predictions_concat = {"results": {}}
@@ -327,7 +327,6 @@ def evaluate_classifier(model, dataset, config, end_to_end):
         u_dataset.CategoryNames.PENALTYMARK.value: threshold_range_additive,
         u_dataset.CategoryNames.INTERSECTIONS.value: threshold_range_additive,
     }
-
     metrics_threshold_range_additive = _get_metrics(
         predictions_concat,
         groundtruth_concat,
@@ -336,7 +335,7 @@ def evaluate_classifier(model, dataset, config, end_to_end):
         "additive",
         encoder_threshold,
         nms_iou_threshold,
-        end_to_end
+        end_to_end,
     )
 
     return _calculate_ap_metrics(metrics_threshold_range_additive)
