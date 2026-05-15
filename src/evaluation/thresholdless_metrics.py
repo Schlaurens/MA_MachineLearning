@@ -68,7 +68,7 @@ def load_model(config: dict, path_to_models: str, model_name: str):
         encoder_channels=channels_in,
         cell_dims=config["model"]["encoder"]["cell_dims"],
         n_context=config["model"]["encoder"]["n_context"],
-        train_encoder=config["model"]["encoder"]["train_encoder"],
+        train_encoder=True,
         train_classifier=config["model"]["classifier"]["train_classifier"],
         classifier_offsets=config["model"]["classifier"]["with_offsets"],
         encoder_only=False,
