@@ -487,14 +487,14 @@ class FullModel(tf.keras.Model):
         # Initialize metrics lazily on first call
         if not self._train_metrics:
             object.__setattr__(
-                self, "_train_metrics", {name: tf.keras.metrics.Mean(name=name) for name in losses}
+                self, "_train_metrics", {name: tf.keras.metrics.Mean(name=f"train_{name}") for name in losses}
             )
 
         # Update metric objects
         for key, value in losses.items():
             self._train_metrics[key].update_state(value)
 
-        return {k: m.result() for k, m in self._train_metrics.items()}
+        return {name: m.result() for name, m in self._train_metrics.items()}
 
     def test_step(self, batch_data):
         outputs = self(batch_data, training=False)  # calls call()
@@ -510,14 +510,14 @@ class FullModel(tf.keras.Model):
         # Initialize metrics lazily on first call
         if not self._test_metrics:
             object.__setattr__(
-                self, "_test_metrics", {name: tf.keras.metrics.Mean(name=name) for name in losses}
+                self, "_test_metrics", {name: tf.keras.metrics.Mean(name=f"test_{name}") for name in losses}
             )
 
         # Update metric objects
         for key, value in losses.items():
             self._test_metrics[key].update_state(value)
 
-        return {k: m.result() for k, m in self._test_metrics.items()}
+        return {name: m.result() for name, m in self._test_metrics.items()}
 
     def save(
         self, filepath, filename, only_save_encoder=False, overwrite=True, verbose=False, **kwargs
