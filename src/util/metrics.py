@@ -1053,7 +1053,7 @@ def handle_predictions_multiclass(
     # Run the NMS on batched predictions for performance reasons.
     if iou_threshold is not None:
         batch_size = tf.shape(predictions["boxes"])[0]
-        batch_size_per_chunk = 1000  # change this if OOM Error are raised
+        batch_size_per_chunk = 500  # change this if OOM Error are raised
         num_chunks = tf.cast(tf.math.ceil(batch_size / batch_size_per_chunk), tf.int32)
 
         nms_selected_indices_list = []
