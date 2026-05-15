@@ -59,6 +59,10 @@ def load_model(config: dict, path_to_models: str, model_name: str):
     config["categories"]["penaltyMark"]["n_candidates"] = 4
     config["categories"]["intersections"]["n_candidates"] = 10
 
+    config["categories"]["ball"]["max_distance"] = 9
+    config["categories"]["penaltyMark"]["max_distance"] = 9
+    config["categories"]["intersections"]["max_distance"] = 9
+
     model = FullModel.load(
         encoder_architecture,
         classifier_architecture,
