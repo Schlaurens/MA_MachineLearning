@@ -787,7 +787,7 @@ class FullModel(tf.keras.Model):
         patch_indices = sampler(logits, distance_mask, training=training)  # [B, N_out]
         coords = tf.gather(coords, patch_indices, batch_dims=1)  # [B, N_out, 2]
 
-        (patches, masks, boxes, intrinsics, distances_in_camera) = extractor(
+        (patches, boxes, distances_in_camera, pixel_sizes) = extractor(
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
 
@@ -845,7 +845,6 @@ class FullModel(tf.keras.Model):
         return {
             "patches": patches,
             "patch_indices": patch_indices,
-            "masks": masks,
             "boxes": boxes,
             "coords": coords,
             "logits": logits,
