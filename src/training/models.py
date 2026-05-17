@@ -803,7 +803,7 @@ class FullModel(tf.keras.Model):
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
 
         patches_reshaped = tf.reshape(
-            tf.stop_gradient(patches),
+            patches,
             (
                 tf.shape(intrinsics)[0] * sampler.n_sample,
                 *self.patch_size,
@@ -811,7 +811,7 @@ class FullModel(tf.keras.Model):
             ),
         )  # (B * N_out, patch_size, patch_size, n_channels)
 
-        classifier_inputs = [patches_reshaped]
+        classifier_inputs = [tf.stop_gradient(patches_reshaped)]
 
         # Add distances to classifier_input
         if self.n_meta == 1:
