@@ -115,7 +115,6 @@ def load_datasets(config, encoder, encoder_channels):
     val_ds = u_dataset_io.get_dataset(path_to_val, dataset_utils)
 
     if encoder is not None:
-
         def apply_encoder(sample):
             image = sample["image"]
             image_grayscale = u_image.convert_yuyv_to_yuv(image)[..., 0:1]
