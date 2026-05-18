@@ -352,7 +352,7 @@ class PatchSampler(tf.keras.layers.Layer):
         self,
         n_sample: int,
         max_distance: float = 5,
-        temperature: int = 1,
+        temperature: int = 2.5,
         generator=tf.random.get_global_generator(),  # noqa: B008
         name: str = "patch_sampler",
         **kwargs,
