@@ -398,9 +398,14 @@ class PatchSampler(tf.keras.layers.Layer):
             # https://timvieira.github.io/blog/post/2019/09/16/algorithms-for-sampling-without-replacement/
             z = -tf.math.log(
                 -tf.math.log(
-                    self.generator.uniform(tf.shape(logits), minval=0, maxval=1, dtype=logits.dtype)
+                    self.generator.uniform(
+                        tf.shape(masked_logits), minval=0, maxval=1, dtype=masked_logits.dtype
+                    )
                 )
             )
-            logits = logits / self.temperature + z
+            masked_logits = tf.where(
+                valid_cells_mask, tf.math.log(masked_logits) / self.temperature + z, -np.inf
+            )
+
         _, indices = tf.math.top_k(masked_logits, self.n_sample)
         return indices
