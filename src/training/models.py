@@ -83,17 +83,17 @@ class FullModel(tf.keras.Model):
                 },
             }
         )
-        if self.train_classifier:
-            for _, value in self.categories.items():
-                value["sampler"] = PatchSampler(
-                    value["n_candidates"],
-                    value["max_distance"],
-                )  # The patch sampler for the category with a fixed number of candidates
-                value["extractor"] = PatchExtractor(
-                    self.patch_size,
-                    value["object_size"],
-                    value.get("object_height", 0),
-                )  # The patch extractor for the category with the fixed object parameters
+        for _, value in self.categories.items():
+            value["sampler"] = PatchSampler(
+                value["n_candidates"],
+                value["max_distance"],
+            )  # The patch sampler for the category with a fixed number of candidates
+            value["extractor"] = PatchExtractor(
+                self.patch_size,
+                value["object_size"],
+                value.get("object_height", 0),
+            )  # The patch extractor for the category with the fixed object parameters
+            if self.train_classifier:
                 value["classifier"] = u_classifiers.get_classifier(
                     self.classifier_architecture,
                     self.patch_size,
@@ -707,9 +707,6 @@ class FullModel(tf.keras.Model):
                 if k.startswith("encoder_")
             }
 
-        if not self.train_classifier:
-            return {"results": None, "maps": maps}
-
         # Convert image to grayscale if only one channel is requested.
         if self.patch_channels == 1:
             full_image = image_grayscale
@@ -730,7 +727,7 @@ class FullModel(tf.keras.Model):
                 value["n_classes"],
                 value["sampler"],
                 value["extractor"],
-                value["classifier"],
+                value["classifier"] if self.train_classifier else None,
                 training=training,
             )
             for key, value in self.categories.items()
@@ -814,6 +811,20 @@ class FullModel(tf.keras.Model):
             image, coords, camera, intrinsics, training=training
         )  # [B, N_out, H_out, W_out, C], [B, N_out]
 
+        boxes = tf.reshape(boxes, (tf.shape(intrinsics)[0], sampler.n_sample, 4))  # (B, N, 4)
+
+        if not self.train_classifier:
+            return {
+                "patches": patches,
+                "patch_indices": patch_indices,
+                "boxes": boxes,
+                "coords": coords,
+                "logits": logits,
+                "classification": None,
+                "positions": None,
+                "distances": distances_in_camera,
+            }
+
         patches_reshaped = tf.reshape(
             patches,
             (
@@ -859,11 +870,13 @@ class FullModel(tf.keras.Model):
         classification = tf.reshape(
             classification, (tf.shape(intrinsics)[0], sampler.n_sample, n_classes)
         )  # (B, N, n_classes)
-        boxes = tf.reshape(boxes, (tf.shape(intrinsics)[0], sampler.n_sample, 4))  # (B, N, 4)
 
         positions = tf.stop_gradient(coords) + tf.reshape(
             offsets, (tf.shape(intrinsics)[0], sampler.n_sample, 2)
-        ) * tf.expand_dims(tf.stop_gradient(pixel_sizes), -1)  # (B, N, 2)
+        ) * (
+            tf.expand_dims(tf.stop_gradient(pixel_sizes), -1)
+            / tf.cast(self.patch_size[0], tf.float32)
+        )  # (B, N, 2)
 
         return {
             "patches": patches,
