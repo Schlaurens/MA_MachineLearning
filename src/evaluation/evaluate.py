@@ -105,17 +105,16 @@ class EvaluateApplication:
     def update_predictions(self):
         self.remove_artists()
 
-        image = self.data[self.index]["image"]  # (H_in, W_in / 2, 4)
+        image_rgb = u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])  # (H_in, W_in, 3)
 
         output = self.model(
-            (
-                image[np.newaxis, ...],
-                self.data[self.index]["camera"][np.newaxis, ...],
-                self.data[self.index]["intrinsics"][np.newaxis, ...],
-            ),
+            {
+                "image": self.data[self.index]["image"][None, ...],
+                "camera": self.data[self.index]["camera"][None, ...],
+                "intrinsics": self.data[self.index]["intrinsics"][None, ...],
+            },
             training=False,
         )
-        image_rgb = u_image.convert_yuyv_to_rgb(image)
 
         # Set prediction figures
         for category in self.categories:
@@ -317,10 +316,12 @@ class EvaluateApplication:
             classifier_architecture=config["model"]["classifier"]["architecture"],
             input_dims=config["model"]["encoder"]["input_dims"],
             cell_dims=config["model"]["encoder"]["input_dims"],
+            encoder_channels=config["model"]["encoder"]["channels_in"],
             filepath=path_to_model,
             filename=model_name,
             n_context=config["model"]["encoder"]["n_context"],
-            only_train_encoder=config["model"]["encoder"]["only_train_encoder"],
+            train_encoder=True,
+            train_classifier=config["model"]["classifier"]["train_classifier"],
             classifier_offsets=config["model"]["classifier"]["with_offsets"],
             encoder_only=False,
             verbose=True,
