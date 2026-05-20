@@ -807,7 +807,7 @@ class FullModel(tf.keras.Model):
         # Add some noise to the CPN offsets to add some variance to the classifier dataset.
         # This helps to prevents overfitting when the weights of the CPN are frozen.
         if training and not self.train_encoder:
-            noise = tf.random.normal(tf.shape(coords), mean=0.0, stddev=1.0)
+            noise = tf.random.normal(tf.shape(coords), mean=0.0, stddev=0.8)
             coords = coords + noise
 
         (patches, boxes, distances_in_camera, pixel_sizes) = extractor(
