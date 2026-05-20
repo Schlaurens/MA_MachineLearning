@@ -593,6 +593,7 @@ class FullModel(tf.keras.Model):
         encoder_only: bool = False,
         verbose: bool = False,
         n_meta: int = 0,
+        learning_rate: float = 0.001,
         encoder_use_batch_norm: bool = False,
         classifier_use_batch_norm: bool = False,
         categories_config: dict = None,
@@ -663,7 +664,9 @@ class FullModel(tf.keras.Model):
             model.encoder.trainable = False
             print(model.encoder.trainable_variables)
 
-        model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), jit_compile=False
+        )
 
         if verbose:
             print("Train Encoder = ", train_encoder)

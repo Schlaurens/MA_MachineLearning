@@ -20,8 +20,7 @@ training:
   initial_epoch: 0
   batch_size: 32
   verbose: 1
-  from_checkpoint: False # < when starting training from checkpoint
-  from_model: True # < when loading an existing model
+  learning_rate: 0.001
   load_checkpoint:
     initial_epoch: 999
     timestamp: "20260429-175416" 

@@ -197,7 +197,7 @@ def main(config):
         classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
         categories_config=config["categories"],
     )
-    model.compile(optimizer=tf.keras.optimizers.Adam(), jit_compile=False)
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=config["training"]["learning_rate"]), jit_compile=False)
 
     if config["training"]["from_checkpoint"] or config["training"]["from_model"]:
         # ==== When loading an existing model ====
@@ -237,6 +237,7 @@ def main(config):
             encoder_only=encoder_only,
             verbose=verbose,
             n_meta=config["model"]["classifier"]["n_meta"],
+            learning_rate=config["training"]["learning_rate"],
             encoder_use_batch_norm=config["model"]["encoder"]["use_batch_norm"],
             classifier_use_batch_norm=config["model"]["classifier"]["use_batch_norm"],
             categories_config=config["categories"],
