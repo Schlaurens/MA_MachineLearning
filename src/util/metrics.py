@@ -303,8 +303,12 @@ def calculate_binary_metrics(
 
     confusion_matrix = np.array([[tp_count, fn_count], [fp_count, tn_count]])
 
+    total_objects = tf.reduce_sum(
+        tf.cast(object_in_image & coords_true_distance_mask, tf.int32)
+    ).numpy()
+
     precision = tp_count / (tp_count + fp_count) if (tp_count + fp_count) > 0 else 1.0
-    recall = tp_count / (tp_count + fn_count) if (tp_count + fn_count) > 0 else 0.0
+    recall = tp_count / total_objects if (total_objects) > 0 else 0.0
 
     fp_rate = fp_count / np.sum(confusion_matrix)
     fn_rate = fn_count / np.sum(confusion_matrix)
