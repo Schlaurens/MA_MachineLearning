@@ -169,33 +169,28 @@ class EvaluateApplication:
             return axes.imshow(np.zeros(self.dataset_utils.config.cell_dims))
 
         best_score_index = processed_predictions["best_candidate_indices"][0]
-
         # Groundtruth coords
         coords_true = self.dataset_utils.get_coords_from_offsets(
             self.data[self.index][object_name]["offset_mask"]
         )[0]
+
         # Coords predicted by the encoder
         encoder_coords_pred = output["coords"][0][best_score_index]
         # Coords corrected by the classifier
         position_pred = output["positions"][0][best_score_index]
 
         abs_error = np.linalg.norm(coords_true - position_pred)
-        best_box = output["boxes"][0][best_score_index]
+        best_width = output["pixel_sizes"][0][best_score_index]
 
-        # We only need the width because the patch is a square.
-        best_width = (best_box[3] - best_box[1]) * (self.dataset_utils.config.input_dims[1] / 2 - 1)
-        # Used to scale the box with variable size to the fixed patch size
-        patch_to_box_ratio = self.dataset_utils.config.cell_dims[0] / best_width
-
-        box_coords = (
-            best_box[1] * (self.data[self.index]["image"].shape[1] * 2 - 1),
-            best_box[0] * (self.data[self.index]["image"].shape[0] - 1),
+        patch_center = (np.array(self.model.patch_size) - 1) / 2
+        coords_true_patch = patch_center + (tf.squeeze(coords_true) - encoder_coords_pred) * (
+            self.model.patch_size / best_width
         )
 
         if ~tf.reduce_all(coords_true == -1.0):
-            axes.plot(*(tf.squeeze(coords_true) - box_coords) * patch_to_box_ratio, "gx")
-        axes.plot(*(encoder_coords_pred - box_coords) * patch_to_box_ratio, "rx")
-        axes.plot(*(position_pred - box_coords) * patch_to_box_ratio, "bx")
+            axes.plot(*(coords_true_patch), "gx")
+        axes.plot(*(patch_center), "rx")  # Encoder prediction is always in the middle of the patch
+        axes.plot(*(patch_center + output["classifier_offsets"][best_score_index]), "bx")
 
         axes.text(0, 2, f"cand.: {best_score_index + 1}", color="lime")
         axes.text(
