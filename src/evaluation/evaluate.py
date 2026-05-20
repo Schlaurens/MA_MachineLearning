@@ -40,24 +40,23 @@ from util import metrics as u_metrics
 
 class EvaluateApplication:
     def __init__(self, log_path, data_path):
+        self.config = self.load_config(log_path + "/config.yaml")
+
+        self.categories = self.config["categories"]
+        input_dims = self.config["model"]["encoder"]["input_dims"]
+        cell_dims = self.config["model"]["encoder"]["cell_dims"]
         self.dataset_utils = u_dataset.DatasetUtils(
             u_dataset.DatasetConfig(input_dims, cell_dims=cell_dims)
         )
-        self.data = list(
-            u_dataset_io.get_dataset(data_path, self.dataset_utils).as_numpy_iterator()
-        )
-        self.model = self.load_model(config, path_to_model, model_name)
-        self.categories = config["categories"]
 
-        assert len(self.model.encoder.input_shape) == 4
-        self.image_format = (
-            u_image.ImageFormat.GRAYSCALE
-            if self.model.encoder.input_shape[3] == 1
-            else (
-                u_image.ImageFormat.YUYV
-                if self.model.encoder.input_shape[3] == 2
-                else u_image.ImageFormat.YUV
-            )
+        self.data = list(
+            u_dataset_io.get_dataset(data_path, self.dataset_utils).take(100).as_numpy_iterator()
+        )
+
+        path_to_model = self.get_model_path()
+
+        self.model = self.load_model(
+            self.config, path_to_model, self.config["metadata"]["timestamp"]
         )
 
         self.index = 0
