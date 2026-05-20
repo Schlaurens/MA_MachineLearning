@@ -3,11 +3,8 @@ This script provides an interactive visualization tool for evaluating the predic
 
 Usage:
     Run this script from the command line with the following arguments:
-        python evaluate.py <data_path> <model_path>
-    where <data_path> is the path to the dataset and <model_path> is the path to the trained model.
-Arguments:
-    data_path (str): Path to the .tfrecords file with the data that the model should be evaluated on.
-    model_path (str): Path to the trained TensorFlow model.
+        python evaluate.py <data_path> <log_path>
+    where <data_path> is the path to the dataset and <log_path> is the path to the log of the trained model.
 Features:
     - Loads a trained model and dataset.
     - Displays the input image and model predictions for different object categories.
