@@ -506,6 +506,25 @@ def calculate_multiclass_metrics(
             confusion_matrix, indices, uncovered_foreground_counts
         )
 
+    objects_in_image = tf.reduce_sum(
+        tf.cast(
+            tf.reshape(
+                dataset_utils.classification_mask_to_one_hot(
+                    groundtruth["classification_mask"], n_classes=num_classes
+                ),
+                (-1, tf.reduce_prod(dataset_utils.config.output_dims), num_classes),
+            ),
+            tf.int32,
+        )  # (B, H*W, num_classes)
+        * tf.cast(distance_mask[..., None] <= max_distance, tf.int32),  # (B, H*W, 1)
+        axis=1,
+    )  # (B, num_classes)
+
+    total_objects_per_class = tf.reduce_sum(
+        objects_in_image * tf.cast(use_sample[:, tf.newaxis], tf.int32),
+        axis=0,
+    )  # (num_classes - 1,) — skip background
+
     # Calculate precision and recall for every class.
     precisions = tf.where(
         tf.reduce_sum(confusion_matrix, axis=0) == 0,
@@ -515,8 +534,9 @@ def calculate_multiclass_metrics(
         tf.cast(tf.linalg.diag_part(confusion_matrix), tf.float32)
         / tf.cast(tf.reduce_sum(confusion_matrix, axis=0), tf.float32),
     )  # (num_classes, )
+
     recalls = tf.math.divide_no_nan(
-        tf.linalg.diag_part(confusion_matrix), tf.reduce_sum(confusion_matrix, axis=1)
+        tf.linalg.diag_part(confusion_matrix), total_objects_per_class
     )  # (num_classes, )
 
     # =========================================
@@ -549,9 +569,8 @@ def calculate_multiclass_metrics(
     )
     # Recall = TP / TP + FN
     pooled_recall = (
-        pooled_confusion_matrix[0][0]
-        / (pooled_confusion_matrix[0][0] + pooled_confusion_matrix[0][1])
-        if pooled_confusion_matrix[0][0] + pooled_confusion_matrix[0][1] > 0
+        pooled_confusion_matrix[0][0] / tf.reduce_sum(total_objects_per_class[1:])
+        if tf.reduce_sum(total_objects_per_class[1:]) > 0
         else 0.0
     )
 
