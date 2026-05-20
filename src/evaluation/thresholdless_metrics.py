@@ -154,7 +154,7 @@ def create_metrics_csv(file_path, resolution, architecture, config, model_timest
 
     # Add each metric in metrics_list to the data dictionary
     for key, value in metrics_list:
-        data[key] = value  # Assuming the metric value is the same as the metric name
+        data[key] = float(value) # Assuming the metric value is the same as the metric name
 
     append_to_csv(file_path, data)
 
