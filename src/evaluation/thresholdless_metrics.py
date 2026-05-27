@@ -150,11 +150,13 @@ def create_metrics_csv(file_path, resolution, architecture, config, model_timest
         "model_timestamp": model_timestamp,
         "encoder_architecture": config["model"]["encoder"]["architecture"],
         "classifier_architecture": config["model"]["classifier"]["architecture"],
+        "n_context": config["model"]["encoder"]["n_context"],
+        "n_dist": config["model"]["classifier"]["n_meta"],
     }
 
     # Add each metric in metrics_list to the data dictionary
     for key, value in metrics_list:
-        data[key] = float(value) # Assuming the metric value is the same as the metric name
+        data[key] = float(value)  # Assuming the metric value is the same as the metric name
 
     append_to_csv(file_path, data)
 
