@@ -616,15 +616,61 @@ class FullModel(tf.keras.Model):
             categories_config,
         )
 
-        # Load the encoder
-        encoder = tf.keras.models.load_model(
-            os.path.join(filepath, "encoder", f"{filename}.keras"),
-            custom_objects={"IresBlock": IresBlock, "Normalization": Normalization},
-        )
-        model.encoder = encoder
+        @tf.keras.utils.register_keras_serializable()
+        def stop_gradient(x):
+            return tf.stop_gradient(x)
 
-        if verbose:
-            print("Encoder loaded!")
+        # Load the encoder
+        loaded_encoder = tf.keras.models.load_model(
+            os.path.join(filepath, "encoder", f"{filename}.keras"),
+            custom_objects={
+                "IresBlock": IresBlock,
+                "Normalization": Normalization,
+                "stop_gradient": stop_gradient,
+            },
+        )
+
+        if n_context > 0:
+            # model.encoder already has the context head (random weights).
+            # Match weight-bearing layers positionally; zip() stops at the shorter
+            # (saved) encoder, so the context head layers are never touched.
+            def weight_bearing(enc):
+                return [l for l in enc.layers if l.get_weights()]
+
+            saved_wl = weight_bearing(loaded_encoder)
+            init_wl = weight_bearing(model.encoder)
+
+            transferred, mismatched = 0, 0
+            for saved_layer, init_layer in zip(saved_wl, init_wl, strict=False):
+                sw, iw = saved_layer.get_weights(), init_layer.get_weights()
+                shapes_match = len(sw) == len(iw) and all(
+                    s.shape == i.shape for s, i in zip(sw, iw, strict=False)
+                )
+                if shapes_match:
+                    init_layer.set_weights(sw)
+                    transferred += 1
+                else:
+                    mismatched += 1
+                    if verbose:
+                        print(
+                            f"  Shape mismatch — saved: {saved_layer.name} "
+                            f"{[w.shape for w in sw]}  |  "
+                            f"init: {init_layer.name} {[w.shape for w in iw]}"
+                        )
+
+            kept_random = init_wl[len(saved_wl) :]  # context head layers
+            if verbose:
+                print(
+                    f"Encoder weights loaded: {transferred} layers transferred, "
+                    f"{mismatched} mismatched (skipped), "
+                    f"{len(kept_random)} new head layers kept with random init "
+                    f"({[l.name for l in kept_random]})"
+                )
+        else:
+            # No context head — safe to swap the whole object.
+            model.encoder = loaded_encoder
+            if verbose:
+                print("Encoder loaded!")
 
         # Load each classifier
         if train_classifier and not encoder_only:
@@ -645,7 +691,7 @@ class FullModel(tf.keras.Model):
                     if verbose:
                         print(f"Failed to load {name.capitalize()}-Classifier: {e}")
 
-        if not train_encoder:
+        if not train_encoder and n_context == 0:
             model.encoder.trainable = False
             print(model.encoder.trainable_variables)
 
@@ -677,7 +723,7 @@ class FullModel(tf.keras.Model):
 
         image_grayscale = u_image.convert_yuyv_to_yuv(full_image)[..., 0:1]  # (B, W_in, H_in, 1)
 
-        if self.train_encoder:
+        if self.train_encoder or self.n_context > 0:
             full_image = image_grayscale if self.encoder_channels == 1 else full_image
             maps = self.encoder(full_image, training=training)  # Run the encoder on the image
 
@@ -840,7 +886,7 @@ class FullModel(tf.keras.Model):
             classifier_inputs += [distances_reshaped]
 
         # Add context vector to classifier_inputs (if n_context > 0)
-        if context is not None:
+        if self.n_context > 0:
             context_flat = tf.reshape(
                 context, (-1, tf.reduce_prod(res_out), self.n_context)
             )  # (B, H_out * W_out, n_context)
