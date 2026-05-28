@@ -248,13 +248,23 @@ def evaluate_classifier(model, dataset, config, end_to_end):
             # Pooled AP (binary)
             precision_pooled = np.array([x["precision_pooled"] for x in results])
             recall_pooled = np.array([x["recall_pooled"] for x in results])
+            
+            # Sort
             sorted_idx = np.argsort(recall_pooled)
             recall_pooled_sorted = recall_pooled[sorted_idx]
             precision_pooled_sorted = precision_pooled[sorted_idx]
+            
+            # Anchor point at Recall 0.0
+            recalls_anchored = np.concatenate([[0.0], recall_pooled_sorted])
+            precisions_anchored = np.concatenate([[precision_pooled_sorted[0]], precision_pooled_sorted])
+
+            # Interpolate precisions
+            precisions_interp = np.maximum.accumulate(precisions_anchored[::-1])[::-1]
+            
             # Remove duplicate recalls to avoid sklearn error
-            unique_mask = np.concatenate([[True], np.diff(recall_pooled_sorted) > 0])
+            unique_mask = np.concatenate([[True], np.diff(recalls_anchored) > 0])
             ap_pooled = sklearn.metrics.auc(
-                recall_pooled_sorted[unique_mask], precision_pooled_sorted[unique_mask]
+                recalls_anchored[unique_mask], precisions_interp[unique_mask]
             )
 
             if object == u_dataset.CategoryNames.INTERSECTIONS:
@@ -262,14 +272,24 @@ def evaluate_classifier(model, dataset, config, end_to_end):
                 num_classes = len(results[0]["precisions"])
                 per_class_aps = []
                 for class_idx in range(1, num_classes):
-                    precision = np.array([x["precisions"][class_idx] for x in results])
-                    recall = np.array([x["recalls"][class_idx] for x in results])
-                    sorted_idx = np.argsort(recall)
-                    recall_sorted = recall[sorted_idx]
-                    precision_sorted = precision[sorted_idx]
-                    unique_mask = np.concatenate([[True], np.diff(recall_sorted) > 0])
+                    precisions = np.array([x["precisions"][class_idx] for x in results])
+                    recalls = np.array([x["recalls"][class_idx] for x in results])
+
+                    # Sort
+                    sorted_idx = np.argsort(recalls)
+                    recall_sorted = recalls[sorted_idx]
+                    precision_sorted = precisions[sorted_idx]
+
+                    # Anchor point at Recall 0.0
+                    recalls_anchored = np.concatenate([[0.0], recall_sorted])
+                    precisions_anchored = np.concatenate([[precision_sorted[0]], precision_sorted])
+
+                    # Interpolate precisions
+                    precisions_interp = np.maximum.accumulate(precisions_anchored[::-1])[::-1]
+
+                    unique_mask = np.concatenate([[True], np.diff(recalls_anchored) > 0])
                     ap = sklearn.metrics.auc(
-                        recall_sorted[unique_mask], precision_sorted[unique_mask]
+                        recalls_anchored[unique_mask], precisions_interp[unique_mask]
                     )
                     per_class_aps.append(ap)
             else:
