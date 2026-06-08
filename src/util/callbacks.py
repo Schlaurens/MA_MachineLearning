@@ -19,7 +19,8 @@ class CustomCheckpointCallback(tf.keras.callbacks.Callback):
         self.only_save_encoder = only_save_encoder
 
     def on_epoch_end(self, epoch, logs=None):
-        filename = f"epoch_{epoch}"
-        self.model.save(
-            self.filepath, filename, self.only_save_encoder, self.overwrite, self.verbose
-        )
+        if epoch % 2 == 0:
+            filename = f"epoch_{epoch}"
+            self.model.save(
+                self.filepath, filename, self.only_save_encoder, self.overwrite, self.verbose
+            )
