@@ -4,6 +4,7 @@ import tensorflow as tf
 
 from training import classifier_architectures as u_classifiers
 from training import encoder_architectures as u_encoders
+from util import augmentation as u_augmentation
 from util import dataset as u_dataset
 from util import image as u_image
 from util import keypoint as u_keypoint
@@ -859,6 +860,7 @@ class FullModel(tf.keras.Model):
                 "distances": distances_in_camera,
                 "pixel_sizes": pixel_sizes,
                 "classifier_offsets": None,
+                "context_vector": context,
             }
 
         patches_reshaped = tf.reshape(
@@ -891,9 +893,18 @@ class FullModel(tf.keras.Model):
                 context, (-1, tf.reduce_prod(res_out), self.n_context)
             )  # (B, H_out * W_out, n_context)
 
-            context_of_chosen_cells = tf.gather(
-                context_flat, patch_indices, batch_dims=1
-            )  # (B, N, n_context)
+            if training:
+                patch_indices_augmented = u_augmentation.augment_cell_indices(
+                    self.dataset_config, patch_indices
+                )
+
+                context_of_chosen_cells = tf.gather(
+                    context_flat, patch_indices_augmented, batch_dims=1
+                )  # (B, N, n_context)
+            else:
+                context_of_chosen_cells = tf.gather(
+                    context_flat, patch_indices, batch_dims=1
+                )  # (B, N, n_context)
 
             context_reshaped = tf.reshape(
                 context_of_chosen_cells,
@@ -925,6 +936,7 @@ class FullModel(tf.keras.Model):
             "distances": distances_in_camera,
             "pixel_sizes": pixel_sizes,
             "classifier_offsets": offsets,
+            "context_vector": context_reshaped if self.n_context > 0 else None,
         }
 
     def encoder_recall_at_k(self, batch_data, results, camera, intrinsics, object_name):
