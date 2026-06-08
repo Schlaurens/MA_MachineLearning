@@ -355,12 +355,17 @@ class FullModel(tf.keras.Model):
 
         loss = cross_entropy + mse  # Shape: ()
 
+        ctx_mean = tf.reduce_mean(results["context_vector"]) if self.n_context > 0 else None
+        ctx_std = tf.math.reduce_std(results["context_vector"]) if self.n_context > 0 else None
+
         return {
             "loss": loss,
             "mse": mse,
             "euc_error": mean_euclidean_error,
             "ce": cross_entropy,
             "class_distribution": class_distr,
+            "ctx_mean": ctx_mean,
+            "ctx_std": ctx_std,
         }
 
     def encoder_metrics(
@@ -430,6 +435,8 @@ class FullModel(tf.keras.Model):
                 result[f"classifier_class_distribution_{key}"] = classifier_losses[key][
                     "class_distribution"
                 ]
+                result[f"classifier_ctx_mean_{key}"] = classifier_losses[key]["ctx_mean"]
+                result[f"classifier_ctx_std_{key}"] = classifier_losses[key]["ctx_std"]
 
         return result
 
@@ -448,10 +455,12 @@ class FullModel(tf.keras.Model):
                 for key in self.categories
             }
 
-        for key in self.categories:
-            result[f"encoder_recall_at_k_{key}"] = encoder_metrics[key]["recall_at_k"]
-            result[f"encoder_class_distribution_{key}"] = encoder_metrics[key]["class_distribution"]
-            result[f"encoder_euclidean_error_{key}"] = encoder_metrics[key]["euclidean_error"]
+            for key in self.categories:
+                result[f"encoder_recall_at_k_{key}"] = encoder_metrics[key]["recall_at_k"]
+                result[f"encoder_class_distribution_{key}"] = encoder_metrics[key][
+                    "class_distribution"
+                ]
+                result[f"encoder_euclidean_error_{key}"] = encoder_metrics[key]["euclidean_error"]
 
         return result
 
