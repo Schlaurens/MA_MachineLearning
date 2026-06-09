@@ -355,8 +355,8 @@ class FullModel(tf.keras.Model):
 
         loss = cross_entropy + mse  # Shape: ()
 
-        ctx_mean = tf.reduce_mean(results["context_vector"]) if self.n_context > 0 else None
-        ctx_std = tf.math.reduce_std(results["context_vector"]) if self.n_context > 0 else None
+        ctx_mean = tf.reduce_mean(results["context_vector"]) if self.n_context > 0 else -1
+        ctx_std = tf.math.reduce_std(results["context_vector"]) if self.n_context > 0 else -1
 
         return {
             "loss": loss,
@@ -945,7 +945,9 @@ class FullModel(tf.keras.Model):
             "distances": distances_in_camera,
             "pixel_sizes": pixel_sizes,
             "classifier_offsets": offsets,
-            "context_vector": context_reshaped if self.n_context > 0 else None,
+            "context_vector": context_reshaped
+            if self.n_context > 0
+            else tf.zeros((tf.shape(patches)[0], 0)),
         }
 
     def encoder_recall_at_k(self, batch_data, results, camera, intrinsics, object_name):
