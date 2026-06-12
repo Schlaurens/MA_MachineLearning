@@ -376,7 +376,7 @@ class FullModel(tf.keras.Model):
         intrinsics,
         object_name,
     ):
-        recall_at_k, class_distribution = self.encoder_recall_at_k(
+        recall_at_k, recall_per_class, class_distribution = self.encoder_recall_at_k(
             batch_data, results, camera, intrinsics, object_name
         )
         euclidean_error = self.encoder_euclidean_error(batch_data, results, object_name)
@@ -384,6 +384,9 @@ class FullModel(tf.keras.Model):
         return {
             "class_distribution": class_distribution,
             "recall_at_k": recall_at_k,
+            "recall_for_l_intersection": recall_per_class[0],
+            "recall_for_t_intersection": recall_per_class[1],
+            "recall_for_x_intersection": recall_per_class[2],
             "euclidean_error": euclidean_error,
         }
 
@@ -462,6 +465,15 @@ class FullModel(tf.keras.Model):
                 ]
                 result[f"encoder_euclidean_error_{key}"] = encoder_metrics[key]["euclidean_error"]
 
+            result["recall_per_l_intersection"] = encoder_metrics[
+                u_dataset.CategoryNames.INTERSECTIONS.value
+            ]["recall_for_l_intersection"]
+            result["recall_per_t_intersection"] = encoder_metrics[
+                u_dataset.CategoryNames.INTERSECTIONS.value
+            ]["recall_for_t_intersection"]
+            result["recall_per_x_intersection"] = encoder_metrics[
+                u_dataset.CategoryNames.INTERSECTIONS.value
+            ]["recall_for_x_intersection"]
         return result
 
     def train_step(self, batch_data):
@@ -999,7 +1011,10 @@ class FullModel(tf.keras.Model):
             tp = tf.reduce_sum(tf.cast(any_covered & valid, tf.int32))
             total = tf.reduce_sum(tf.cast(valid, tf.int32))
 
+            recall_per_class = tf.fill([10], -1)
+
         elif object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
+            num_classes = len(list(u_dataset.IntersectionType)[1:])
             gt_coord_mask = tf.reshape(
                 self.dataset_utils.get_coordinate_mask(batch_data["offset_mask"]),
                 (-1, num_cells, 2),
@@ -1025,8 +1040,29 @@ class FullModel(tf.keras.Model):
                 & use_sample[:, tf.newaxis]
                 & (distance_mask <= self.categories[object_name]["max_distance"])
             )  # (B, H*W)
+
             tp = tf.reduce_sum(tf.cast(is_covered & valid_mask, tf.int32))
             total = tf.reduce_sum(tf.cast(valid_mask, tf.int32))
+
+            class_labels = tf.reshape(batch_data["classification_mask"], [-1])
+            valid_flat = tf.reshape(valid_mask, [-1])
+            covered_flat = tf.reshape(is_covered & valid_mask, [-1])
+
+            tp_per_class = tf.math.bincount(
+                tf.boolean_mask(class_labels, covered_flat),
+                minlength=num_classes + 1,
+                maxlength=num_classes + 1,
+            )[1:]  # (num_classes, )
+
+            total_per_class = tf.math.bincount(
+                tf.boolean_mask(class_labels, valid_flat),
+                minlength=num_classes + 1,
+                maxlength=num_classes + 1,
+            )[1:]  # Shape: ( )
+
+            recall_per_class = tf.cast(tp_per_class, tf.float32) / tf.maximum(
+                tf.cast(total_per_class, tf.float32), 1e-8
+            )  # (num_classes)
 
         else:
             raise ValueError(f"Unknown object_name: {object_name}")
@@ -1036,7 +1072,7 @@ class FullModel(tf.keras.Model):
             B * self.categories[object_name]["n_candidates"]
         )
 
-        return recall_at_k, class_distribution
+        return recall_at_k, recall_per_class, class_distribution
 
     def encoder_euclidean_error(self, batch_data, results, object_name):
         num_cells = self.dataset_config.output_dims[0] * self.dataset_config.output_dims[1]
