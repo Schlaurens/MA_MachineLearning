@@ -53,8 +53,15 @@ class Evaluator:
         print("Loading Config...")
         self.config = self.load_config()
 
+        self.cell_dims = self.config["model"]["encoder"]["cell_dims"]
+        self.input_dims = self.config["model"]["encoder"]["input_dims"]
+        self.dataset_utils = u_dataset.DatasetUtils(
+            u_dataset.DatasetConfig(self.input_dims, cell_dims=self.cell_dims)
+        )
+
         print("Loading Dataset...")
-        self.test_ds = self.load_dataset()
+        self.val_ds = self.load_dataset("val")
+        self.test_ds = self.load_dataset("test")
 
         self.resolution = f"{self.config['model']['encoder']['input_dims'][0]}x{self.config['model']['encoder']['input_dims'][1]}"
         self.cpn_architecture = self.config["model"]["encoder"]["architecture"]
@@ -153,27 +160,20 @@ class Evaluator:
             config = yaml.safe_load(f)
         return config
 
-    def load_dataset(self):
-        input_dims = self.config["model"]["encoder"]["input_dims"]
-
-        dataset_utils = u_dataset.DatasetUtils(
-            u_dataset.DatasetConfig(
-                input_dims=input_dims,
-                cell_dims=self.config["model"]["encoder"]["cell_dims"],
-            )
-        )
-
-        path_to_test_data = glob.glob(
+    def load_dataset(self, mode: str = "val"):
+        path_to_data = glob.glob(
             Path(
-                "data/tfrecords/", f"{input_dims[1]}x{input_dims[0]}", "val_ds*.tfrecords"
+                "data/tfrecords/",
+                f"{self.input_dims[1]}x{self.input_dims[0]}",
+                f"{mode}_ds*.tfrecords",
             ).as_posix()
         )
 
-        test_ds = u_dataset_io.get_dataset(path_to_test_data, dataset_utils)
+        ds = u_dataset_io.get_dataset(path_to_data, self.dataset_utils)
         batch_size = 32
-        test_ds = test_ds.batch(batch_size, drop_remainder=False)
+        ds = ds.batch(batch_size, drop_remainder=False)
 
-        return test_ds
+        return ds
 
     def load_model(self, path_to_models: str, model_name: str):
         encoder_architecture = self.config["model"]["encoder"]["architecture"]
@@ -289,7 +289,7 @@ class Evaluator:
         self.append_to_csv(file_path, data)
 
     def evaluate_cpn(self):
-        metrics_list = self.model.evaluate(x=self.test_ds, return_dict=True)
+        metrics_list = self.model.evaluate(x=self.val_ds, return_dict=True)
         return metrics_list
 
     def get_classifier_metrics(
@@ -412,44 +412,44 @@ class Evaluator:
 
             return metrics
 
-        predictions_list = []
-        for batch in self.test_ds:
-            predictions_list.append(self.model.predict(batch))
+        # predictions_list = []
+        # for batch in self.val_ds:
+        #     predictions_list.append(self.model.predict(batch))
 
-        # Then concat manually
-        self.predictions_concat = {"results": {}}
-        for object in u_dataset.CategoryNames:
-            key = object.value
-            if key not in predictions_list[0]["results"]:
-                continue
-            self.predictions_concat["results"][key] = {
-                field: tf.concat([p["results"][key][field] for p in predictions_list], axis=0)
-                for field in predictions_list[0]["results"][key]
-            }
+        # # Then concat manually
+        # self.predictions_concat = {"results": {}}
+        # for object in u_dataset.CategoryNames:
+        #     key = object.value
+        #     if key not in predictions_list[0]["results"]:
+        #         continue
+        #     self.predictions_concat["results"][key] = {
+        #         field: tf.concat([p["results"][key][field] for p in predictions_list], axis=0)
+        #         for field in predictions_list[0]["results"][key]
+        #     }
 
-        groundtruth_dataset = []
-        for x in self.test_ds:
-            groundtruth_dataset.append(x)
+        # groundtruth_dataset = []
+        # for x in self.val_ds:
+        #     groundtruth_dataset.append(x)
 
-        self.groundtruth_concat = {}
-        for key in groundtruth_dataset[0]:
-            if isinstance(groundtruth_dataset[0][key], tf.Tensor):
-                # Top-level tensors like intrinsics, camera
-                self.groundtruth_concat[key] = tf.concat(
-                    [g[key] for g in groundtruth_dataset], axis=0
-                )
-            elif isinstance(groundtruth_dataset[0][key], dict):
-                # Nested dicts like groundtruth["ball"], groundtruth["penaltymark"]
-                self.groundtruth_concat[key] = {}
-                for subkey in groundtruth_dataset[0][key]:
-                    if isinstance(groundtruth_dataset[0][key][subkey], tf.Tensor):
-                        self.groundtruth_concat[key][subkey] = tf.concat(
-                            [g[key][subkey] for g in groundtruth_dataset], axis=0
-                        )
-                    else:
-                        self.groundtruth_concat[key][subkey] = groundtruth_dataset[0][key][subkey]
-            else:
-                self.groundtruth_concat[key] = groundtruth_dataset[0][key]
+        # self.groundtruth_concat = {}
+        # for key in groundtruth_dataset[0]:
+        #     if isinstance(groundtruth_dataset[0][key], tf.Tensor):
+        #         # Top-level tensors like intrinsics, camera
+        #         self.groundtruth_concat[key] = tf.concat(
+        #             [g[key] for g in groundtruth_dataset], axis=0
+        #         )
+        #     elif isinstance(groundtruth_dataset[0][key], dict):
+        #         # Nested dicts like groundtruth["ball"], groundtruth["penaltymark"]
+        #         self.groundtruth_concat[key] = {}
+        #         for subkey in groundtruth_dataset[0][key]:
+        #             if isinstance(groundtruth_dataset[0][key][subkey], tf.Tensor):
+        #                 self.groundtruth_concat[key][subkey] = tf.concat(
+        #                     [g[key][subkey] for g in groundtruth_dataset], axis=0
+        #                 )
+        #             else:
+        #                 self.groundtruth_concat[key][subkey] = groundtruth_dataset[0][key][subkey]
+        #     else:
+        #         self.groundtruth_concat[key] = groundtruth_dataset[0][key]
 
         classifier_threshold_ranges_additive = {
             u_dataset.CategoryNames.BALL.value: self.threshold_range,
@@ -464,9 +464,12 @@ class Evaluator:
             ],
         }
 
+        predictions_val, groundtruth_val = self.predict_on_data(self.val_ds)
+
+        print("Calculating Classifier Metrics...")
         metrics_threshold_range_additive = self.get_classifier_metrics(
-            self.predictions_concat,
-            self.groundtruth_concat,
+            predictions_val,
+            groundtruth_val,
             self.config,
             classifier_threshold_ranges_additive,
             "additive",
@@ -475,9 +478,53 @@ class Evaluator:
             self.end_to_end,
         )
 
+        print("Done!")
         return _calculate_ap_metrics(metrics_threshold_range_additive)
 
+    def predict_on_data(self, dataset):
+        print("Predicting on dataset...")
+        predictions_list = []
+        for batch in dataset:
+            predictions_list.append(self.model.predict(batch))
+
+        # Then concat manually
+        predictions_concat = {"results": {}}
+        for object in u_dataset.CategoryNames:
+            key = object.value
+            if key not in predictions_list[0]["results"]:
+                continue
+            predictions_concat["results"][key] = {
+                field: tf.concat([p["results"][key][field] for p in predictions_list], axis=0)
+                for field in predictions_list[0]["results"][key]
+            }
+
+        groundtruth_dataset = []
+        for x in dataset:
+            groundtruth_dataset.append(x)
+
+        groundtruth_concat = {}
+        for key in groundtruth_dataset[0]:
+            if isinstance(groundtruth_dataset[0][key], tf.Tensor):
+                # Top-level tensors like intrinsics, camera
+                groundtruth_concat[key] = tf.concat([g[key] for g in groundtruth_dataset], axis=0)
+            elif isinstance(groundtruth_dataset[0][key], dict):
+                # Nested dicts like groundtruth["ball"], groundtruth["penaltymark"]
+                groundtruth_concat[key] = {}
+                for subkey in groundtruth_dataset[0][key]:
+                    if isinstance(groundtruth_dataset[0][key][subkey], tf.Tensor):
+                        groundtruth_concat[key][subkey] = tf.concat(
+                            [g[key][subkey] for g in groundtruth_dataset], axis=0
+                        )
+                    else:
+                        groundtruth_concat[key][subkey] = groundtruth_dataset[0][key][subkey]
+            else:
+                groundtruth_concat[key] = groundtruth_dataset[0][key]
+
+        print("Predictions Done!")
+        return predictions_concat, groundtruth_concat
+
     def calculate_optimal_metrics(self, metrics: dict):
+        print("Calculating Optimal Metrics...")
         optimal_thresholds = {}
         intersection_types = list(u_dataset.IntersectionType)[1:]  # Ignore None-Class
 
@@ -511,9 +558,11 @@ class Evaluator:
                 )
                 optimal_thresholds[category.value] = [threshold]
 
+        predictions_test, ground_truth_test = self.predict_on_data(self.test_ds)
+
         optimal_metrics = self.get_classifier_metrics(
-            self.predictions_concat,
-            self.groundtruth_concat,
+            predictions_test,
+            ground_truth_test,
             self.config,
             optimal_thresholds,
             "additive",
@@ -522,11 +571,16 @@ class Evaluator:
             self.end_to_end,
         )
 
-        self.save_optimal_metrics(optimal_metrics, optimal_thresholds)
+        print("Saving Results...")
+        self.save_optimal_metrics(
+            optimal_metrics, optimal_thresholds, predictions_test, ground_truth_test
+        )
 
         return optimal_metrics
 
-    def save_optimal_metrics(self, optimal_metrics: dict, optimal_thresholds: dict):
+    def save_optimal_metrics(
+        self, optimal_metrics: dict, optimal_thresholds: dict, predictions, ground_truth
+    ):
         def to_serializable(obj):
             if isinstance(obj, dict):
                 return {k: to_serializable(v) for k, v in obj.items()}
@@ -554,12 +608,26 @@ class Evaluator:
         save_path = Path(
             self.config_dir.parent,
             "thresholded_metrics",
-            self.specification_string,
-            "metrics.json",
+            f"{self.specification_string}.json",
         )
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w") as f:
             json.dump(output, f, indent=2)
+
+        for object in u_dataset.CategoryNames:
+            if object.value not in predictions["results"]:
+                continue
+
+            u_metrics.save_predictions(
+                predictions["results"][object.value],
+                ground_truth,
+                object.value,
+                Path(self.config_dir.parent, "predictions"),
+                optimal_thresholds[object.value][0],
+                self.encoder_threshold,
+                self.nms_iou_threshold,
+                image_res_scale=self.dataset_utils.config.image_res_scale,
+            )
 
 
 if __name__ == "__main__":
@@ -580,3 +648,5 @@ if __name__ == "__main__":
 
     evaluator = Evaluator(args)
     evaluator.main()
+
+    print("FINISHED!!!")
