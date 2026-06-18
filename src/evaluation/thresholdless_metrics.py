@@ -499,13 +499,21 @@ class Evaluator:
 
         nms_iou_threshold = 0.35
         encoder_threshold = 0.01
-        threshold_range_additive = np.linspace(0, 1, num=100)
+        threshold_range_additive = np.linspace(0, 1, num=100, dtype=np.float32)
 
         classifier_threshold_ranges_additive = {
             u_dataset.CategoryNames.BALL.value: threshold_range_additive,
             u_dataset.CategoryNames.PENALTYMARK.value: threshold_range_additive,
-            u_dataset.CategoryNames.INTERSECTIONS.value: threshold_range_additive,
+            u_dataset.CategoryNames.INTERSECTIONS.value: [
+                {
+                    u_dataset.IntersectionType.L.value: t,
+                    u_dataset.IntersectionType.T.value: t,
+                    u_dataset.IntersectionType.X.value: t,
+                }
+                for t in threshold_range_additive
+            ],
         }
+
         metrics_threshold_range_additive = _get_metrics(
             predictions_concat,
             groundtruth_concat,

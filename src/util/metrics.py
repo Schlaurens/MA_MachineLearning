@@ -1041,7 +1041,7 @@ def handle_predictions_binary(
 def handle_predictions_multiclass(
     predictions: dict,
     encoder_threshold: float,
-    classifier_threshold: float,
+    classifier_threshold: float | dict,
     iou_threshold: float = None,
 ) -> dict:
     """Processes multiclass predictions by applying thresholding and non-maximum suppression to filter and classify candidates.
@@ -1057,7 +1057,7 @@ def handle_predictions_multiclass(
             - "logits": Tensor containing encoder logits for each candidate.
             - "patch_indices": Tensor containing encoder indices of patches corresponding to each candidate.
         encoder_threshold (float): Threshold for the encoder's confidence scores. Candidates with scores below this threshold are filtered out.
-        classifier_threshold (float): Threshold for the classifier's confidence scores. Candidates with scores below this threshold are filtered out.
+        classifier_threshold (float | dict): Threshold for the classifier's confidence scores. Candidates with scores below this threshold are filtered out.
         iou_threshold (float, optional): Intersection-over-union (IoU) threshold for non-maximum suppression. Candidates with an IoU overlap greater than this threshold are suppressed. If None, non-maximum suppression is not applied.
 
     Returns:
@@ -1067,6 +1067,20 @@ def handle_predictions_multiclass(
             - "nms_selected_indices": Tensor of shape (B, N) containing the indices of candidates selected by non-maximum suppression, or None if non-maximum suppression was not applied.
             - "nms_num_valid": Tensor of shape (B,) containing the number of valid candidates per batch after non-maximum suppression, or None if non-maximum suppression was not applied.
     """
+    # Build a threshold tensor aligned with class indices [background=0, L=1, T=2, X=3]
+    if isinstance(classifier_threshold, dict):
+        thresholds = tf.constant(
+            [
+                0.0,
+                classifier_threshold[u_dataset.IntersectionType.L.value],
+                classifier_threshold[u_dataset.IntersectionType.T.value],
+                classifier_threshold[u_dataset.IntersectionType.X.value],
+            ],
+            dtype=tf.float32,
+        )  # (num_classes,)
+    else:
+        thresholds = tf.fill([4], classifier_threshold)  # backward-compatible
+
     classification_scores = predictions["classification"]  # (B, N, num_classes)
     num_candidates = tf.shape(classification_scores)[1]
 
@@ -1113,7 +1127,10 @@ def handle_predictions_multiclass(
     y_pred_labels = (
         tf.argmax(classification_scores[:, :, 1:], axis=-1) + 1
     )  # (B, N) -- +1 due to background
-    threshold_mask = max_class_scores >= classifier_threshold  # (B, N)
+
+    # y_pred_labels is (B, N), values in {1, 2, 3} — use it to look up per-class threshold
+    per_candidate_threshold = tf.gather(thresholds, y_pred_labels)  # (B, N)
+    threshold_mask = max_class_scores >= tf.cast(per_candidate_threshold, tf.float32)  # (B, N)
 
     if encoder_threshold is not None:
         best_logits_mask = best_logits >= encoder_threshold
