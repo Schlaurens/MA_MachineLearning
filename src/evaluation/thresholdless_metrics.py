@@ -412,45 +412,6 @@ class Evaluator:
 
             return metrics
 
-        # predictions_list = []
-        # for batch in self.val_ds:
-        #     predictions_list.append(self.model.predict(batch))
-
-        # # Then concat manually
-        # self.predictions_concat = {"results": {}}
-        # for object in u_dataset.CategoryNames:
-        #     key = object.value
-        #     if key not in predictions_list[0]["results"]:
-        #         continue
-        #     self.predictions_concat["results"][key] = {
-        #         field: tf.concat([p["results"][key][field] for p in predictions_list], axis=0)
-        #         for field in predictions_list[0]["results"][key]
-        #     }
-
-        # groundtruth_dataset = []
-        # for x in self.val_ds:
-        #     groundtruth_dataset.append(x)
-
-        # self.groundtruth_concat = {}
-        # for key in groundtruth_dataset[0]:
-        #     if isinstance(groundtruth_dataset[0][key], tf.Tensor):
-        #         # Top-level tensors like intrinsics, camera
-        #         self.groundtruth_concat[key] = tf.concat(
-        #             [g[key] for g in groundtruth_dataset], axis=0
-        #         )
-        #     elif isinstance(groundtruth_dataset[0][key], dict):
-        #         # Nested dicts like groundtruth["ball"], groundtruth["penaltymark"]
-        #         self.groundtruth_concat[key] = {}
-        #         for subkey in groundtruth_dataset[0][key]:
-        #             if isinstance(groundtruth_dataset[0][key][subkey], tf.Tensor):
-        #                 self.groundtruth_concat[key][subkey] = tf.concat(
-        #                     [g[key][subkey] for g in groundtruth_dataset], axis=0
-        #                 )
-        #             else:
-        #                 self.groundtruth_concat[key][subkey] = groundtruth_dataset[0][key][subkey]
-        #     else:
-        #         self.groundtruth_concat[key] = groundtruth_dataset[0][key]
-
         classifier_threshold_ranges_additive = {
             u_dataset.CategoryNames.BALL.value: self.threshold_range,
             u_dataset.CategoryNames.PENALTYMARK.value: self.threshold_range,
