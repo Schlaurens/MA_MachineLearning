@@ -427,11 +427,8 @@ if __name__ == "__main__":
     parser.add_argument("--directory_log", default="logs/fit/final")
 
     parser.add_argument("--directory_predictions", required=True)
-    parser.add_argument("--distance_threshold", type=float, default=30.0)
-    # parser.add_argument("--distance", type=int, required=True, default=9)
-    # parser.add_argument(
-    #     "--n_candidates", type=lambda x: tuple(map(int, x.split(","))), required=False, default=None
-    # )
+    parser.add_argument("--threshold_world", type=float, default=0.05)
+    parser.add_argument("--threshold_image", type=float, default=20.0)
     args = parser.parse_args()
 
     main(args)
