@@ -670,38 +670,63 @@ def get_thresholding_mask(
         return combined_thresholds
 
 
-def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1):
+def match_keypoints_world(
+    y_pred,
+    y_true,
+    camera,
+    camera_intr,
+    threshold_world: float,
+    threshold_image: float,
+    object_height: float = 0.0,
+    batch_dims: int = 1,
+):
     """
-    Matches predicted and labeled points optimally. Points are only matched as
-    long as their distance is below or equal to threshold. It does not match two
-    points from y_pred to the same point in y_true or vice versa. Correspondingly it can
-    happen that some points remain unmatched. This is way it is recommended to filter out
-    any coordinates that can be considered the same. Otherwise this might ruin the fn/fp
-    metric.
+    Matches predicted and labeled points optimally based on their distance in WORLD
+    coordinates (instead of pixel distance). Points are only matched as long as their
+    distance in meters is below or equal to threshold. It does not match two points
+    from y_pred to the same point in y_true or vice versa. Correspondingly it can
+    happen that some points remain unmatched. This is why it is recommended to filter
+    out any coordinates that can be considered the same. Otherwise this might ruin the
+    fn/fp metric.
+
+    IMPORTANT: y_pred and y_true must NOT contain invalid coordinates ([-1, -1]).
+    image_to_world maps invalid points to [-1, -1, -1], which would otherwise be
+    treated as a real point and could be falsely matched. Filter invalid coordinates
+    out before calling this function.
 
     A matrix is constructed that contains a score for each pair of detected and
-    labeled point. The score is 0 for pairs that are at least threshold pixels apart
-    and 1 for points with distance 0.
-
+    labeled point in world space. The score is 0 for pairs that are at least
+    `threshold` meters apart and 1 for points with distance 0.
     Then scipy.optimize.linear_sum_assignment calculates the assignment that maximizes
     the overall score. Dummy assignments (with score 0) are filtered out before the
     matched points are stacked together to obtain the result.
 
     Args:
-        y_pred (dict): Predicted values. Used to calculate predicted world coordinates of object.
-        y_true (dict): Groundtruth values. Used to calculate groundtruth world coordinates of object.
-        threshold (float): Max distance (in m) to consider a pair a match.
+        y_pred: Predicted IMAGE coordinates (N_kps, 2).
+        y_true: Groundtruth IMAGE coordinates (N_pts, 2).
+        camera: Camera params (roll, pitch, height) for this sample. Shape (3,).
+        camera_intr: Camera intrinsics (cx, cy, fx, fy) for this sample. Shape (4,).
+        threshold (float): Max distance (in meters) to consider a pair a match.
+        object_height (float): Object height passed to image_to_world. Use the same
+            value that is used elsewhere for this object category (e.g. ball radius).
+        batch_dims (int): 0 if y_pred/y_true are passed as a single point without a
+            leading points-dimension.
 
     Returns:
-        dict: Contains matched points and the number of false predictions.
+        dict: Contains matched points (in IMAGE coordinates) and the number of false
+            predictions.
     """
+    camera = tf.convert_to_tensor(camera, dtype=tf.float32)
+    camera_intr = tf.convert_to_tensor(camera_intr, dtype=tf.float32)
+
+    if len(tf.shape(camera)) == 1:
+        camera = tf.expand_dims(camera, axis=0)  # (1, 3)
+    if len(tf.shape(camera_intr)) == 1:
+        camera_intr = tf.expand_dims(camera_intr, axis=0)  # (1, 4)
 
     if batch_dims == 0:
         y_true = tf.expand_dims(y_true, axis=0)
         y_pred = tf.expand_dims(y_pred, axis=0)
-    else:
-        y_true = y_true
-        y_pred = y_pred
 
     number_of_pts = tf.shape(y_true)[-2] if len(tf.shape(y_true)) > 1 else 0
     number_of_kps = tf.shape(y_pred)[-2] if len(tf.shape(y_pred)) > 1 else 0
@@ -716,32 +741,42 @@ def match_keypoints_image(y_pred, y_true, threshold: float, batch_dims: int = 1)
             "fp_tensor": y_pred,
         }
 
-    diffs = y_pred[:, tf.newaxis] - y_true[tf.newaxis]
-    score_matrix = tf.linalg.norm(diffs, axis=-1) <= threshold
+    # image_to_world expects one camera/intrinsics entry per point -> broadcast the
+    # single camera of this sample to every keypoint.
+    camera_pred = tf.tile(camera, tf.stack([number_of_kps, 1]))
+    camera_intr_pred = tf.tile(camera_intr, tf.stack([number_of_kps, 1]))
+    camera_true = tf.tile(camera, tf.stack([number_of_pts, 1]))
+    camera_intr_true = tf.tile(camera_intr, tf.stack([number_of_pts, 1]))
 
+    # Project both sets of points onto the ground plane (world coordinates).
+    y_pred_world = u_camera.image_to_world(camera_pred, camera_intr_pred, y_pred, object_height)
+    y_true_world = u_camera.image_to_world(camera_true, camera_intr_true, y_true, object_height)
+
+    # Matching/assignment happens in world space ...
+    diffs_world = y_pred_world[:, tf.newaxis] - y_true_world[tf.newaxis]
+    diffs_image = y_pred[:, tf.newaxis] - y_true[tf.newaxis]
+
+    # score_matrix = tf.linalg.norm(diffs_world, axis=-1) <= threshold_world
+    score_matrix = (tf.linalg.norm(diffs_world, axis=-1) <= threshold_world) | (
+        tf.linalg.norm(diffs_image, axis=-1) <= threshold_image
+    )
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(score_matrix.numpy(), maximize=True)
     assigned = score_matrix.numpy()[row_ind, col_ind] > 0
+
+    # ... but matches/fn/fp are still returned in IMAGE coordinates, so downstream
+    # code (plotting, saving, etc.) doesn't need to change.
     matches = tf.stack(
         [tf.gather(y_pred, row_ind[assigned]), tf.gather(y_true, col_ind[assigned])], axis=1
     )
 
-    # Get the coords from y_true/y_pred that have been matched.
     y_true_in_matches = matches[:, 1]
     y_pred_in_matches = matches[:, 0]
 
-    # Compare each element of y_true with each element of matched y_true coords.
     fn_equal_elements = tf.equal(y_true[:, tf.newaxis, :], y_true_in_matches)
-
-    # Check if all elements in each row of y_true match any row in matched_y_true
     fn_equal_rows = tf.reduce_all(fn_equal_elements, axis=2)
-
-    # Check if any row in y_true matches any row in matched_y_true
     fn_tensor_mask = tf.reduce_any(fn_equal_rows, axis=1)
-
-    # Select the correct elements from y_true
     fn_tensor = tf.boolean_mask(y_true, tf.logical_not(fn_tensor_mask))
 
-    # Same procedure for y_pred...
     fp_equal_elements = tf.equal(y_pred[:, tf.newaxis, :], y_pred_in_matches)
     fp_equal_rows = tf.reduce_all(fp_equal_elements, axis=2)
     fp_tensor_mask = tf.reduce_any(fp_equal_rows, axis=1)

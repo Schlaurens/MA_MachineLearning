@@ -121,7 +121,8 @@ def process_object_metrics(
     preds: dict[tf.Tensor],
     gt_frame: dict[tf.Tensor],
     object_name: str,
-    threshold: float,
+    threshold_world: float,
+    threshold_image: float,
     intersection_type: str | None = None,
     ball_status_only_seen: bool | None = None,
 ) -> dict:
@@ -159,7 +160,15 @@ def process_object_metrics(
     gt_tensor = tf.constant(gt_coords, dtype=tf.float32)  # (N, 2)
 
     # Match keypoints and return metrics
-    return u_metrics.match_keypoints_image(pred_tensor, gt_tensor, threshold)
+    return u_metrics.match_keypoints_world(
+        pred_tensor,
+        gt_tensor,
+        u_dataset_io.camera_from_label(gt_frame),
+        u_dataset_io.intrinsics_from_label(gt_frame),
+        threshold_world,
+        threshold_image,
+        0 if object_name != "ball" else 0.05,
+    )
 
 
 def compare_predictions(
@@ -168,7 +177,8 @@ def compare_predictions(
     bhuman_preds: dict,
     object_name: str,
     max_distance: float,
-    threshold: float,
+    threshold_world: float,
+    threshold_image: float,
     save_path_for_matches: str,
     ball_status_only_seen: bool | None = None,
 ) -> dict:
@@ -224,14 +234,16 @@ def compare_predictions(
                 model_preds[idx],
                 gt_frame,
                 object_name,
-                threshold,
+                threshold_world,
+                threshold_image,
                 intersection_type,
             )
             bhuman_matches = process_object_metrics(
                 bhuman_preds[idx],
                 gt_frame,
                 object_name,
-                threshold,
+                threshold_world,
+                threshold_image,
                 intersection_type,
                 ball_status_only_seen,
             )
@@ -341,24 +353,12 @@ def main(args) -> None:
         data["test_bhuman"],
         u_dataset.CategoryNames.BALL.value,
         max_distance=distance,
-        threshold=args.distance_threshold,
+        threshold_world=args.threshold_world,
+        threshold_image=args.threshold_image,
         save_path_for_matches=save_path_for_matches,
         ball_status_only_seen=True,
     )
     print_results(metrics_ball_seen, u_dataset.CategoryNames.BALL.value, "seen")
-
-    print("Calculating Comparisons for Balls...")
-    metrics_ball_seen_guessed = compare_predictions(
-        data["test_groundtruth"],
-        data["test_ball_model"],
-        data["test_bhuman"],
-        u_dataset.CategoryNames.BALL.value,
-        max_distance=distance,
-        threshold=args.distance_threshold,
-        save_path_for_matches=save_path_for_matches,
-        ball_status_only_seen=False,
-    )
-    print_results(metrics_ball_seen_guessed, u_dataset.CategoryNames.BALL.value, "seen+guessed")
 
     print("Calculating Comparisons for PenaltyMarks...")
     metrics_penaltymark = compare_predictions(
@@ -367,7 +367,8 @@ def main(args) -> None:
         data["test_bhuman"],
         u_dataset.CategoryNames.PENALTYMARK.value,
         max_distance=distance,
-        threshold=args.distance_threshold,
+        threshold_world=args.threshold_world,
+        threshold_image=args.threshold_image,
         save_path_for_matches=save_path_for_matches,
     )
     print_results(metrics_penaltymark, u_dataset.CategoryNames.PENALTYMARK.value)
@@ -379,10 +380,25 @@ def main(args) -> None:
         data["test_bhuman"],
         u_dataset.CategoryNames.INTERSECTIONS.value,
         max_distance=distance,
-        threshold=args.distance_threshold,
+        threshold_world=args.threshold_world,
+        threshold_image=args.threshold_image,
         save_path_for_matches=save_path_for_matches,
     )
     print_results(metrics_intersections, u_dataset.CategoryNames.INTERSECTIONS.value)
+
+    print("Calculating Comparisons for Balls...")
+    metrics_ball_seen_guessed = compare_predictions(
+        data["test_groundtruth"],
+        data["test_ball_model"],
+        data["test_bhuman"],
+        u_dataset.CategoryNames.BALL.value,
+        max_distance=distance,
+        threshold_world=args.threshold_world,
+        threshold_image=args.threshold_image,
+        save_path_for_matches=save_path_for_matches,
+        ball_status_only_seen=False,
+    )
+    print_results(metrics_ball_seen_guessed, u_dataset.CategoryNames.BALL.value, "seen+guessed")
 
     # Save all the comparison into a single yaml file.
     with open(
