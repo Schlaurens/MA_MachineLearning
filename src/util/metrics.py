@@ -954,7 +954,6 @@ def handle_predictions_binary(
     predictions: dict,
     encoder_threshold: float,
     classifier_threshold: float,
-    threshold_mode: str = "logical_and",
 ) -> dict:
     """Processes binary predictions by applying thresholding to filter and classify candidates.
 
@@ -985,7 +984,7 @@ def handle_predictions_binary(
 
     # Candidates that pass the threshold(s)
     combined_threshold_mask = get_thresholding_mask(
-        classification_scores, classifier_threshold, best_logits, encoder_threshold, threshold_mode
+        classification_scores, classifier_threshold, best_logits, encoder_threshold
     )  # (B, N)
 
     # If the classification_scores are invalid because of the threshold, they are tf.float32.min !
