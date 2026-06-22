@@ -286,18 +286,17 @@ def compare_predictions(
 
     else:
         metrics = {
-            "model_true_positives": 0,
-            "model_false_negatives": 0,
-            "model_false_positives": 0,
-            "bhuman_true_positives": 0,
-            "bhuman_false_negatives": 0,
-            "bhuman_false_positives": 0,
+            "model_confusion_matrix": np.zeros((2, 2), np.int32),
+            "bhuman_confusion_matrix": np.zeros((2, 2), np.int32),
         }
         tp_matches = {
             "model": {"matches": [], "distances": []},
             "bhuman": {"matches": [], "distances": []},
         }
         intersection_types = [None]
+
+    size_ball_dataset = 0
+    size_intersections_dataset = 0
 
     # Iterate over each frame
     for idx, gt_frame in enumerate(groundtruth):
@@ -313,6 +312,14 @@ def compare_predictions(
             and gt_frame[object_name]["ignore_sample"]
         ):
             continue
+        
+        if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
+            size_intersections_dataset += (
+                len(gt_frame[object_name][u_dataset.IntersectionType.L.name])
+                + len(gt_frame[object_name][u_dataset.IntersectionType.T.name])
+                + len(gt_frame[object_name][u_dataset.IntersectionType.X.name])
+            )
+        size_ball_dataset += 1
 
         model_matches = process_object_metrics(
             model_preds[idx],
@@ -384,9 +391,18 @@ def compare_predictions(
                 tp_matches[prefix]["distances"].append(distances)
 
                 # Update metrics
-                metrics[f"{prefix}_true_positives"] += int(matches_len)
-                metrics[f"{prefix}_false_negatives"] += int(fn_len)
-                metrics[f"{prefix}_false_positives"] += int(fp_len)
+                metrics[f"{prefix}_confusion_matrix"] += np.array(
+                    [
+                        [0, int(fn_len)],
+                        [int(fp_len), int(matches_len)],
+                    ],
+                    np.int32,
+                )
+    for prefix in ["model", "bhuman"]:
+        if object_name != u_dataset.CategoryNames.INTERSECTIONS.value:
+            metrics[f"{prefix}_confusion_matrix"][0, 0] = size_ball_dataset - np.sum(metrics[f"{prefix}_confusion_matrix"])
+        else:
+            metrics[f"{prefix}_confusion_matrix"][0, 0] = size_intersections_dataset - np.sum(metrics[f"{prefix}_confusion_matrix"])
 
     status_str = ""
     if ball_status_only_seen is not None:
@@ -422,28 +438,13 @@ def compare_predictions(
 
 
 def print_results(metrics: dict, object_name: str, status: str = "") -> None:
-    if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
-        print(
-            f"==== {object_name.capitalize()}{f', status: {status}' if len(status) > 0 else ''} ===="
-        )
-        print("=== Model ===")
-        print(metrics["model_confusion_matrix"])
+    # if object_name == u_dataset.CategoryNames.INTERSECTIONS.value:
+    print(f"==== {object_name.capitalize()}{f', status: {status}' if len(status) > 0 else ''} ====")
+    print("=== Model ===")
+    print(metrics["model_confusion_matrix"])
 
-        print("=== B-Human ===")
-        print(metrics["bhuman_confusion_matrix"])
-    else:
-        print(
-            f"==== {object_name.capitalize()}{f', status: {status}' if len(status) > 0 else ''} ===="
-        )
-        print("=== Model ===")
-        print("TP: ", metrics["model_true_positives"])
-        print("FP: ", metrics["model_false_positives"])
-        print("FN: ", metrics["model_false_negatives"])
-
-        print("=== B-Human ===")
-        print("TP : ", metrics["bhuman_true_positives"])
-        print("FP: ", metrics["bhuman_false_positives"])
-        print("FN: ", metrics["bhuman_false_negatives"])
+    print("=== B-Human ===")
+    print(metrics["bhuman_confusion_matrix"])
 
 
 def main(args) -> None:
