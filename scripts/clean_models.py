@@ -41,6 +41,7 @@ if __name__ == "__main__":
         model_timestamps = p.split("/")[-1]
         if model_timestamps not in log_timestamps:
             counter += 1
+            print(p)
             if not args.dry_run:
                 shutil.rmtree(p)
 
