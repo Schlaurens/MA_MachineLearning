@@ -56,7 +56,14 @@ class EvaluateApplication:
         )
 
         self.data = list(
-            u_dataset_io.get_dataset(data_path, self.dataset_utils).take(100).as_numpy_iterator()
+            u_dataset_io.get_dataset(data_path, self.dataset_utils).as_numpy_iterator()
+        )
+
+        self.full_utils = u_dataset.DatasetUtils(u_dataset.DatasetConfig())
+        self.full_data = list(
+            u_dataset_io.get_dataset(
+                "data/tfrecords/640x480/test_ds_1840(0.15).tfrecords", self.full_utils
+            ).as_numpy_iterator()
         )
 
         path_to_model = self.get_model_path()
@@ -112,6 +119,8 @@ class EvaluateApplication:
         self.remove_artists()
 
         image_rgb = u_image.convert_yuyv_to_rgb(self.data[self.index]["image"])  # (H_in, W_in, 3)
+        
+        image_rgb_full = u_image.convert_yuyv_to_rgb(self.full_data[self.index]["image"])  # (H_in, W_in, 3)
 
         output = self.model(
             {
@@ -125,7 +134,7 @@ class EvaluateApplication:
         # Set prediction figures
         for category in self.categories:
             self.images[f"im_ax_{category}_patches"] = self.axes[f"ax_{category}_patches"].imshow(
-                image_rgb
+                image_rgb_full
             )
 
             output_logits = output["results"][category]["logits"][0].numpy()
@@ -188,7 +197,9 @@ class EvaluateApplication:
         # Coords corrected by the classifier
         position_pred = output["positions"][0][best_score_index]
 
-        abs_error = np.linalg.norm(coords_true - position_pred)
+        # abs_error = np.linalg.norm(
+        #     (coords_true - position_pred) / self.dataset_utils.config.image_res_scale[::-1]
+        # )
         best_width = output["pixel_sizes"][0][best_score_index]
 
         patch_center = (np.array(self.model.patch_size) - 1) / 2
@@ -261,11 +272,11 @@ class EvaluateApplication:
             height = (box[2] - box[0]) * (image.shape[0] - 1)
 
             rect = patches.Rectangle(
-                box_coords,
-                width,
-                height,
+                box_coords / self.dataset_utils.config.image_res_scale[::-1],
+                width /self.dataset_utils.config.image_res_scale[0],
+                height/ self.dataset_utils.config.image_res_scale[1],
                 linewidth=1,
-                edgecolor="lime",
+                edgecolor="blue",
                 facecolor=(255 / 255, 123 / 255, 0 / 255, 0 / 255),
             )
 
@@ -275,15 +286,23 @@ class EvaluateApplication:
                 pred_patch_class = processed_predictions["classes_of_candidates"][0][i]
 
                 axes.text(
-                    x=(box_coords[0] + 4.0),
-                    y=box_coords[1] + 17.0,
+                    x=(box_coords[0] / self.dataset_utils.config.image_res_scale[0] + 4.0),
+                    y=box_coords[1] / self.dataset_utils.config.image_res_scale[1] + 17.0,
                     s=list(u_dataset.IntersectionType)[pred_patch_class.numpy()].value,
                     color="red",
                 )
-
-            axes.add_patch(rect)
-            axes.plot(*coords_pred, "rx")
-            axes.plot(*position_pred, "bx")
+                if pred_patch_class.numpy() != 0:
+                    axes.add_patch(rect)
+                    axes.plot(
+                        *(position_pred / self.dataset_utils.config.image_res_scale[::-1]), "bx"
+                    )
+            else:
+                axes.add_patch(rect)
+                # axes.plot(*coords_pred, "rx")
+                # axes.plot(*(position_pred / self.dataset_utils.config.image_res_scale[::-1]), "bx")
+                
+                print("pred:", *(position_pred / self.dataset_utils.config.image_res_scale[::-1]))
+                # axes.plot(*(position_pred), "bx")
 
             coords_true = self.dataset_utils.get_coords_from_offsets(
                 self.data[self.index][object_name]["offset_mask"]
@@ -291,7 +310,8 @@ class EvaluateApplication:
             for c_true in coords_true:
                 if tf.reduce_all(c_true == -1.0):
                     continue
-                axes.plot(*c_true, "gx")
+                axes.plot(*c_true / self.dataset_utils.config.image_res_scale[::-1], "gx")
+                print("true:", *c_true / self.dataset_utils.config.image_res_scale[::-1])
 
     def image_slider_changed(self, val):
         self.index = int(val)
