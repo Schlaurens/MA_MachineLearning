@@ -205,7 +205,6 @@ def calculate_binary_metrics(
     camera,
     intrinsics,
     max_distance,
-    threshold_mode,
     end_to_end,
 ):
     """Calculate y_pred. A binary tensor which is True if an object was detected in the sample and False if no object was detected.
