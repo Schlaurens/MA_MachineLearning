@@ -75,14 +75,23 @@ class EvaluateApplication:
         self.index = 0
         self.thresholds = {
             "encoder": {
-                "ball": 0.1,
-                "penaltyMark": 0.1,
-                "intersections": 0.1,
+                "ball": 0.01,
+                "penaltyMark": 0.01,
+                "intersections": 0.01,
             },
+            # "classifier": {
+            #     "ball": 1.0,
+            #     "penaltyMark": 1.0,
+            #     "intersections": {
+            #         u_dataset.IntersectionType.L.value: 0.949,
+            #         u_dataset.IntersectionType.T.value: 0.9595959782600403,
+            #         u_dataset.IntersectionType.X.value: 0.9898989796638489,
+            #     },
+            # },
             "classifier": {
-                "ball": 0.9,
-                "penaltyMark": 0.9,
-                "intersections": 0.9,
+                "ball": 1.0,
+                "penaltyMark": 1.0,
+                "intersections": 0.9595959782600403,
             },
         }
 
