@@ -315,7 +315,7 @@ def plot_cm_comparison(data, object_name, distance):
 
     def title_label(name, n):
         if name == "balls_seen_guessed":
-            return "Ball (Seen + Guessed)"
+            return r"Ball (seen $\vee$ guessed)"
         if name in [u_dataset.CategoryNames.BALL.value, "balls_seen"]:
             return "Ball"
         if name == u_dataset.CategoryNames.PENALTYMARK.value:
