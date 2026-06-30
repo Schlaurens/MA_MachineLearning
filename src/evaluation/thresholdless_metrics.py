@@ -132,7 +132,7 @@ class Evaluator:
 
             self.optimal_metrics = self.calculate_optimal_metrics(predicted_metrics)
             print(self.optimal_metrics)
-            # inference_metrics = self.evaluate_cpn()
+            inference_metrics = self.evaluate_cpn()
 
             metrics_to_save = {}
             for category in u_dataset.CategoryNames:
@@ -147,7 +147,7 @@ class Evaluator:
                         "mAP"
                     ]
 
-            # metrics_to_save.update(inference_metrics)
+            metrics_to_save.update(inference_metrics)
 
             self.create_metrics_csv(
                 save_dir,
